@@ -113,6 +113,20 @@ namespace Kaj
         }
     }
 
+    // Basic single-line label, uses matProp display name.  Kaj prefix to avoid name clashes
+    public class KajLabelDrawer : MaterialPropertyDrawer
+    {
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            position.y += 8;
+            position = EditorGUI.IndentedRect(position);
+            GUI.Label(position, label, EditorStyles.label);
+        }
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return EditorGUIUtility.singleLineHeight;
+        }
+    }
 
     // Minimalistic shader editor extension to edit the few things the base inspector can't access
     // and what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them

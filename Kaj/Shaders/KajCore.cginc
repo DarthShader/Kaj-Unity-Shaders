@@ -2,7 +2,7 @@
 // Giant colllection of reusable shader code meant to coexist without conflict in a single file
 // New vert/frags can be written for different/specialized techniques so shader property remapping 
 // can be quickly done by extending an existing vert/frag
-// v1.0
+// v2
 #ifndef KAJ_CORE
 #define KAJ_CORE
 
@@ -15,7 +15,7 @@
 // SHADER PROPERTIES
 // Unity
 sampler2D _CameraDepthTexture;              // Camera depth texture
-sampler3D _DitherMaskLOD;
+sampler3D _DitherMaskLOD;                   // Built-in dither tex
 // Standard
 uniform half4 _Color;                       // Standard shader color param, used by Enlighten during lightmapping too
 UNITY_DECLARE_TEX2D(_MainTex);              // Standard main texture
@@ -46,7 +46,7 @@ UNITY_DECLARE_TEX2D(_DetailMask);           // Standard detail mask
 UNITY_DECLARE_TEX2D(_DetailAlbedoMap);      // Standard mid-gray detail map
     uniform float4 _DetailAlbedoMap_ST;
 uniform half _DetailNormalMapScale;         // Standard detail normal map scale
-UNITY_DECLARE_TEX2D(_DetailNormalMap);      // Standard detail normal map
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMap);      // Standard detail normal map
     uniform float4 _DetailNormalMap_ST;
 uniform half _UVSec;                        // Standard UV selection for secondary textures
 uniform float _Mode;                        // Standard rendering mode (opaque, cutout, fade, transparent)
@@ -224,7 +224,8 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMapGreen);
     uniform float4 _DetailNormalMapGreen_ST;
 uniform float _DetailNormalMapGreenActive;
 uniform float _DetailNormalMapScaleGreen;
-
+uniform float _MainTexUV;
+uniform float _Version;                     // Kaj Shader version
 
 // Reusable defines and functions
 
@@ -447,6 +448,7 @@ float neginf()
     return log2(0.0);
 }
 
+// Old red/white sunglasses effect
 float3 memeShades_effect(float speed, float2 uv, float3 color1, float3 color2)
 {
     float timeModOne = fmod(_Time.y, speed);
@@ -583,14 +585,14 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     }
 
     // Cutout and A2C
-    fixed4 _MainTex_var = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(parallaxUV, _MainTex));
+    fixed4 _MainTex_var = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(switchUV(_MainTexUV, parallaxUV, i.uv1, i.uv2, i.uv3), _MainTex));
     half3 albedo = _MainTex_var.rgb * _Color.rgb * i.color.rgb;
     fixed opacity = _MainTex_var.a; // detail abledo doesn't affect transparency
-    if (_ForceOpaque) opacity = 1;
     UNITY_BRANCH
     if (_CoverageMapActive)
         opacity = UNITY_SAMPLE_TEX2D(_CoverageMap, TRANSFORM_TEX(parallaxUV, _CoverageMap)).r;
     opacity *= _Color.a * i.color.a;
+    if (_ForceOpaque) opacity = 1;
     #ifdef _ALPHATEST_ON
         UNITY_BRANCH
         if (_AlphaToCoverage)
@@ -662,19 +664,19 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (_DetailNormalMapActive)
     {
-        fixed3 _DetailNormalMap_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D(_DetailNormalMap, TRANSFORM_TEX(detailUV, _DetailNormalMap)), _DetailNormalMapScale);
+        fixed3 _DetailNormalMap_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMap, _BumpMap, TRANSFORM_TEX(detailUV, _DetailNormalMap)), _DetailNormalMapScale);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMap_var), _DetailMask_var.r);
     }
     UNITY_BRANCH
     if (_DetailNormalMapGreenActive)
     {
-        fixed3 _DetailNormalMapGreen_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapGreen, _DetailNormalMap, TRANSFORM_TEX(detailUV, _DetailNormalMapGreen)), _DetailNormalMapScaleGreen);
+        fixed3 _DetailNormalMapGreen_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapGreen, _BumpMap, TRANSFORM_TEX(detailUV, _DetailNormalMapGreen)), _DetailNormalMapScaleGreen);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapGreen_var), _DetailMask_var.g);
     }
     UNITY_BRANCH
     if (_DetailNormalMapBlueActive)
     {
-        fixed3 _DetailNormalMapBlue_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapBlue, _DetailNormalMap, TRANSFORM_TEX(detailUV, _DetailNormalMapBlue)), _DetailNormalMapScaleBlue);
+        fixed3 _DetailNormalMapBlue_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapBlue, _BumpMap, TRANSFORM_TEX(detailUV, _DetailNormalMapBlue)), _DetailNormalMapScaleBlue);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapBlue_var), _DetailMask_var.b);
     }
     
@@ -712,6 +714,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     #ifdef _ALPHAPREMULTIPLY_ON
         diffColor *= opacity;
         opacity = 1-oneMinusReflectivity + opacity*oneMinusReflectivity;
+        if (_ForceOpaque) opacity = 1;
     #endif
 
     // GI
@@ -787,6 +790,7 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         if (_CoverageMapActive)
             opacity = UNITY_SAMPLE_TEX2D(_CoverageMap, TRANSFORM_TEX(i.uv, _CoverageMap)).r;
         opacity *= _Color.a * i.color.a;
+        if (_ForceOpaque) opacity = 1;
 
         #if defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
             UNITY_BRANCH

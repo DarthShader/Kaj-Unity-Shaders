@@ -12,6 +12,9 @@ Shader "Kaj/PBR"
         [Header(Standard Settings)]
         [MainColor]_Color("Color", Color) = (1,1,1,1)
         [MainTexture]_MainTex ("Albedo", 2D) = "white" { }
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_MainTexUV ("UV Set", Int) = 0
+        [UnIndent]
         [TexToggleActive]_CoverageMap ("Coverage (Alpha) Map", 2D) = "white" {}
         [HideInInspector]_CoverageMapActive ("", Int) = 0
         [Indent]
@@ -29,11 +32,11 @@ Shader "Kaj/PBR"
 
         [Header(PBR Shading)]
         [Enum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow Mode", Int) = 0
-        [TexToggleActive]_MetallicGlossMap("Metallic Map (R)", 2D) = "white" {}
+        [TexToggleActive]_MetallicGlossMap("Metallic Map", 2D) = "white" {}
         [HideInInspector]_MetallicGlossMapActive ("", Int) = 0
-        [TexToggleActive]_SpecGlossMap("Glossiness Map (R)", 2D) = "white" {}
+        [TexToggleActive]_SpecGlossMap("Glossiness Map", 2D) = "white" {}
         [HideInInspector]_SpecGlossMapActive ("", Int) = 0
-        [TexToggleActive]_OcclusionMap("Occlusion Map (G)", 2D) = "white" {}
+        [TexToggleActive]_OcclusionMap("Occlusion Map", 2D) = "white" {}
         [HideInInspector]_OcclusionMapActive ("", Int) = 0
         [Indent]
             [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_OcclusionMapUV("UV Set", Int) = 0
@@ -71,24 +74,24 @@ Shader "Kaj/PBR"
         _DetailColorB("Detail Color (Blue)", Color) = (1,1,1,1)
         [TexToggleActive]_DetailAlbedoMap("Detail Albedo (Red)", 2D) = "grey" {}
         [HideInInspector]_DetailAlbedoMapActive("", Int) = 0
-        [TexToggleActive]_DetailAlbedoMapBlue("Detail Albedo (Blue)", 2D) = "grey" {}
-        [HideInInspector]_DetailAlbedoMapBlueActive("", Int) = 0
         [TexToggleActive]_DetailAlbedoMapGreen("Detail Albedo (Green)", 2D) = "grey" {}
         [HideInInspector]_DetailAlbedoMapGreenActive("", Int) = 0
+        [TexToggleActive]_DetailAlbedoMapBlue("Detail Albedo (Blue)", 2D) = "grey" {}
+        [HideInInspector]_DetailAlbedoMapBlueActive("", Int) = 0
         [Normal][TexToggleActive]_DetailNormalMap("Detail Normal Map (Red)", 2D) = "bump" {}
         [HideInInspector]_DetailNormalMapActive("", Int) = 0
         [Indent]
             _DetailNormalMapScale("Detail Normals (Red) Scale", Float) = 1.0
         [UnIndent]
-        [Normal][TexToggleActive]_DetailNormalMapBlue("Detail Normal Map (Blue)", 2D) = "bump" {}
-        [HideInInspector]_DetailNormalMapBlueActive("", Int) = 0
-        [Indent]
-            _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
-        [UnIndent]
         [Normal][TexToggleActive]_DetailNormalMapGreen("Detail Normal Map (Green)", 2D) = "bump" {}
         [HideInInspector]_DetailNormalMapGreenActive("", Int) = 0
         [Indent]
             _DetailNormalMapScaleGreen("Detail Normals (Green) Scale", Float) = 1.0
+        [UnIndent]
+        [Normal][TexToggleActive]_DetailNormalMapBlue("Detail Normal Map (Blue)", 2D) = "bump" {}
+        [HideInInspector]_DetailNormalMapBlueActive("", Int) = 0
+        [Indent]
+            _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
         [UnIndent]
         [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_UVSec ("Detail Textures UV Set", Int) = 0
         [Enum(Mul x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Detail Albedo Combine Mode", Int) = 0
@@ -117,6 +120,8 @@ Shader "Kaj/PBR"
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilFail ("Stencil Fail Op", Int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFail ("Stencil ZFail Op", Int) = 0
         [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Compare Function", Int) = 8
+
+        [KajLabel]_Version("Shader Version: 2", Int) = 2
     }
 
     CustomEditor "Kaj.ShaderEditor"    
