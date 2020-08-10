@@ -2,7 +2,6 @@
 // Giant colllection of reusable shader code meant to coexist without conflict in a single file
 // New vert/frags can be written for different/specialized techniques so shader property remapping 
 // can be quickly done by extending an existing vert/frag
-// v2
 #ifndef KAJ_CORE
 #define KAJ_CORE
 
@@ -25,7 +24,7 @@ uniform half _Cutoff;                       // Standard cutoff
 uniform float _Glossiness;                  // Standard smoothness
 uniform float _GlossMapScale;               // Standard smoothness scale when using a texture
 uniform half _Metallic;                     // Standard metallic
-UNITY_DECLARE_TEX2D(_MetallicGlossMap);     // Standard metallic map
+UNITY_DECLARE_TEX2D_NOSAMPLER(_MetallicGlossMap);     // Standard metallic map
     uniform float4 _MetallicGlossMap_ST;
 uniform float _SpecularHighlights;          // Standard specular highlights toggle
 uniform float _GlossyReflections;           // Standard reflections toggle
@@ -33,20 +32,20 @@ uniform half _BumpScale;                    // Standard normal map scale
 UNITY_DECLARE_TEX2D(_BumpMap);              // Standard normal map
     uniform float4 _BumpMap_ST;
 uniform half _Parallax;                     // Standard height map scale
-UNITY_DECLARE_TEX2D(_ParallaxMap);          // Standard height map
+UNITY_DECLARE_TEX2D_NOSAMPLER(_ParallaxMap);          // Standard height map
     uniform float4 _ParallaxMap_ST;
 uniform half _OcclusionStrength;            // Standard AO strength
-UNITY_DECLARE_TEX2D(_OcclusionMap);         // Standard AO map
+UNITY_DECLARE_TEX2D_NOSAMPLER(_OcclusionMap);         // Standard AO map
     uniform float4 _OcclusionMap_ST;
 uniform float4 _EmissionColor;              // Standard emission color (HDR)
-UNITY_DECLARE_TEX2D(_EmissionMap);          // Standard emission map
+UNITY_DECLARE_TEX2D_NOSAMPLER(_EmissionMap);          // Standard emission map
     uniform float4 _EmissionMap_ST;
-UNITY_DECLARE_TEX2D(_DetailMask);           // Standard detail mask
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailMask);           // Standard detail mask
     uniform float4 _DetailMask_ST;
 UNITY_DECLARE_TEX2D(_DetailAlbedoMap);      // Standard mid-gray detail map
     uniform float4 _DetailAlbedoMap_ST;
 uniform half _DetailNormalMapScale;         // Standard detail normal map scale
-UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMap);      // Standard detail normal map
+UNITY_DECLARE_TEX2D(_DetailNormalMap);      // Standard detail normal map
     uniform float4 _DetailNormalMap_ST;
 uniform half _UVSec;                        // Standard UV selection for secondary textures
 uniform float _Mode;                        // Standard rendering mode (opaque, cutout, fade, transparent)
@@ -54,7 +53,7 @@ uniform float _SrcBlend;                    // Standard blending source mode
 uniform float _DstBlend;                    // Standard blending destination mode
 uniform float _ZWrite;                      // Blending option
 // Standard Specular
-UNITY_DECLARE_TEX2D(_SpecGlossMap);         // Standard Specular specular map, also roughness map in Autodesk Interactive
+UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecGlossMap);         // Standard Specular specular map, also roughness map in Autodesk Interactive
     uniform float4 _SpecGlossMap_ST;
 // Nature
 uniform float4 _WaveAndDistance;            // Terrain grass waving
@@ -99,6 +98,7 @@ uniform float _SoftParticlesNearFadeDistance;//Standard Surface soft particles n
 uniform float _SoftParticlesFarFadeDistance;// Standard Surface soft particles far fade
 uniform float _CameraNearFadeDistance;      // Standard Surface Camera near fade
 uniform float _CameraFarFadeDistance;       // Standard Surface Camera far fade
+uniform float _BlendOp;                     // Standard Surface blendop parameter
 // Skybox
 uniform float4 _Tint;                       // Cubemap color
 uniform float _Exposure;                    // Cubemap gamma exposure
@@ -174,7 +174,7 @@ uniform float _StandardFresnelIntensity;    // Standard BRDF fresnel control
 UNITY_DECLARE_TEX2D(_SkyrimSkinTex);        // Skyrim SSS map
 uniform float _SkyrimLightingEffectOne;     // Skyrim generic shader property - varies with shaders
 uniform float _SkyrimLightingEffectTwo;     // Skyrim generic shader property - varies with shaders
-UNITY_DECLARE_TEX2D(_CombinedMap);          // Reusable mask texture for roughness, AO, blah blah blah
+UNITY_DECLARE_TEX2D_NOSAMPLER(_CombinedMap);          // Reusable mask texture for roughness, AO, blah blah blah
     uniform float4 _CombinedMap_ST;
 uniform float _MetallicGlossMapCombinedMapChannel;     // _CombinedMap RGBA selection for Metallic
 uniform float _SpecGlossMapCombinedMapChannel;         // _CombinedMap RGBA selection for Roughness/Smoothness
@@ -189,7 +189,7 @@ uniform float _ParallaxMapActive;           // Texture active var
 uniform float _DetailMaskActive;            // Active var
 uniform float _DetailAlbedoMapActive;       // Active var
 uniform float _DetailNormalMapActive;       // Active var
-UNITY_DECLARE_TEX2D(_CoverageMap);          // Dedicated alpha channel texture
+UNITY_DECLARE_TEX2D_NOSAMPLER(_CoverageMap);          // Dedicated alpha channel texture
     uniform float4 _CoverageMap_ST;
 uniform float _CoverageMapActive;           // Texture active var
 uniform float _OcclusionMapUV;              // UV channel selector for occlusion map
@@ -203,7 +203,7 @@ uniform float _CanUseSpriteAtlas;           // Toggle for material subshader tag
 uniform float _PreviewType;                 // Toggle for material subshader tag
 uniform float _DitheredShadows;             // Dithered shadows in shadowcaster toggle
 uniform float _DetailAlbedoCombineMode;     // Detail albedo combine mode
-UNITY_DECLARE_TEX2D(_SpecularMap);          // Dedicated RGB(A) map for old specular workflow + metallic workflow tint
+UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecularMap);          // Dedicated RGB(A) map for old specular workflow + metallic workflow tint
     uniform float4 _SpecularMap_ST;
 uniform float _SpecularMapActive;           // Active var
 uniform float _WorkflowMode;                // Metallic or Specular Toggle
@@ -224,8 +224,11 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMapGreen);
     uniform float4 _DetailNormalMapGreen_ST;
 uniform float _DetailNormalMapGreenActive;
 uniform float _DetailNormalMapScaleGreen;
-uniform float _MainTexUV;
+uniform float _MainTexUV;                   // Main texture UV selector
 uniform float _Version;                     // Kaj Shader version
+uniform float _BlendOpAlpha;                // Blend op parameter for alpha
+uniform float _SrcBlendAlpha;               // Blend ops for alpha
+uniform float _DstBlendAlpha;               // Blend ops for alpha
 
 // Reusable defines and functions
 
@@ -577,7 +580,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (_ParallaxMapActive) // only affects UV1 right now
     {
-        fixed4 _ParallaxMap_var = UNITY_SAMPLE_TEX2D(_ParallaxMap, TRANSFORM_TEX(i.uv, _ParallaxMap));
+        fixed4 _ParallaxMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_ParallaxMap, _MainTex, TRANSFORM_TEX(i.uv, _ParallaxMap));
         _ParallaxMap_var.g -= 0.5f;
         i.tangentViewDir = normalize(i.tangentViewDir);
         i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
@@ -590,7 +593,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     fixed opacity = _MainTex_var.a; // detail abledo doesn't affect transparency
     UNITY_BRANCH
     if (_CoverageMapActive)
-        opacity = UNITY_SAMPLE_TEX2D(_CoverageMap, TRANSFORM_TEX(parallaxUV, _CoverageMap)).r;
+        opacity = UNITY_SAMPLE_TEX2D_SAMPLER(_CoverageMap, _MainTex, TRANSFORM_TEX(parallaxUV, _CoverageMap)).r;
     opacity *= _Color.a * i.color.a;
     if (_ForceOpaque) opacity = 1;
     #ifdef _ALPHATEST_ON
@@ -604,11 +607,11 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     #endif
 
     // PBR texture samples
-    fixed4 _CombinedMap_var = UNITY_SAMPLE_TEX2D(_CombinedMap, TRANSFORM_TEX(parallaxUV, _CombinedMap));
+    fixed4 _CombinedMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_CombinedMap, _MainTex, TRANSFORM_TEX(parallaxUV, _CombinedMap));
     fixed metallic = _MetallicMin + switchChannel(_MetallicGlossMapCombinedMapChannel, _CombinedMap_var) * (_Metallic - _MetallicMin);
     UNITY_BRANCH
     if (_MetallicGlossMapActive)
-        metallic = _MetallicMin + UNITY_SAMPLE_TEX2D(_MetallicGlossMap, TRANSFORM_TEX(parallaxUV, _MetallicGlossMap)).r * (_Metallic - _MetallicMin);
+        metallic = _MetallicMin + UNITY_SAMPLE_TEX2D_SAMPLER(_MetallicGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _MetallicGlossMap)).r * (_Metallic - _MetallicMin);
     fixed perceptualRoughness;
     // Refactor to not do so many madds, separate texture sampling section with conditional branches
     UNITY_BRANCH
@@ -617,22 +620,22 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     else if (_SpecGlossMapCombinedMapChannel == 4) // albedo alpha
         perceptualRoughness = _GlossinessMin + _MainTex_var.a * (_Glossiness - _GlossinessMin);
     else if (_SpecGlossMapCombinedMapChannel == 5) // metallic alpha
-        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D(_MetallicGlossMap, TRANSFORM_TEX(parallaxUV, _MetallicGlossMap)).a * (_Glossiness - _GlossinessMin);
+        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D_SAMPLER(_MetallicGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _MetallicGlossMap)).a * (_Glossiness - _GlossinessMin);
     else // specular map alpha
-        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D(_SpecularMap, TRANSFORM_TEX(parallaxUV, _SpecularMap)).a * (_Glossiness - _GlossinessMin);
+        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D_SAMPLER(_SpecularMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecularMap)).a * (_Glossiness - _GlossinessMin);
     UNITY_BRANCH
     if (_SpecGlossMapActive)
-        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D(_SpecGlossMap, TRANSFORM_TEX(parallaxUV, _SpecGlossMap)).r * (_Glossiness - _GlossinessMin);
+        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D_SAMPLER(_SpecGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecGlossMap)).r * (_Glossiness - _GlossinessMin);
     if (_GlossinessMode == 1)
         perceptualRoughness = 1.0 - perceptualRoughness;
     fixed occlusion = lerp(1, switchChannel(_OcclusionMapCombinedMapChannel, _CombinedMap_var), _OcclusionStrength);
     UNITY_BRANCH
     if (_OcclusionMapActive)
-        occlusion = lerp(1, UNITY_SAMPLE_TEX2D(_OcclusionMap, TRANSFORM_TEX(switchUV(_OcclusionMapUV, parallaxUV, i.uv1, i.uv2, i.uv3), _OcclusionMap)).g, _OcclusionStrength); // g channel
+        occlusion = lerp(1, UNITY_SAMPLE_TEX2D_SAMPLER(_OcclusionMap, _MainTex, TRANSFORM_TEX(switchUV(_OcclusionMapUV, parallaxUV, i.uv1, i.uv2, i.uv3), _OcclusionMap)).g, _OcclusionStrength); // g channel
     fixed3 specularScale = _SpecularMin + switchChannel(_SpecularMapCombinedMapChannel, _CombinedMap_var).rrr * (_SpecularMax - _SpecularMin);
     UNITY_BRANCH
     if (_SpecularMapActive)
-        specularScale = _SpecularMin + UNITY_SAMPLE_TEX2D(_SpecularMap, TRANSFORM_TEX(parallaxUV, _SpecularMap)).rgb * (_SpecularMax - _SpecularMin);
+        specularScale = _SpecularMin + UNITY_SAMPLE_TEX2D_SAMPLER(_SpecularMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecularMap)).rgb * (_SpecularMax - _SpecularMin);
     specularScale *= _SpecColor;
 
     // Details
@@ -640,7 +643,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (_DetailMaskActive)
     {
-        _DetailMask_var = UNITY_SAMPLE_TEX2D(_DetailMask, TRANSFORM_TEX(parallaxUV, _DetailMask));
+        _DetailMask_var = UNITY_SAMPLE_TEX2D_SAMPLER(_DetailMask, _MainTex, TRANSFORM_TEX(parallaxUV, _DetailMask));
         // Detail colors only applied if a mask is applied
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorR.rgb, _DetailMask_var.r);
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorG.rgb, _DetailMask_var.g);
@@ -664,19 +667,19 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (_DetailNormalMapActive)
     {
-        fixed3 _DetailNormalMap_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMap, _BumpMap, TRANSFORM_TEX(detailUV, _DetailNormalMap)), _DetailNormalMapScale);
+        fixed3 _DetailNormalMap_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D(_DetailNormalMap, TRANSFORM_TEX(detailUV, _DetailNormalMap)), _DetailNormalMapScale);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMap_var), _DetailMask_var.r);
     }
     UNITY_BRANCH
     if (_DetailNormalMapGreenActive)
     {
-        fixed3 _DetailNormalMapGreen_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapGreen, _BumpMap, TRANSFORM_TEX(detailUV, _DetailNormalMapGreen)), _DetailNormalMapScaleGreen);
+        fixed3 _DetailNormalMapGreen_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapGreen, _DetailNormalMap, TRANSFORM_TEX(detailUV, _DetailNormalMapGreen)), _DetailNormalMapScaleGreen);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapGreen_var), _DetailMask_var.g);
     }
     UNITY_BRANCH
     if (_DetailNormalMapBlueActive)
     {
-        fixed3 _DetailNormalMapBlue_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapBlue, _BumpMap, TRANSFORM_TEX(detailUV, _DetailNormalMapBlue)), _DetailNormalMapScaleBlue);
+        fixed3 _DetailNormalMapBlue_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapBlue, _DetailNormalMap, TRANSFORM_TEX(detailUV, _DetailNormalMapBlue)), _DetailNormalMapScaleBlue);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapBlue_var), _DetailMask_var.b);
     }
     
@@ -748,12 +751,12 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                     + specularTerm * lightColor * FresnelTerm (specColor, LdotH)
                     + surfaceReduction * indirect_specular * FresnelLerp (specColor, grazingTerm, NdotV) * _StandardFresnelIntensity;
 
-    fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D(_EmissionMap, TRANSFORM_TEX(parallaxUV, _EmissionMap));
+    fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_EmissionMap, _MainTex, TRANSFORM_TEX(parallaxUV, _EmissionMap));
     color += _EmissionColor.rgb * _EmissionMap_var.rgb;
 	return fixed4(color, opacity);
 }
 
-// Minimal shadowcaster with cutout support
+// Full shadowcaster with cutout support
 struct v2f_shadow_full
 {
     V2F_SHADOW_CASTER;
@@ -788,7 +791,7 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         fixed opacity = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv, _MainTex)).a;
         UNITY_BRANCH
         if (_CoverageMapActive)
-            opacity = UNITY_SAMPLE_TEX2D(_CoverageMap, TRANSFORM_TEX(i.uv, _CoverageMap)).r;
+            opacity = UNITY_SAMPLE_TEX2D_SAMPLER(_CoverageMap, _MainTex, TRANSFORM_TEX(i.uv, _CoverageMap)).r;
         opacity *= _Color.a * i.color.a;
         if (_ForceOpaque) opacity = 1;
 
@@ -802,7 +805,7 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
     SHADOW_CASTER_FRAGMENT(i)
 }
 
-// Minimal meta pass
+// Full meta pass
 struct v2f_meta_full
 {
     float4 pos : SV_POSITION;
@@ -837,14 +840,15 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
     fixed4 _MainTex_var = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv, _MainTex));
 
     #if defined(_ALPHATEST_ON)
-        fixed opacity = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv, _MainTex)).a;
+        fixed opacity = _MainTex_var.a;
         UNITY_BRANCH
         if (_CoverageMapActive)
-            opacity = UNITY_SAMPLE_TEX2D(_CoverageMap, TRANSFORM_TEX(i.uv, _CoverageMap)).r;
+            opacity = UNITY_SAMPLE_TEX2D_SAMPLER(_CoverageMap, _MainTex, TRANSFORM_TEX(i.uv, _CoverageMap)).r;
+        if (_ForceOpaque) opacity = 1;
         clip(opacity * _Color.a * i.color.a - _Cutoff);
     #endif
 
-    fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D(_EmissionMap, TRANSFORM_TEX(i.uv, _EmissionMap));
+    fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_EmissionMap, _MainTex, TRANSFORM_TEX(i.uv, _EmissionMap));
 
     UnityMetaInput o;
     UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);

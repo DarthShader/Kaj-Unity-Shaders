@@ -30,6 +30,32 @@ namespace Kaj
         RGBA
     }
 
+    // DX11 only blend operations
+    public enum BlendOp
+    {
+        Add,
+        Subtract,
+        ReverseSubtract,
+        Min,
+        Max,
+        LogicalClear,
+        LogicalSet,
+        LogicalCopy,
+        LogicalCopyInverted,
+        LogicalNoop,
+        LogicalInvert,
+        LogicalAnd,
+        LogicalNand,
+        LogicalOr,
+        LogicalNor,
+        LogicalXor,
+        LogicalEquivalence,
+        LogicalAndReverse,
+        LogicalAndInverted,
+        LogicalOrReverse,
+        LogicalOrInverted
+    }
+
     // Simple indent and unindent decorators
     public class IndentDecorator : MaterialPropertyDrawer
     {
@@ -140,7 +166,10 @@ namespace Kaj
             Fade,   // Old school alpha-blending mode, fresnel does not affect amount of transparency
             Transparent, // Physically plausible transparency mode, implemented as alpha pre-multiply
             Skybox, // Background queue
-            Overlay // Flare, halo
+            Overlay, // Flare, halo
+            Additive,
+            Subtractive,
+            Modulate
         }
 
         public enum DisableBatchingFlags
@@ -338,6 +367,7 @@ namespace Kaj
                 m.SetOverrideTag(key, value);
         }
 
+        // Rendering modes provide a means to preset blending options AND to enable certain keywords
         private void SetupMaterialsWithBlendMode(UnityEngine.Object[] mats, BlendMode blendMode)
         {
             foreach (Material material in mats)
@@ -346,52 +376,82 @@ namespace Kaj
                 {
                     case BlendMode.Opaque:
                         material.SetOverrideTag("RenderType", "");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
                         material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
                         material.SetInt("_ZWrite", 1);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
                         material.DisableKeyword("_ALPHABLEND_ON");
                         material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.DisableKeyword("_ALPHAMODULATE_ON");
                         material.renderQueue = -1;
                         break;
                     case BlendMode.Cutout:
                         material.SetOverrideTag("RenderType", "TransparentCutout");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
                         material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
                         material.SetInt("_ZWrite", 1);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.EnableKeyword("_ALPHATEST_ON");
                         material.DisableKeyword("_ALPHABLEND_ON");
                         material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.DisableKeyword("_ALPHAMODULATE_ON");
                         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
                         break;
                     case BlendMode.Fade:
                         material.SetOverrideTag("RenderType", "Transparent");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
                         material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                         material.SetInt("_ZWrite", 0);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
                         material.EnableKeyword("_ALPHABLEND_ON");
                         material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.DisableKeyword("_ALPHAMODULATE_ON");
                         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
                         break;
                     case BlendMode.Transparent:
                         material.SetOverrideTag("RenderType", "Transparent");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
                         material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                         material.SetInt("_ZWrite", 0);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
                         material.DisableKeyword("_ALPHABLEND_ON");
                         material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.DisableKeyword("_ALPHAMODULATE_ON");
                         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
                         break;
                     case BlendMode.Skybox:
                         material.SetOverrideTag("RenderType", "Background");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
                         material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
                         material.SetInt("_ZWrite", 0);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
                         material.DisableKeyword("_ALPHABLEND_ON");
                         material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.DisableKeyword("_ALPHAMODULATE_ON");
                         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Background;
                         break;
                     case BlendMode.Overlay:
@@ -399,6 +459,54 @@ namespace Kaj
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
                         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay;
+                        break;
+                    case BlendMode.Additive:
+                        material.SetOverrideTag("RenderType", "Transparent");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_ZWrite", 0);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
+                        material.DisableKeyword("_ALPHATEST_ON");
+                        material.EnableKeyword("_ALPHABLEND_ON");
+                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.DisableKeyword("_ALPHAMODULATE_ON");
+                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                        break;
+                    case BlendMode.Subtractive:
+                        material.SetOverrideTag("RenderType", "Transparent");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.ReverseSubtract);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.ReverseSubtract);
+                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_ZWrite", 0);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
+                        material.DisableKeyword("_ALPHATEST_ON");
+                        material.EnableKeyword("_ALPHABLEND_ON");
+                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.DisableKeyword("_ALPHAMODULATE_ON");
+                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                        break;
+                    case BlendMode.Modulate:
+                        material.SetOverrideTag("RenderType", "Transparent");
+                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
+                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.DstColor);
+                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.DstColor);
+                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        material.SetInt("_ZWrite", 0);
+                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
+                        material.DisableKeyword("_ALPHATEST_ON");
+                        material.DisableKeyword("_ALPHABLEND_ON");
+                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        material.EnableKeyword("_ALPHAMODULATE_ON");
+                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
                         break;
                 }
             }

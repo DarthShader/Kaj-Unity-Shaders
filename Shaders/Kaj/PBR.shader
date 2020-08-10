@@ -104,13 +104,17 @@ Shader "Kaj/PBR"
 
         [Header(Blending Options)]
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
-        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
-        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Source Blend", Int) = 1
-        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Destination Blend", Int) = 0
         [Enum(Off,0,On,1)] _ZWrite ("ZWrite", Int) = 1
-        [Enum(Kaj.ColorMask)] _ColorMask("Color Mask", Int) = 15
+        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
         _OffsetFactor("Offset Factor", Float) = 0
         _OffsetUnits("Offset Units", Float) = 0
+        [Enum(Kaj.BlendOp)]_BlendOp ("RGB Blend Op", Int) = 0
+        [Enum(Kaj.BlendOp)]_BlendOpAlpha ("Alpha Blend Op", Int) = 0
+        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("RGB Source Blend", Int) = 1
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("RGB Destination Blend", Int) = 0
+        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendAlpha ("Alpha Source Blend", Int) = 1
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendAlpha ("Alpha Destination Blend", Int) = 0
+        [Enum(Kaj.ColorMask)] _ColorMask("Color Mask", Int) = 15
 
         [Header(Stencil Options)]
         [IntRange] _Stencil ("Stencil Reference Value", Range(0, 255)) = 0
@@ -121,7 +125,7 @@ Shader "Kaj/PBR"
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFail ("Stencil ZFail Op", Int) = 0
         [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Compare Function", Int) = 8
 
-        [KajLabel]_Version("Shader Version: 2", Int) = 2
+        [KajLabel]_Version("Shader Version: 4", Int) = 4
     }
 
     CustomEditor "Kaj.ShaderEditor"    
@@ -155,7 +159,8 @@ Shader "Kaj/PBR"
             Name "FORWARD"
 			Tags { "LightMode" = "ForwardBase" }
             ZWrite [_ZWrite]
-            Blend [_SrcBlend] [_DstBlend]
+            BlendOp [_BlendOp], [_BlendOpAlpha]
+            Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
 
             CGPROGRAM
             #pragma target 5.0
@@ -179,7 +184,8 @@ Shader "Kaj/PBR"
             Name "FORWARD_DELTA"
 			Tags { "LightMode" = "ForwardAdd" }
             Zwrite Off
-			Blend [_SrcBlend] One
+            BlendOp [_BlendOp], [_BlendOpAlpha]
+			Blend [_SrcBlend] One, [_SrcBlend] One
             Fog { Color (0,0,0,0) }
 
             CGPROGRAM
