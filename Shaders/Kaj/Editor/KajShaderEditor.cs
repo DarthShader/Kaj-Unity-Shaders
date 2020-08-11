@@ -5,7 +5,7 @@ using UnityEditor;
 using System;
 
 // Material property drawers and a shader GUI because the base material inspector only needs slight improvement
-// Meant to serve as a functionally-complete foundation for the base shader GUI
+// Meant to serve as a functionally-complete foundation for the base shader GUI with no shader-specific logic
 
 namespace Kaj
 {
@@ -140,12 +140,12 @@ namespace Kaj
         }
     }
 
-    // Basic single-line decorator-like label, uses matProp display name.  Kaj prefix to avoid name clashes
+    // Basic single-line decorator-like label, uses property display name.  Kaj prefix to avoid name clashes
     public class KajLabelDrawer : MaterialPropertyDrawer
     {
         public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
         {
-            position.y += 8;
+            position.y += 8; // Make this spacing an argument
             position = EditorGUI.IndentedRect(position);
             GUI.Label(position, label, EditorStyles.label);
         }
@@ -159,6 +159,11 @@ namespace Kaj
     // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
     public class ShaderEditor : ShaderGUI
     {
+        const string groupPrefix = "group_start_";
+        const string togglePrefix = "toggle_";
+        const string endPrefix = "end_";
+        GUIStyle foldoutStyle;
+
         public enum BlendMode
         {
             Opaque,
@@ -197,6 +202,12 @@ namespace Kaj
 
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
         {
+            foldoutStyle = new GUIStyle("ShurikenModuleTitle");
+            foldoutStyle.font = new GUIStyle(EditorStyles.label).font;
+            foldoutStyle.border = new RectOffset(15, 7, 4, 4);
+            foldoutStyle.fixedHeight = 22;
+            foldoutStyle.contentOffset = new Vector2(20f, -2f);
+
             blendMode = FindProperty("_Mode", props);
             disableBatching = FindProperty("_DisableBatching", props);
             ignoreProjector = FindProperty("_IgnoreProjector", props);
@@ -356,9 +367,87 @@ namespace Kaj
                 else SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "False");
                 EditorUtility.SetDirty(material);
             }
-
             EditorGUI.showMixedValue = false;
-            base.OnGUI(materialEditor, props);
+
+            // Actual shader properties
+            materialEditor.SetDefaultGUIWidths();
+            DrawPropertiesGUIRecursive(materialEditor, props);            
+            // Render queue, GPU instancing, and double sided GI checkboxes
+            base.OnGUI(materialEditor, new MaterialProperty[0]);
+        }
+
+        // Recursive to easily deal with foldouts
+        protected void DrawPropertiesGUIRecursive(MaterialEditor materialEditor, MaterialProperty[] props)
+        {
+            for (var i = 0; i < props.Length; i++)
+            {
+                // Check for groups and toggle groups
+                if (props[i].name.StartsWith(groupPrefix) && 
+                   ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
+                {
+                    // Find matching end tag
+                    string groupName = props[i].name.Substring(groupPrefix.Length);
+                    string endName = endPrefix + groupName;
+                    int j = i+1;
+                    bool foundEnd = false;
+                    for (; j<props.Length; j++)
+                        if (props[j].name == endName && 
+                            ((props[j].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
+                            {
+                                foundEnd = true;
+                                break;
+                            }
+                    if (!foundEnd)
+                    {
+                        Debug.LogWarning("[Kaj Shader Editor] Group end for " + groupName + " not found! Skipping.");
+                        continue;
+                    }
+
+                    // Make array of shader props in between group start and end
+                    MaterialProperty[] subProps = new MaterialProperty[j-i-1];
+                    for (int k=i+1; k<j; k++)
+                        subProps[k-(i+1)] = props[k];
+
+                    bool expanded = props[j].floatValue == 1;
+                    
+                    // draw foldout with arrow + label + checkbox if a toggle (togglePrefix)
+                    var rect = GUILayoutUtility.GetRect(16f + 20f, 22f, foldoutStyle);
+                    GUI.Box(rect, props[i].displayName, foldoutStyle);
+                    var e = Event.current;
+                    var toggleRect = new Rect(rect.x + 4f, rect.y + 2f, 13f, 13f);
+                    if (e.type == EventType.Repaint)
+                    {
+                        EditorStyles.foldout.Draw(toggleRect, false, false, expanded, false);
+                    }
+                    if (e.type == EventType.MouseDown && rect.Contains(e.mousePosition))
+                    {
+                        if (props[j].floatValue == 1)
+                            props[j].floatValue = 0;
+                        else props[j].floatValue = 1;
+                        e.Use();
+                    }
+                    // Copy from XSToon
+                    //s_dropDownHeaderLabel = new GUIStyle(EditorStyles.boldLabel);
+                    //s_dropDownHeaderLabel.alignment = TextAnchor.MiddleCenter;
+                    if (expanded)
+                    {
+                        EditorGUI.indentLevel += 1;
+                        EditorGUILayout.Space();
+                        DrawPropertiesGUIRecursive(materialEditor, subProps);
+                        EditorGUILayout.Space();
+                        EditorGUI.indentLevel -= 1;
+                    }
+                    i += j-i; // Continue past subgroup props
+                }
+
+                // Derived from MaterialEditor.PropertiesDefaultGUI https://github.com/Unity-Technologies/UnityCsReference/
+                if ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0)
+                    continue;
+                float h = materialEditor.GetPropertyHeight(props[i], props[i].displayName);
+                Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);
+                materialEditor.ShaderProperty(r, props[i], props[i].displayName);
+            }
+
         }
 
         private void SetMaterialsTag(UnityEngine.Object[] mats, string key, string value)
@@ -512,8 +601,6 @@ namespace Kaj
             }
             
         }
-
-
     }
 
 }

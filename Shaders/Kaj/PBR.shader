@@ -10,6 +10,7 @@ Shader "Kaj/PBR"
         [HideInInspector] _PreviewType ("__previewType", Int) = 0
 
         [Header(Standard Settings)]
+        [HideInInspector]group_start_Main("Standard Settings", Int) = 0
         [MainColor]_Color("Color", Color) = (1,1,1,1)
         [MainTexture]_MainTex ("Albedo", 2D) = "white" { }
         [Indent]
@@ -29,8 +30,9 @@ Shader "Kaj/PBR"
         [UnIndent]
         [HDR]_EmissionColor("Emission Color", Color) = (1,1,1,1)
         _EmissionMap("Emission Map", 2D) = "white" {}
+        [HideInInspector]end_Main("", Int) = 1
 
-        [Header(PBR Shading)]
+        [HideInInspector]group_start_PBRShading("PBR Shading", Int) = 0
         [Enum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow Mode", Int) = 0
         [TexToggleActive]_MetallicGlossMap("Metallic Map", 2D) = "white" {}
         [HideInInspector]_MetallicGlossMapActive ("", Int) = 0
@@ -65,8 +67,9 @@ Shader "Kaj/PBR"
         [ToggleUI]_SpecularHighlights("Specular Highlights", Int) = 1
         [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
         _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
+        [HideInInspector]end_PBRShading("", Int) = 0
         
-        [Header(Detail Settings)]
+        [HideInInspector]group_start_Details("Detail Settings", Int) = 0
         [TexToggleActive]_DetailMask("Detail Mask (RGB)", 2D) = "white" {}
         [HideInInspector]_DetailMaskActive("", Int) = 0
         _DetailColorR("Detail Color (Red)", Color) = (1,1,1,1)
@@ -95,14 +98,16 @@ Shader "Kaj/PBR"
         [UnIndent]
         [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_UVSec ("Detail Textures UV Set", Int) = 0
         [Enum(Mul x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Detail Albedo Combine Mode", Int) = 0
+        [HideInInspector]end_Details("", Int) = 0
 
-        [Header(Parallax Settings)]
+        [HideInInspector]group_start_Parallax("Parallax Settings", Int) = 0
         [TexToggleActive]_ParallaxMap ("Parallax Map", 2D) = "black" {}
         [HideInInspector]_ParallaxMapActive ("", Int) = 0
         _Parallax ("Parallax Scale", Range (0, 0.08)) = 0.02
         _ParallaxBias ("Parallax Bias", Float) = 0.42
+        [HideInInspector]end_Parallax("", Int) = 0
 
-        [Header(Blending Options)]
+        [HideInInspector]group_start_Blending("Blending Options", Int) = 0
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
         [Enum(Off,0,On,1)] _ZWrite ("ZWrite", Int) = 1
         [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
@@ -115,17 +120,19 @@ Shader "Kaj/PBR"
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendAlpha ("Alpha Source Blend", Int) = 1
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendAlpha ("Alpha Destination Blend", Int) = 0
         [Enum(Kaj.ColorMask)] _ColorMask("Color Mask", Int) = 15
+        [HideInInspector]end_Blending("", Int) = 0
 
-        [Header(Stencil Options)]
+        [HideInInspector]group_start_Stencil("Stencil Options", Int) = 0
         [IntRange] _Stencil ("Stencil Reference Value", Range(0, 255)) = 0
-        [IntRange] _StencilWriteMask ("Stencil ReadMask Value", Range(0, 255)) = 255
-        [IntRange] _StencilReadMask ("Stencil WriteMask Value", Range(0, 255)) = 255
+        [IntRange] _StencilWriteMask ("Stencil ReadMask", Range(0, 255)) = 255
+        [IntRange] _StencilReadMask ("Stencil WriteMask", Range(0, 255)) = 255
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilPass ("Stencil Pass Op", Int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilFail ("Stencil Fail Op", Int) = 0
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFail ("Stencil ZFail Op", Int) = 0
         [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Compare Function", Int) = 8
+        [HideInInspector]end_Stencil("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 4", Int) = 4
+        [KajLabel]_Version("Shader Version: 5", Int) = 5
     }
 
     CustomEditor "Kaj.ShaderEditor"    
