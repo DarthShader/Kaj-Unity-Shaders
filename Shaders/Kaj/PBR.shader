@@ -14,6 +14,7 @@ Shader "Kaj/PBR"
         [MainColor]_Color("Color", Color) = (1,1,1,1)
         [MainTexture]_MainTex ("Albedo", 2D) = "white" { }
         [Indent]
+            //[KajVector2]_MainTexPan("Panning", Vector) = (0,0,0,0)
             [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_MainTexUV ("UV Set", Int) = 0
         [UnIndent]
         [TexToggleActive]_CoverageMap ("Coverage (Alpha) Map", 2D) = "white" {}
@@ -34,6 +35,18 @@ Shader "Kaj/PBR"
 
         [HideInInspector]group_PBRShading("PBR Shading", Int) = 0
         [Enum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow Mode", Int) = 0
+        _Metallic("Metallic Max", Range(0.0, 1.0)) = 0.0
+        _MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
+        [Enum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 0
+        _Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
+        _GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
+        _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
+        _SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
+        _SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
+        [ToggleUI]_SpecularHighlights("Specular Highlights", Int) = 1
+        [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
+        _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
+        [HideInInspector]group_StandardTextures("Standard Textures", Int) = 0
         [TexToggleActive]_MetallicGlossMap("Metallic Map", 2D) = "white" {}
         [HideInInspector]_MetallicGlossMapActive ("", Int) = 0
         [TexToggleActive]_SpecGlossMap("Glossiness Map", 2D) = "white" {}
@@ -47,7 +60,9 @@ Shader "Kaj/PBR"
         [HideInInspector]_SpecularMapActive ("", Int) = 0
         [Indent]
             _SpecColor("Specular Color", Color) = (1,1,1,1)
-        [UnIndent]
+        [HideInInspector]end_StandardTextures("", Int) = 1
+
+        [HideInInspector]group_CombinedMap("Combined Texture", Int) = 0
         [TexToggleActive]_CombinedMap("Combined Map (RGBA)", 2D) = "white" {}
         [HideInInspector]_CombinedMapActive ("", Int) = 0
         [Indent]
@@ -55,18 +70,7 @@ Shader "Kaj/PBR"
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,Albedo Alpha,4,Metallic Alpha,5,Specular Alpha,6)]_SpecGlossMapCombinedMapChannel("Glossiness Channel or Source", Int) = 1
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_OcclusionMapCombinedMapChannel("Occlusion Channel", Int) = 2
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecularMapCombinedMapChannel("Specular Channel", Int) = 3
-        [UnIndent]
-        _Metallic("Metallic Max", Range(0.0, 1.0)) = 0.0
-        _MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
-        [Enum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 0
-        _Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
-        _GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
-        _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
-        _SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
-        _SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
-        [ToggleUI]_SpecularHighlights("Specular Highlights", Int) = 1
-        [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
-        _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
+        [HideInInspector]end_CombinedMap("", Int) = 0
         [HideInInspector]end_PBRShading("", Int) = 0
         
         [HideInInspector]group_Details("Detail Settings", Int) = 0
@@ -100,7 +104,7 @@ Shader "Kaj/PBR"
         [Enum(Mul x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Detail Albedo Combine Mode", Int) = 0
         [HideInInspector]end_Details("", Int) = 0
 
-        [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax Settings", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax", Int) = 0
         [TexToggleActive]_ParallaxMap ("Parallax Map", 2D) = "black" {}
         [HideInInspector]_ParallaxMapActive ("", Int) = 0
         _Parallax ("Parallax Scale", Range (0, 0.08)) = 0.02
@@ -135,7 +139,7 @@ Shader "Kaj/PBR"
         [HideInInspector]group_Debug("Debug", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 6", Int) = 6
+        [KajLabel]_Version("Shader Version: 7", Int) = 7
     }
 
     CustomEditor "Kaj.ShaderEditor"    

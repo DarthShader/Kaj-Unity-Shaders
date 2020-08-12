@@ -1,6 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using System;
 
@@ -61,7 +63,7 @@ namespace Kaj
     {
         public override void OnGUI (Rect position, MaterialProperty prop, String label, MaterialEditor editor)
         {
-            EditorGUI.indentLevel += 2;
+            EditorGUI.indentLevel += 1;
         }
 
         public override float GetPropertyHeight (MaterialProperty prop, string label, MaterialEditor editor)
@@ -73,7 +75,7 @@ namespace Kaj
     {
         public override void OnGUI (Rect position, MaterialProperty prop, String label, MaterialEditor editor)
         {
-            EditorGUI.indentLevel -= 2;
+            EditorGUI.indentLevel -= 1;
         }
 
         public override float GetPropertyHeight (MaterialProperty prop, string label, MaterialEditor editor)
@@ -153,6 +155,107 @@ namespace Kaj
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
             return EditorGUIUtility.singleLineHeight;
+        }
+    }
+
+    // Thumbnail texture, no scale/offset.  Could be improved
+    public class MiniTextureDrawer : MaterialPropertyDrawer
+    {
+        public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+        {
+            prop.textureValue = editor.TexturePropertyMiniThumbnail(position, prop, label.text, label.tooltip);
+        }
+    }
+
+    // Enum with normal editor width, rather than MaterialEditor Default GUI widths
+    // Adapted from Unity interal MaterialEnumDrawer https://github.com/Unity-Technologies/UnityCsReference/
+    public class WideEnumDrawer : MaterialPropertyDrawer
+    {
+        private readonly GUIContent[] names;
+        private readonly float[] values;
+
+        // internal Unity AssemblyHelper can't be accessed
+        private Type[] TypesFromAssembly(Assembly a)
+        {
+            if (a == null)
+                return new Type[0];
+            try
+            {
+                return a.GetTypes();
+            }
+            catch (ReflectionTypeLoadException)
+            {
+                return new Type[0];
+            }
+        }
+        public WideEnumDrawer(string enumName)
+        {
+            var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(
+                x => TypesFromAssembly(x)).ToArray();
+            try
+            {
+                var enumType = types.FirstOrDefault(
+                    x => x.IsEnum && (x.Name == enumName || x.FullName == enumName)
+                );
+                var enumNames = Enum.GetNames(enumType);
+                names = new GUIContent[enumNames.Length];
+                for (int i=0; i<enumNames.Length; ++i)
+                    names[i] = new GUIContent(enumNames[i]);
+
+                var enumVals = Enum.GetValues(enumType);
+                values = new float[enumVals.Length];
+                for (int i=0; i<enumVals.Length; ++i)
+                    values[i] = (int)enumVals.GetValue(i);
+            }
+            catch (Exception)
+            {
+                Debug.LogWarningFormat("Failed to create  WideEnum, enum {0} not found", enumName);
+                throw;
+            }
+
+        }
+        
+        public WideEnumDrawer(string n1, float v1) : this(new[] {n1}, new[] {v1}) {}
+        public WideEnumDrawer(string n1, float v1, string n2, float v2) : this(new[] { n1, n2 }, new[] { v1, v2 }) {}
+        public WideEnumDrawer(string n1, float v1, string n2, float v2, string n3, float v3) : this(new[] { n1, n2, n3 }, new[] { v1, v2, v3 }) {}
+        public WideEnumDrawer(string n1, float v1, string n2, float v2, string n3, float v3, string n4, float v4) : this(new[] { n1, n2, n3, n4 }, new[] { v1, v2, v3, v4 }) {}
+        public WideEnumDrawer(string n1, float v1, string n2, float v2, string n3, float v3, string n4, float v4, string n5, float v5) : this(new[] { n1, n2, n3, n4, n5 }, new[] { v1, v2, v3, v4, v5 }) {}
+        public WideEnumDrawer(string n1, float v1, string n2, float v2, string n3, float v3, string n4, float v4, string n5, float v5, string n6, float v6) : this(new[] { n1, n2, n3, n4, n5, n6 }, new[] { v1, v2, v3, v4, v5, v6 }) {}
+        public WideEnumDrawer(string n1, float v1, string n2, float v2, string n3, float v3, string n4, float v4, string n5, float v5, string n6, float v6, string n7, float v7) : this(new[] { n1, n2, n3, n4, n5, n6, n7 }, new[] { v1, v2, v3, v4, v5, v6, v7 }) {}
+        public WideEnumDrawer(string[] enumNames, float[] vals)
+        {
+            names = new GUIContent[enumNames.Length];
+            for (int i=0; i<enumNames.Length; ++i)
+                names[i] = new GUIContent(enumNames[i]);
+
+            values = new float[vals.Length];
+            for (int i=0; i<vals.Length; ++i)
+                values[i] = vals[i];
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            var value = prop.floatValue;
+            int selectedIndex = -1;
+            for (int i=0; i<values.Length; i++)
+                if (values[i] == value)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+ 
+            // Todo: Change label and field width here
+            var selIndex = EditorGUI.Popup(position, label, selectedIndex, names);
+            EditorGUI.showMixedValue = false;
+            if (EditorGUI.EndChangeCheck())
+                prop.floatValue = values[selIndex];
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return base.GetPropertyHeight(prop, label, editor);
         }
     }
 
@@ -412,8 +515,11 @@ namespace Kaj
                         continue;
                     }
 
-                    // Draw particle system styled header
-                    var rect = GUILayoutUtility.GetRect(16f + 20f, 22f, foldoutStyle);
+                    // Draw particle system styled header with indentation applied
+                    float indentPixels = EditorGUI.indentLevel * 13f;
+                    var rect = GUILayoutUtility.GetRect(0, 22f, foldoutStyle);
+                    rect.width -= indentPixels;
+                    rect.x += indentPixels;
                     if (toggle)
                         GUI.Box(rect, "", foldoutStyle);
                     else
@@ -433,7 +539,7 @@ namespace Kaj
                         // Toggle alignment from Thry's
                         Rect togglePropertyRect = new Rect(rect);
                         togglePropertyRect.x += 18;
-                        togglePropertyRect.y += 2;
+                        togglePropertyRect.y += 1;
                         float labelWidth = EditorGUIUtility.labelWidth;
                         float fieldWidth = EditorGUIUtility.fieldWidth;
                         CharacterInfo characterInfo = new CharacterInfo();
@@ -468,13 +574,17 @@ namespace Kaj
                         for (int k=i+1; k<j; k++)
                             subProps[k-(i+1)] = props[k];
 
+                        int originalIndentLevel = EditorGUI.indentLevel;
                         EditorGUI.indentLevel += 1;
                         EditorGUILayout.Space();
                         DrawPropertiesGUIRecursive(materialEditor, subProps);
                         EditorGUILayout.Space();
-                        EditorGUI.indentLevel -= 1;
+                        // Hard reset to original indent level because [UnIndent] decorators may need the hidden group end property
+                        EditorGUI.indentLevel = originalIndentLevel;
                     }
-                    i += j-i; // Continue past subgroup props
+
+                    // Continue past subgroup props
+                    i += j-i; 
                 }
 
                 // Derived from MaterialEditor.PropertiesDefaultGUI https://github.com/Unity-Technologies/UnityCsReference/
