@@ -34,10 +34,11 @@ Shader "Kaj/PBR"
         [HideInInspector]end_Main("", Int) = 1
 
         [HideInInspector]group_PBRShading("PBR Shading", Int) = 0
-        [Enum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow Mode", Int) = 0
-        _Metallic("Metallic Max", Range(0.0, 1.0)) = 0.0
-        _MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
-        [Enum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 0
+        [WideEnum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow", Int) = 0
+        [RangeMax]_Metallic("Metallic Max", Range(0.0, 1.0)) = 0.0
+        [RangeMin]_MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
+        [WideEnum(Glossiness Map,0, Combined Map,1, Metallic Alpha,2, Specular Alpha,3, Albedo Alpha,4)]_GlossinessSource("Glossiness Source", Int) = 0
+        [WideEnum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 0
         _Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
         _GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
         _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
@@ -67,7 +68,7 @@ Shader "Kaj/PBR"
         [HideInInspector]_CombinedMapActive ("", Int) = 0
         [Indent]
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_MetallicGlossMapCombinedMapChannel("Metallic Channel", Int) = 0
-            [Enum(Red,0,Green,1,Blue,2,Alpha,3,Albedo Alpha,4,Metallic Alpha,5,Specular Alpha,6)]_SpecGlossMapCombinedMapChannel("Glossiness Channel or Source", Int) = 1
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMapCombinedMapChannel("Glossiness Channel", Int) = 1
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_OcclusionMapCombinedMapChannel("Occlusion Channel", Int) = 2
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecularMapCombinedMapChannel("Specular Channel", Int) = 3
         [HideInInspector]end_CombinedMap("", Int) = 0
@@ -101,7 +102,7 @@ Shader "Kaj/PBR"
             _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
         [UnIndent]
         [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_UVSec ("Detail Textures UV Set", Int) = 0
-        [Enum(Mul x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Detail Albedo Combine Mode", Int) = 0
+        [WideEnum(Multiply x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Albedo Combine Mode", Int) = 0
         [HideInInspector]end_Details("", Int) = 0
 
         [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax", Int) = 0
@@ -112,34 +113,34 @@ Shader "Kaj/PBR"
         [HideInInspector]end_Parallax("", Int) = 0
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
-        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
-        [Enum(Off,0,On,1)] _ZWrite ("ZWrite", Int) = 1
-        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
+        [WideEnum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
+        [WideEnum(Off,0,On,1)] _ZWrite ("ZWrite", Int) = 1
+        [WideEnum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
         _OffsetFactor("Offset Factor", Float) = 0
         _OffsetUnits("Offset Units", Float) = 0
-        [Enum(Kaj.BlendOp)]_BlendOp ("RGB Blend Op", Int) = 0
-        [Enum(Kaj.BlendOp)]_BlendOpAlpha ("Alpha Blend Op", Int) = 0
-        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("RGB Source Blend", Int) = 1
-        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("RGB Destination Blend", Int) = 0
-        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendAlpha ("Alpha Source Blend", Int) = 1
-        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendAlpha ("Alpha Destination Blend", Int) = 0
-        [Enum(Kaj.ColorMask)] _ColorMask("Color Mask", Int) = 15
+        [WideEnum(Kaj.BlendOp)]_BlendOp ("RGB Blend Op", Int) = 0
+        [WideEnum(Kaj.BlendOp)]_BlendOpAlpha ("Alpha Blend Op", Int) = 0
+        [WideEnum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("RGB Source Blend", Int) = 1
+        [WideEnum(UnityEngine.Rendering.BlendMode)] _DstBlend ("RGB Destination Blend", Int) = 0
+        [WideEnum(UnityEngine.Rendering.BlendMode)] _SrcBlendAlpha ("Alpha Source Blend", Int) = 1
+        [WideEnum(UnityEngine.Rendering.BlendMode)] _DstBlendAlpha ("Alpha Destination Blend", Int) = 0
+        [WideEnum(Kaj.ColorMask)] _ColorMask("Color Mask", Int) = 15
         [HideInInspector]end_Blending("", Int) = 0
 
         [HideInInspector]group_Stencil("Stencil Options", Int) = 0
-        [IntRange] _Stencil ("Stencil Reference Value", Range(0, 255)) = 0
-        [IntRange] _StencilWriteMask ("Stencil ReadMask", Range(0, 255)) = 255
-        [IntRange] _StencilReadMask ("Stencil WriteMask", Range(0, 255)) = 255
-        [Enum(UnityEngine.Rendering.StencilOp)] _StencilPass ("Stencil Pass Op", Int) = 0
-        [Enum(UnityEngine.Rendering.StencilOp)] _StencilFail ("Stencil Fail Op", Int) = 0
-        [Enum(UnityEngine.Rendering.StencilOp)] _StencilZFail ("Stencil ZFail Op", Int) = 0
-        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Compare Function", Int) = 8
+        [IntRange] _Stencil ("Reference Value", Range(0, 255)) = 0
+        [IntRange] _StencilWriteMask ("ReadMask", Range(0, 255)) = 255
+        [IntRange] _StencilReadMask ("WriteMask", Range(0, 255)) = 255
+        [WideEnum(UnityEngine.Rendering.StencilOp)] _StencilPass ("Pass Op", Int) = 0
+        [WideEnum(UnityEngine.Rendering.StencilOp)] _StencilFail ("Fail Op", Int) = 0
+        [WideEnum(UnityEngine.Rendering.StencilOp)] _StencilZFail ("ZFail Op", Int) = 0
+        [WideEnum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Compare Function", Int) = 8
         [HideInInspector]end_Stencil("", Int) = 0
 
         [HideInInspector]group_Debug("Debug", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 7", Int) = 7
+        [KajLabel]_Version("Shader Version: 8", Int) = 8
     }
 
     CustomEditor "Kaj.ShaderEditor"    

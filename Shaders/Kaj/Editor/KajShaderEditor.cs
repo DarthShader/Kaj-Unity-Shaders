@@ -247,15 +247,110 @@ namespace Kaj
                 }
  
             // Todo: Change label and field width here
+            float labelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 0f;
             var selIndex = EditorGUI.Popup(position, label, selectedIndex, names);
             EditorGUI.showMixedValue = false;
             if (EditorGUI.EndChangeCheck())
                 prop.floatValue = values[selIndex];
+             EditorGUIUtility.labelWidth = labelWidth;
         }
 
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
             return base.GetPropertyHeight(prop, label, editor);
+        }
+    }
+
+    // Range drawer that looks for a property with the same name minus a 'Max' suffix if it exists or a matching
+    // 'Min' property.  Then forces that value to be equal to this drawer's newly assigned value
+    public class RangeMaxDrawer : MaterialPropertyDrawer
+    {
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            EditorGUI.BeginChangeCheck();
+            editor.RangeProperty(prop, label);
+            if (EditorGUI.EndChangeCheck())
+            {
+                MaterialProperty[] props = MaterialEditor.GetMaterialProperties(editor.targets);
+                MaterialProperty min = null;
+
+                // Looping through this myself because MaterialEditor.GetMaterialProperty returns a broken prop
+                if (prop.name.EndsWith("Max"))
+                {
+                    string baseName = prop.name.Remove(prop.name.Length - 3, 3);
+                    foreach (MaterialProperty mp in props)
+                        if (mp.name == baseName || mp.name == baseName + "Min")
+                        {
+                            min = mp;
+                            break;
+                        }
+                }
+                else
+                {
+                    foreach (MaterialProperty mp in props)
+                        if (mp.name == prop.name + "Min")
+                        {
+                            min = mp;
+                            break;
+                        }
+                }
+                
+                if (min != null)
+                    if (min.floatValue > prop.floatValue)
+                        min.floatValue = prop.floatValue;
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return 0f;
+        }
+    }
+
+    // Range drawer that looks for a property with the same name minus a 'Min' suffix if it exists or a matching
+    // 'Max' property.  Then forces that value to equal to this drawer's newly assigned value
+    public class RangeMinDrawer : MaterialPropertyDrawer
+    {
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            EditorGUI.BeginChangeCheck();
+            editor.RangeProperty(prop, label);
+            if (EditorGUI.EndChangeCheck())
+            {
+                MaterialProperty[] props = MaterialEditor.GetMaterialProperties(editor.targets);
+                MaterialProperty max = null;
+
+                // Looping through this myself because MaterialEditor.GetMaterialProperty returns a broken prop
+                if (prop.name.EndsWith("Min"))
+                {
+                    string baseName = prop.name.Remove(prop.name.Length - 3, 3);
+                    foreach (MaterialProperty mp in props)
+                        if (mp.name == baseName || mp.name == baseName + "Max")
+                        {
+                            max = mp;
+                            break;
+                        }
+                }
+                else
+                {
+                    foreach (MaterialProperty mp in props)
+                        if (mp.name == prop.name + "Max")
+                        {
+                            max = mp;
+                            break;
+                        }
+                }
+                
+                if (max != null)
+                    if (max.floatValue < prop.floatValue)
+                        max.floatValue = prop.floatValue;
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return 0f;
         }
     }
 
