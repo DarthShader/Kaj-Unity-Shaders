@@ -85,6 +85,7 @@ namespace Kaj
     // Sets a material property with the same name as the texture + suffix 'Active' to true
     // when a texture is assigned, otherwise sets it to false.  Use [HideInInspector] on the 'Active' Properties
     // Requires the custom inspector to assign all of these when you switch shaders! 
+    // Useful for uniform branching before you sample a texture - probably bad practice to use it to toggle features
     public class TexToggleActiveDrawer : MaterialPropertyDrawer
     {
         public override void OnGUI (Rect position, MaterialProperty prop, String label, MaterialEditor editor)
@@ -159,8 +160,8 @@ namespace Kaj
     // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
     public class ShaderEditor : ShaderGUI
     {
-        const string groupPrefix = "group_start_";
-        const string togglePrefix = "toggle_";
+        const string groupPrefix = "group_";
+        const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
         const string endPrefix = "end_";
         GUIStyle foldoutStyle;
 
@@ -186,7 +187,7 @@ namespace Kaj
 
         public enum PreviewType
         {
-            Sphere,
+            Sphere, // Actually called 'Mesh' internally, but regular users recognize the sphere/don't use other meshes
             Plane,
             Skybox
         }
@@ -382,11 +383,19 @@ namespace Kaj
             for (var i = 0; i < props.Length; i++)
             {
                 // Check for groups and toggle groups
+                bool toggle = false;
                 if (props[i].name.StartsWith(groupPrefix) && 
                    ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
                 {
+                    if (props[i].name.StartsWith(groupPrefix + togglePrefix))
+                        toggle = true;
+                    
                     // Find matching end tag
-                    string groupName = props[i].name.Substring(groupPrefix.Length);
+                    string groupName;
+                    if (toggle)
+                        groupName = props[i].name.Substring(groupPrefix.Length +togglePrefix.Length);
+                    else
+                        groupName = props[i].name.Substring(groupPrefix.Length);
                     string endName = endPrefix + groupName;
                     int j = i+1;
                     bool foundEnd = false;
@@ -403,22 +412,47 @@ namespace Kaj
                         continue;
                     }
 
-                    // Make array of shader props in between group start and end
-                    MaterialProperty[] subProps = new MaterialProperty[j-i-1];
-                    for (int k=i+1; k<j; k++)
-                        subProps[k-(i+1)] = props[k];
-
-                    bool expanded = props[j].floatValue == 1;
-                    
-                    // draw foldout with arrow + label + checkbox if a toggle (togglePrefix)
+                    // Draw particle system styled header
                     var rect = GUILayoutUtility.GetRect(16f + 20f, 22f, foldoutStyle);
-                    GUI.Box(rect, props[i].displayName, foldoutStyle);
-                    var e = Event.current;
+                    if (toggle)
+                        GUI.Box(rect, "", foldoutStyle);
+                    else
+                        GUI.Box(rect, props[i].displayName, foldoutStyle);
+                    
+                    // Draw foldout arrow
                     var toggleRect = new Rect(rect.x + 4f, rect.y + 2f, 13f, 13f);
+                    bool expanded = props[j].floatValue == 1;
+                    var e = Event.current;
                     if (e.type == EventType.Repaint)
-                    {
                         EditorStyles.foldout.Draw(toggleRect, false, false, expanded, false);
+
+                    // Toggle property
+                    // Technically drawers besides Toggles work, but are VERY wonky
+                    if (toggle)
+                    {
+                        // Toggle alignment from Thry's
+                        Rect togglePropertyRect = new Rect(rect);
+                        togglePropertyRect.x += 18;
+                        togglePropertyRect.y += 2;
+                        float labelWidth = EditorGUIUtility.labelWidth;
+                        float fieldWidth = EditorGUIUtility.fieldWidth;
+                        CharacterInfo characterInfo = new CharacterInfo();
+                        char[] arr = props[i].displayName.ToCharArray();
+                        Font f = GUI.skin.font;
+                        int totalLength = 0;
+                        foreach (char c in arr)
+                        {
+                            f.GetCharacterInfo(c, out characterInfo, f.fontSize);
+                            totalLength += characterInfo.advance;
+                        }
+                        EditorGUIUtility.labelWidth = totalLength + EditorGUI.indentLevel * 15 + 45;
+                        EditorGUIUtility.fieldWidth = 20;
+                        materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
+                        EditorGUIUtility.labelWidth = labelWidth;
+                        EditorGUIUtility.fieldWidth = fieldWidth;
                     }
+
+                    // Activate foldout even if header was clicked
                     if (e.type == EventType.MouseDown && rect.Contains(e.mousePosition))
                     {
                         if (props[j].floatValue == 1)
@@ -426,11 +460,14 @@ namespace Kaj
                         else props[j].floatValue = 1;
                         e.Use();
                     }
-                    // Copy from XSToon
-                    //s_dropDownHeaderLabel = new GUIStyle(EditorStyles.boldLabel);
-                    //s_dropDownHeaderLabel.alignment = TextAnchor.MiddleCenter;
+
+                    // Recurse on props in this group
                     if (expanded)
                     {
+                        MaterialProperty[] subProps = new MaterialProperty[j-i-1];
+                        for (int k=i+1; k<j; k++)
+                            subProps[k-(i+1)] = props[k];
+
                         EditorGUI.indentLevel += 1;
                         EditorGUILayout.Space();
                         DrawPropertiesGUIRecursive(materialEditor, subProps);

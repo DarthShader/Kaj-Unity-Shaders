@@ -229,6 +229,7 @@ uniform float _Version;                     // Kaj Shader version
 uniform float _BlendOpAlpha;                // Blend op parameter for alpha
 uniform float _SrcBlendAlpha;               // Blend ops for alpha
 uniform float _DstBlendAlpha;               // Blend ops for alpha
+uniform float group_toggle_Parallax;
 
 // Reusable defines and functions
 
@@ -578,7 +579,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     fixed3 viewDir = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
     float2 parallaxUV = i.uv.xy;
     UNITY_BRANCH
-    if (_ParallaxMapActive) // only affects UV1 right now
+    if (group_toggle_Parallax) // only affects UV1 right now
     {
         fixed4 _ParallaxMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_ParallaxMap, _MainTex, TRANSFORM_TEX(i.uv, _ParallaxMap));
         _ParallaxMap_var.g -= 0.5f;
