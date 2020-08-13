@@ -304,7 +304,7 @@ namespace Kaj
 
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
-            return 0f;
+           return -2f; // Remove the extra drawer padding
         }
     }
 
@@ -350,7 +350,7 @@ namespace Kaj
 
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
-            return 0f;
+            return -2f; // Remove the extra drawer padding
         }
     }
 

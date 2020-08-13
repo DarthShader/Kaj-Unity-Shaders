@@ -39,11 +39,12 @@ Shader "Kaj/PBR"
         [RangeMin]_MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
         [WideEnum(Glossiness Map,0, Combined Map,1, Metallic Alpha,2, Specular Alpha,3, Albedo Alpha,4)]_GlossinessSource("Glossiness Source", Int) = 0
         [WideEnum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 0
-        _Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
-        _GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
+        [RangeMax]_Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
+        [RangeMin]_GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
         _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
-        _SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
-        _SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
+        _SpecColor("Specular Color", Color) = (1,1,1,1)
+        [RangeMax]_SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
+        [RangeMin]_SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
         [ToggleUI]_SpecularHighlights("Specular Highlights", Int) = 1
         [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
         _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
@@ -59,8 +60,6 @@ Shader "Kaj/PBR"
         [UnIndent]
         [TexToggleActive]_SpecularMap("Specular Map (RGB)", 2D) = "white" {}
         [HideInInspector]_SpecularMapActive ("", Int) = 0
-        [Indent]
-            _SpecColor("Specular Color", Color) = (1,1,1,1)
         [HideInInspector]end_StandardTextures("", Int) = 1
 
         [HideInInspector]group_CombinedMap("Combined Texture", Int) = 0
@@ -140,7 +139,7 @@ Shader "Kaj/PBR"
         [HideInInspector]group_Debug("Debug", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 8", Int) = 8
+        [KajLabel]_Version("Shader Version: 9", Int) = 9
     }
 
     CustomEditor "Kaj.ShaderEditor"    

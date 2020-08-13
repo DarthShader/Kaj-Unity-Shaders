@@ -13,112 +13,112 @@
 
 // SHADER PROPERTIES
 // Unity
-sampler2D _CameraDepthTexture;              // Camera depth texture
-sampler3D _DitherMaskLOD;                   // Built-in dither tex
+sampler2D _CameraDepthTexture;                          // Camera depth texture
+sampler3D _DitherMaskLOD;                               // Built-in dither tex
 // Standard
-uniform half4 _Color;                       // Standard shader color param, used by Enlighten during lightmapping too
-UNITY_DECLARE_TEX2D(_MainTex);              // Standard main texture
+uniform half4 _Color;                                   // Standard shader color param, used by Enlighten during lightmapping too
+UNITY_DECLARE_TEX2D(_MainTex);                          // Standard main texture
     uniform float4 _MainTex_ST;
     uniform float4 _MainTex_TexelSize;
-uniform half _Cutoff;                       // Standard cutoff
-uniform float _Glossiness;                  // Standard smoothness
-uniform float _GlossMapScale;               // Standard smoothness scale when using a texture
-uniform half _Metallic;                     // Standard metallic
-UNITY_DECLARE_TEX2D_NOSAMPLER(_MetallicGlossMap);     // Standard metallic map
+uniform half _Cutoff;                                   // Standard cutoff
+uniform float _Glossiness;                              // Standard smoothness
+uniform float _GlossMapScale;                           // Standard smoothness scale when using a texture
+uniform half _Metallic;                                 // Standard metallic
+UNITY_DECLARE_TEX2D_NOSAMPLER(_MetallicGlossMap);       // Standard metallic map
     uniform float4 _MetallicGlossMap_ST;
-uniform float _SpecularHighlights;          // Standard specular highlights toggle
-uniform float _GlossyReflections;           // Standard reflections toggle
-uniform half _BumpScale;                    // Standard normal map scale
-UNITY_DECLARE_TEX2D(_BumpMap);              // Standard normal map
+uniform float _SpecularHighlights;                      // Standard specular highlights toggle
+uniform float _GlossyReflections;                       // Standard reflections toggle
+uniform half _BumpScale;                                // Standard normal map scale
+UNITY_DECLARE_TEX2D(_BumpMap);                          // Standard normal map
     uniform float4 _BumpMap_ST;
-uniform half _Parallax;                     // Standard height map scale
-UNITY_DECLARE_TEX2D_NOSAMPLER(_ParallaxMap);          // Standard height map
+uniform half _Parallax;                                 // Standard height map scale
+UNITY_DECLARE_TEX2D_NOSAMPLER(_ParallaxMap);            // Standard height map
     uniform float4 _ParallaxMap_ST;
-uniform half _OcclusionStrength;            // Standard AO strength
-UNITY_DECLARE_TEX2D_NOSAMPLER(_OcclusionMap);         // Standard AO map
+uniform half _OcclusionStrength;                        // Standard AO strength
+UNITY_DECLARE_TEX2D_NOSAMPLER(_OcclusionMap);           // Standard AO map
     uniform float4 _OcclusionMap_ST;
-uniform float4 _EmissionColor;              // Standard emission color (HDR)
-UNITY_DECLARE_TEX2D_NOSAMPLER(_EmissionMap);          // Standard emission map
+uniform float4 _EmissionColor;                          // Standard emission color (HDR)
+UNITY_DECLARE_TEX2D_NOSAMPLER(_EmissionMap);            // Standard emission map
     uniform float4 _EmissionMap_ST;
-UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailMask);           // Standard detail mask
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailMask);             // Standard detail mask
     uniform float4 _DetailMask_ST;
-UNITY_DECLARE_TEX2D(_DetailAlbedoMap);      // Standard mid-gray detail map
+UNITY_DECLARE_TEX2D(_DetailAlbedoMap);                  // Standard mid-gray detail map
     uniform float4 _DetailAlbedoMap_ST;
-uniform half _DetailNormalMapScale;         // Standard detail normal map scale
-UNITY_DECLARE_TEX2D(_DetailNormalMap);      // Standard detail normal map
+uniform half _DetailNormalMapScale;                     // Standard detail normal map scale
+UNITY_DECLARE_TEX2D(_DetailNormalMap);                  // Standard detail normal map
     uniform float4 _DetailNormalMap_ST;
-uniform half _UVSec;                        // Standard UV selection for secondary textures
-uniform float _Mode;                        // Standard rendering mode (opaque, cutout, fade, transparent)
-uniform float _SrcBlend;                    // Standard blending source mode
-uniform float _DstBlend;                    // Standard blending destination mode
-uniform float _ZWrite;                      // Blending option
-// Standard Specular
-UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecGlossMap);         // Standard Specular specular map, also roughness map in Autodesk Interactive
+uniform half _UVSec;                                    // Standard UV selection for secondary textures
+uniform float _Mode;                                    // Standard rendering mode (opaque, cutout, fade, transparent)
+uniform float _SrcBlend;                                // Standard blending source mode
+uniform float _DstBlend;                                // Standard blending destination mode
+uniform float _ZWrite;                                  // Blending option
+// Standard Specular            
+UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecGlossMap);           // Standard Specular specular map, also roughness map in Autodesk Interactive
     uniform float4 _SpecGlossMap_ST;
 // Nature
-uniform float4 _WaveAndDistance;            // Terrain grass waving
-uniform float4 _WavingTint;                 // Terrain grass fade color
-uniform float _HueVariationKwToggle;        // SpeedTree color variation keyword toggle
-uniform float4 _HueVariationColor;          // SpeedTree color variation
-uniform float _NormalMapKwToggle;           // SpeedTree normal map keyword toggle
-UNITY_DECLARE_TEX2D(_ExtraTex);             // SpeedTree Smoothness (R), Metallic (G), AO (B)
-uniform float _SubsurfaceKwToggle;          // SpeedTree SSS keyword toggle
-UNITY_DECLARE_TEX2D(_SubsurfaceTex);        // SpeedTree SSS map
-uniform float4 _SubsurfaceColor;            // SpeedTree SSS color
-uniform float _SubsurfaceIndirect;          // SpeedTree SSS indirect multiplier
-uniform float _Shininess;                   // Terrain traditional specular power
-UNITY_DECLARE_TEX2D(_Control);              // Terrain control texture
-UNITY_DECLARE_TEX2D(_Splat0);               // Terrain textures
-UNITY_DECLARE_TEX2D(_Splat1);               // Terrain textures
-UNITY_DECLARE_TEX2D(_Splat2);               // Terrain textures
-UNITY_DECLARE_TEX2D(_Splat3);               // Terrain textures
-uniform float _Metallic0;                   // Terrain metallic scale
-uniform float _Metallic1;                   // Terrain metallic scale
-uniform float _Metallic2;                   // Terrain metallic scale
-uniform float _Metallic3;                   // Terrain metallic scale
-uniform float _Smoothness0;                 // Terrain specular scale
-uniform float _Smoothness1;                 // Terrain specular scale
-uniform float _Smoothness2;                 // Terrain specular scale
-uniform float _Smoothness3;                 // Terrain specular scale
+uniform float4 _WaveAndDistance;                        // Terrain grass waving
+uniform float4 _WavingTint;                             // Terrain grass fade color
+uniform float _HueVariationKwToggle;                    // SpeedTree color variation keyword toggle
+uniform float4 _HueVariationColor;                      // SpeedTree color variation
+uniform float _NormalMapKwToggle;                       // SpeedTree normal map keyword toggle
+UNITY_DECLARE_TEX2D(_ExtraTex);                         // SpeedTree Smoothness (R), Metallic (G), AO (B)
+uniform float _SubsurfaceKwToggle;                      // SpeedTree SSS keyword toggle
+UNITY_DECLARE_TEX2D(_SubsurfaceTex);                    // SpeedTree SSS map
+uniform float4 _SubsurfaceColor;                        // SpeedTree SSS color
+uniform float _SubsurfaceIndirect;                      // SpeedTree SSS indirect multiplier
+uniform float _Shininess;                               // Terrain traditional specular power
+UNITY_DECLARE_TEX2D(_Control);                          // Terrain control texture
+UNITY_DECLARE_TEX2D(_Splat0);                           // Terrain textures
+UNITY_DECLARE_TEX2D(_Splat1);                           // Terrain textures
+UNITY_DECLARE_TEX2D(_Splat2);                           // Terrain textures
+UNITY_DECLARE_TEX2D(_Splat3);                           // Terrain textures
+uniform float _Metallic0;                               // Terrain metallic scale
+uniform float _Metallic1;                               // Terrain metallic scale
+uniform float _Metallic2;                               // Terrain metallic scale
+uniform float _Metallic3;                               // Terrain metallic scale
+uniform float _Smoothness0;                             // Terrain specular scale
+uniform float _Smoothness1;                             // Terrain specular scale
+uniform float _Smoothness2;                             // Terrain specular scale
+uniform float _Smoothness3;                             // Terrain specular scale
 // UI
-uniform float _ColorMask;                   // Blending option
-uniform float _Stencil;                     // Stencil options
-uniform float _StencilWriteMask;            // Stencil options
-uniform float _StencilReadMask;             // Stencil options
-uniform float _StencilComp;                 // Stencil options
+uniform float _ColorMask;                               // Blending option
+uniform float _Stencil;                                 // Stencil options
+uniform float _StencilWriteMask;                        // Stencil options
+uniform float _StencilReadMask;                         // Stencil options
+uniform float _StencilComp;                             // Stencil options
 // Hidden/Internal-Colored
-uniform float _ZTest;                       // Blending option
+uniform float _ZTest;                                   // Blending option
 // Particles
-uniform float _Cull;                        // Standard surface culling option
-uniform float4 _TintColor;                  // Particle system specific color
-uniform float _InvFade;                     // Particle system soft particles factor
-uniform float _DistortionStrength;          // Standard Surface distortion strength
-uniform float _DistortionBlend;             // Standard Surface distortion blend
-uniform float _SoftParticlesNearFadeDistance;//Standard Surface soft particles near fade
-uniform float _SoftParticlesFarFadeDistance;// Standard Surface soft particles far fade
-uniform float _CameraNearFadeDistance;      // Standard Surface Camera near fade
-uniform float _CameraFarFadeDistance;       // Standard Surface Camera far fade
-uniform float _BlendOp;                     // Standard Surface blendop parameter
+uniform float _Cull;                                    // Standard surface culling option
+uniform float4 _TintColor;                              // Particle system specific color
+uniform float _InvFade;                                 // Particle system soft particles factor
+uniform float _DistortionStrength;                      // Standard Surface distortion strength
+uniform float _DistortionBlend;                         // Standard Surface distortion blend
+uniform float _SoftParticlesNearFadeDistance;           //Standard Surface soft particles near fade
+uniform float _SoftParticlesFarFadeDistance;            // Standard Surface soft particles far fade
+uniform float _CameraNearFadeDistance;                  // Standard Surface Camera near fade
+uniform float _CameraFarFadeDistance;                   // Standard Surface Camera far fade
+uniform float _BlendOp;                                 // Standard Surface blendop parameter
 // Skybox
-uniform float4 _Tint;                       // Cubemap color
-uniform float _Exposure;                    // Cubemap gamma exposure
-uniform float _Rotation;                    // Cubemap rotation
-UNITY_DECLARE_TEX3D(_Tex);                  // Cubemap main texture
-UNITY_DECLARE_TEX2D(_FrontTex);             // 6 Sided texture
-UNITY_DECLARE_TEX2D(_BackTex);              // 6 Sided texture
-UNITY_DECLARE_TEX2D(_LeftTex);              // 6 Sided texture
-UNITY_DECLARE_TEX2D(_RightTex);             // 6 Sided texture
-UNITY_DECLARE_TEX2D(_UpTex);                // 6 Sided texture
-UNITY_DECLARE_TEX2D(_DownTex);              // 6 Sided texture
-uniform float _SunDisk;                     // Procedural sun type
-uniform float _SunSize;                     // Procedural sun radius
-uniform float _SunSizeConvergence;          // Procedural sun size convergence
-uniform float _AtmosphereThickness;         // Procedural atmosphere thickness
-uniform float4 _SkyTint;                    // Procedural sky color
-uniform float4 _GroundColor;                // Procedural ground color
-uniform float _Mapping;                     // Panoramic skybox mode
-uniform float _ImageType;                   // Panoramic image type
-uniform float _Layout;                      // Panoramic skybox layout
+uniform float4 _Tint;                                   // Cubemap color
+uniform float _Exposure;                                // Cubemap gamma exposure
+uniform float _Rotation;                                // Cubemap rotation
+UNITY_DECLARE_TEX3D(_Tex);                              // Cubemap main texture
+UNITY_DECLARE_TEX2D(_FrontTex);                         // 6 Sided texture
+UNITY_DECLARE_TEX2D(_BackTex);                          // 6 Sided texture
+UNITY_DECLARE_TEX2D(_LeftTex);                          // 6 Sided texture
+UNITY_DECLARE_TEX2D(_RightTex);                         // 6 Sided texture
+UNITY_DECLARE_TEX2D(_UpTex);                            // 6 Sided texture
+UNITY_DECLARE_TEX2D(_DownTex);                          // 6 Sided texture
+uniform float _SunDisk;                                 // Procedural sun type
+uniform float _SunSize;                                 // Procedural sun radius
+uniform float _SunSizeConvergence;                      // Procedural sun size convergence
+uniform float _AtmosphereThickness;                     // Procedural atmosphere thickness
+uniform float4 _SkyTint;                                // Procedural sky color
+uniform float4 _GroundColor;                            // Procedural ground color
+uniform float _Mapping;                                 // Panoramic skybox mode
+uniform float _ImageType;                               // Panoramic image type
+uniform float _Layout;                                  // Panoramic skybox layout
 // UCTS
 
 // Cubed
@@ -128,8 +128,8 @@ uniform float _Layout;                      // Panoramic skybox layout
 // Xiexe
 
 // Poiyomi
-uniform float _ParallaxBias;
-uniform float _ForceOpaque;
+uniform float _ParallaxBias;                            // Catlike coding bias
+uniform float _ForceOpaque;                             // In case albedo alpha isn't transparency
 
 // Rero
 
@@ -138,98 +138,99 @@ uniform float _ForceOpaque;
 // Arktoon
 
 // VRChat
-UNITY_DECLARE_TEX2D(_ReflectionTex0);       // Mirror shader textures
-UNITY_DECLARE_TEX2D(_ReflectionTex1);       // Mirror shader textures
+UNITY_DECLARE_TEX2D(_ReflectionTex0);                   // Mirror shader textures
+UNITY_DECLARE_TEX2D(_ReflectionTex1);                   // Mirror shader textures
 // Kaj
-UNITY_DECLARE_TEX2D(_BampMap);              // 4-channel bumpmap not DXTn compressed because alpha channel is used
-UNITY_DECLARE_TEX2D(_ArcSSS);               // Arc System Works SSS texture
-UNITY_DECLARE_TEX2D(_ArcILM);               // Arc System Works ILM texture
-UNITY_DECLARE_TEX2D(_SoulCaliburColorMask); // SC6 RGB color mask
-uniform float4 _SoulCaliburTintR;           // SC6 tinting
-uniform float4 _SoulCaliburTintG;           // SC6 tinting
-uniform float4 _SoulCaliburTintB;           // SC6 tinting
-UNITY_DECLARE_TEX2D(_WarframeTintMask);     // Warframe 3-channel tint mask
-uniform float4 _WarframeTintR;              // Warframe tinting
-uniform float4 _WarframeTintG;              // Warframe tinting
-uniform float4 _WarframeTintB;              // Warframe tinting
-uniform float _SpecularMax;                 // PBR Scaling utilities
-uniform float _SpecularMin;                 // PBR Scaling utilities
-uniform float _GlossinessMin;               // PBR Scaling utilities
-uniform float _MetallicMin;                 // PBR Scaling utilities
-uniform float _OcclusionMin;                // PBR Scaling utilities
-uniform float _BumpBias;                    // SSS normal map LOD sample bias
-uniform float _BlurStrength;                // SSS blur strength
-uniform float _CurvatureScale;              // SSS coverage scalar
-uniform fixed _CurvatureInfluence;          // SSS coverage 
-uniform half _Bias;                         // SSS ??
-UNITY_DECLARE_TEX2D(_PreIntSkinTex);        // SSS Pre-integrated skin texture for diffuse wrapping
+UNITY_DECLARE_TEX2D(_BampMap);                          // 4-channel bumpmap not DXTn compressed because alpha channel is used
+UNITY_DECLARE_TEX2D(_ArcSSS);                           // Arc System Works SSS texture
+UNITY_DECLARE_TEX2D(_ArcILM);                           // Arc System Works ILM texture
+UNITY_DECLARE_TEX2D(_SoulCaliburColorMask);             // SC6 RGB color mask
+uniform float4 _SoulCaliburTintR;                       // SC6 tinting
+uniform float4 _SoulCaliburTintG;                       // SC6 tinting
+uniform float4 _SoulCaliburTintB;                       // SC6 tinting
+UNITY_DECLARE_TEX2D(_WarframeTintMask);                 // Warframe 3-channel tint mask
+uniform float4 _WarframeTintR;                          // Warframe tinting
+uniform float4 _WarframeTintG;                          // Warframe tinting
+uniform float4 _WarframeTintB;                          // Warframe tinting
+uniform float _SpecularMax;                             // PBR Scaling utilities
+uniform float _SpecularMin;                             // PBR Scaling utilities
+uniform float _GlossinessMin;                           // PBR Scaling utilities
+uniform float _MetallicMin;                             // PBR Scaling utilities
+uniform float _OcclusionMin;                            // PBR Scaling utilities
+uniform float _BumpBias;                                // SSS normal map LOD sample bias
+uniform float _BlurStrength;                            // SSS blur strength
+uniform float _CurvatureScale;                          // SSS coverage scalar
+uniform fixed _CurvatureInfluence;                      // SSS coverage 
+uniform half _Bias;                                     // SSS ??
+UNITY_DECLARE_TEX2D(_PreIntSkinTex);                    // SSS Pre-integrated skin texture for diffuse wrapping
     float4 _PreIntSkinTex_ST;
-uniform float _PhongSpecularEnabled;        // Custom phong toggle
-uniform float _PhongSpecularPower;          // Custom phong power
-uniform float4 _PhongSpecularColor;         // Custom phong color
-uniform float _PhongSpecularIntensity;      // Custom phong specular range
-uniform float _AlphaToCoverage;             // A2C toggle
-uniform float _TestRange;                   // Dedicated 0-1 value for testing purposes
-uniform float _StandardFresnelIntensity;    // Standard BRDF fresnel control
-UNITY_DECLARE_TEX2D(_SkyrimSkinTex);        // Skyrim SSS map
-uniform float _SkyrimLightingEffectOne;     // Skyrim generic shader property - varies with shaders
-uniform float _SkyrimLightingEffectTwo;     // Skyrim generic shader property - varies with shaders
-UNITY_DECLARE_TEX2D_NOSAMPLER(_CombinedMap);          // Reusable mask texture for roughness, AO, blah blah blah
+uniform float _PhongSpecularEnabled;                    // Custom phong toggle
+uniform float _PhongSpecularPower;                      // Custom phong power
+uniform float4 _PhongSpecularColor;                     // Custom phong color
+uniform float _PhongSpecularIntensity;                  // Custom phong specular range
+uniform float _AlphaToCoverage;                         // A2C toggle
+uniform float _TestRange;                               // Dedicated 0-1 value for testing purposes
+uniform float _StandardFresnelIntensity;                // Standard BRDF fresnel control
+UNITY_DECLARE_TEX2D(_SkyrimSkinTex);                    // Skyrim SSS map
+uniform float _SkyrimLightingEffectOne;                 // Skyrim generic shader property - varies with shaders
+uniform float _SkyrimLightingEffectTwo;                 // Skyrim generic shader property - varies with shaders
+UNITY_DECLARE_TEX2D_NOSAMPLER(_CombinedMap);            // Reusable mask texture for roughness, AO, blah blah blah
     uniform float4 _CombinedMap_ST;
-uniform float _MetallicGlossMapCombinedMapChannel;     // _CombinedMap RGBA selection for Metallic
-uniform float _SpecGlossMapCombinedMapChannel;         // _CombinedMap RGBA selection for Roughness/Smoothness
-uniform float _OcclusionMapCombinedMapChannel;         // _CombinedMap RGBA selection for Occlusion
-uniform float _SpecularMapCombinedMapChannel;          // _CombinedMap RGBA selection for Specular scale
-uniform float _GlossinessMode;              // Roughness/Smoothness toggle
-uniform float _CombinedMapActive;           // Texture active var
-uniform float _MetallicGlossMapActive;      // Texture active var
-uniform float _SpecGlossMapActive;          // Texture active var
-uniform float _OcclusionMapActive;          // Texture active var
-uniform float _ParallaxMapActive;           // Texture active var
-uniform float _DetailMaskActive;            // Active var
-uniform float _DetailAlbedoMapActive;       // Active var
-uniform float _DetailNormalMapActive;       // Active var
-UNITY_DECLARE_TEX2D_NOSAMPLER(_CoverageMap);          // Dedicated alpha channel texture
+    uniform float _CombinedMapActive;
+uniform float _MetallicGlossMapCombinedMapChannel;      // _CombinedMap RGBA selection for Metallic
+uniform float _SpecGlossMapCombinedMapChannel;          // _CombinedMap RGBA selection for Roughness/Smoothness
+uniform float _OcclusionMapCombinedMapChannel;          // _CombinedMap RGBA selection for Occlusion
+uniform float _SpecularMapCombinedMapChannel;           // _CombinedMap RGBA selection for Specular scale
+uniform float _GlossinessMode;                          // Roughnes s/Smoothness toggle
+uniform float _MetallicGlossMapActive;                  // Texture active var
+uniform float _SpecGlossMapActive;                      // Texture active var
+uniform float _OcclusionMapActive;                      // Texture active var
+uniform float _ParallaxMapActive;                       // Texture active var
+uniform float _DetailMaskActive;                        // Active var
+uniform float _DetailAlbedoMapActive;                   // Active var
+uniform float _DetailNormalMapActive;                   // Active var
+UNITY_DECLARE_TEX2D_NOSAMPLER(_CoverageMap);            // Dedicated alpha channel texture
     uniform float4 _CoverageMap_ST;
-uniform float _CoverageMapActive;           // Texture active var
-uniform float _OcclusionMapUV;              // UV channel selector for occlusion map
-uniform float _StencilPass;                 // Stencil options
-uniform float _StencilFail;                 // Stencil options
-uniform float _StencilZFail;                // Stencil options
-uniform float _DisableBatching;             // Toggle for material subshader tag
-uniform float _IgnoreProjector;             // Toggle for material subshader tag
-uniform float _ForceNoShadowCasting;        // Toggle for material subshader tag
-uniform float _CanUseSpriteAtlas;           // Toggle for material subshader tag
-uniform float _PreviewType;                 // Toggle for material subshader tag
-uniform float _DitheredShadows;             // Dithered shadows in shadowcaster toggle
-uniform float _DetailAlbedoCombineMode;     // Detail albedo combine mode
-UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecularMap);          // Dedicated RGB(A) map for old specular workflow + metallic workflow tint
+    uniform float _CoverageMapActive;
+uniform float _OcclusionMapUV;                          // UV channel selector for occlusion map
+uniform float _StencilPass;                             // Stencil options
+uniform float _StencilFail;                             // Stencil options
+uniform float _StencilZFail;                            // Stencil options
+uniform float _DisableBatching;                         // Toggle for material subshader tag
+uniform float _IgnoreProjector;                         // Toggle for material subshader tag
+uniform float _ForceNoShadowCasting;                    // Toggle for material subshader tag
+uniform float _CanUseSpriteAtlas;                       // Toggle for material subshader tag
+uniform float _PreviewType;                             // Toggle for material subshader tag
+uniform float _DitheredShadows;                         // Dithered shadows in shadowcaster toggle
+uniform float _DetailAlbedoCombineMode;                 // Detail albedo combine mode
+UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecularMap);            // Dedicated RGB(A) map for old specular workflow + metallic workflow tint
     uniform float4 _SpecularMap_ST;
-uniform float _SpecularMapActive;           // Active var
-uniform float _WorkflowMode;                // Metallic or Specular Toggle
-uniform float4 _DetailColorR;                // Detail mask coloring
-uniform float4 _DetailColorG;                // Detail mask coloring
-uniform float4 _DetailColorB;                // Detail mask coloring
-UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailAlbedoMapBlue);
-    uniform float4 _DetailAlbedoMapBlue_ST;
-uniform float _DetailAlbedoMapBlueActive;
-UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailAlbedoMapGreen);
+    uniform float _SpecularMapActive;
+uniform float _WorkflowMode;                            // Metallic or Specular Toggle
+uniform float4 _DetailColorR;                           // Detail mask coloring
+uniform float4 _DetailColorG;                           // Detail mask coloring
+uniform float4 _DetailColorB;                           // Detail mask coloring
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailAlbedoMapGreen);   // 2nd detail map
     uniform float4 _DetailAlbedoMapGreen_ST;
-uniform float _DetailAlbedoMapGreenActive;
-UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMapBlue);
-    uniform float4 _DetailNormalMapBlue_ST;
-uniform float _DetailNormalMapBlueActive;
-uniform float _DetailNormalMapScaleBlue;
-UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMapGreen);
+    uniform float _DetailAlbedoMapGreenActive;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailAlbedoMapBlue);    // 3rd detail map
+    uniform float4 _DetailAlbedoMapBlue_ST;
+    uniform float _DetailAlbedoMapBlueActive;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMapGreen);   // 2nd detail normal map
     uniform float4 _DetailNormalMapGreen_ST;
-uniform float _DetailNormalMapGreenActive;
-uniform float _DetailNormalMapScaleGreen;
+    uniform float _DetailNormalMapGreenActive;
+    uniform float _DetailNormalMapScaleGreen;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMapBlue);    // 3rd detail normal map
+    uniform float4 _DetailNormalMapBlue_ST;
+    uniform float _DetailNormalMapBlueActive;
+    uniform float _DetailNormalMapScaleBlue;
 uniform float _MainTexUV;                   // Main texture UV selector
 uniform float _Version;                     // Kaj Shader version
 uniform float _BlendOpAlpha;                // Blend op parameter for alpha
 uniform float _SrcBlendAlpha;               // Blend ops for alpha
 uniform float _DstBlendAlpha;               // Blend ops for alpha
-uniform float group_toggle_Parallax;
+uniform float group_toggle_Parallax;        // new Parallax toggle
+uniform float _GlossinessSource;            // PBR shader specific glossiness source toggle
 
 // Reusable defines and functions
 
@@ -312,7 +313,7 @@ half3 Unity_GlossyEnvironmentModular (UNITY_ARGS_TEXCUBE(tex), half4 hdr, half p
 }
 
 // Unity GI function that actually uses Unity's speccubes instead of roundabout struct data packing
-half3 UnityGI_IndirectSpecularModular(half3 viewReflectDir, float3 posWorld, half perceptualRoughness, half occlusion, bool glossyReflections)
+half3 UnityGI_IndirectSpecularModular(half3 viewReflectDir, float3 posWorld, half perceptualRoughness, half3 occlusion, bool glossyReflections)
 {
     half3 indirect_specular = 0;
 
@@ -373,7 +374,7 @@ half3 VertexLightsDiffuse(half3 normalDir, float3 posWorld)
 
 // Unity GI for ambient light and lightmaps converted to not use roundabout structs
 // Would be nice if direct light atten wasn't applied here, will change later
-half3 UnityGI_BaseModular(half attenuation, half occlusion, float2 lightmapUV, float2 dynamicLightmapUV, float3 posWorld, half3 normalDir, out float3 lightColor)
+half3 UnityGI_BaseModular(half attenuation, half3 occlusion, float2 lightmapUV, float2 dynamicLightmapUV, float3 posWorld, half3 normalDir, out float3 lightColor)
 {
     float3 indirect_diffuse = 0;
     lightColor = _LightColor0.rgb;
@@ -607,37 +608,63 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         else clip(opacity - _Cutoff);
     #endif
 
-    // PBR texture samples
-    fixed4 _CombinedMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_CombinedMap, _MainTex, TRANSFORM_TEX(parallaxUV, _CombinedMap));
-    fixed metallic = _MetallicMin + switchChannel(_MetallicGlossMapCombinedMapChannel, _CombinedMap_var) * (_Metallic - _MetallicMin);
+    // PBR texture samples (if textures are active - is this more efficient?)
+    fixed4 _CombinedMap_var = 1;
+    if (_CombinedMapActive)
+        _CombinedMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_CombinedMap, _MainTex, TRANSFORM_TEX(parallaxUV, _CombinedMap));
+    fixed4 _MetallicGlossMap_var = 1;
     UNITY_BRANCH
     if (_MetallicGlossMapActive)
-        metallic = _MetallicMin + UNITY_SAMPLE_TEX2D_SAMPLER(_MetallicGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _MetallicGlossMap)).r * (_Metallic - _MetallicMin);
-    fixed perceptualRoughness;
-    // Refactor to not do so many madds, separate texture sampling section with conditional branches
-    UNITY_BRANCH
-    if (_SpecGlossMapCombinedMapChannel < 4) // combined map channel
-        perceptualRoughness = _GlossinessMin + switchChannel(_SpecGlossMapCombinedMapChannel, _CombinedMap_var) * (_Glossiness - _GlossinessMin);
-    else if (_SpecGlossMapCombinedMapChannel == 4) // albedo alpha
-        perceptualRoughness = _GlossinessMin + _MainTex_var.a * (_Glossiness - _GlossinessMin);
-    else if (_SpecGlossMapCombinedMapChannel == 5) // metallic alpha
-        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D_SAMPLER(_MetallicGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _MetallicGlossMap)).a * (_Glossiness - _GlossinessMin);
-    else // specular map alpha
-        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D_SAMPLER(_SpecularMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecularMap)).a * (_Glossiness - _GlossinessMin);
+        _MetallicGlossMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_MetallicGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _MetallicGlossMap));
+    fixed4 _SpecGlossMap_var = 1;
     UNITY_BRANCH
     if (_SpecGlossMapActive)
-        perceptualRoughness = _GlossinessMin + UNITY_SAMPLE_TEX2D_SAMPLER(_SpecGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecGlossMap)).r * (_Glossiness - _GlossinessMin);
-    if (_GlossinessMode == 1)
-        perceptualRoughness = 1.0 - perceptualRoughness;
-    fixed occlusion = lerp(1, switchChannel(_OcclusionMapCombinedMapChannel, _CombinedMap_var), _OcclusionStrength);
+        _SpecGlossMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_SpecGlossMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecGlossMap));
+    fixed4 _OcclusionMap_var = 1;
     UNITY_BRANCH
     if (_OcclusionMapActive)
-        occlusion = lerp(1, UNITY_SAMPLE_TEX2D_SAMPLER(_OcclusionMap, _MainTex, TRANSFORM_TEX(switchUV(_OcclusionMapUV, parallaxUV, i.uv1, i.uv2, i.uv3), _OcclusionMap)).g, _OcclusionStrength); // g channel
-    fixed3 specularScale = _SpecularMin + switchChannel(_SpecularMapCombinedMapChannel, _CombinedMap_var).rrr * (_SpecularMax - _SpecularMin);
+        _OcclusionMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_OcclusionMap, _MainTex, TRANSFORM_TEX(switchUV(_OcclusionMapUV, parallaxUV, i.uv1, i.uv2, i.uv3), _OcclusionMap));
+    fixed4 _SpecularMap_var = 1;
     UNITY_BRANCH
     if (_SpecularMapActive)
-        specularScale = _SpecularMin + UNITY_SAMPLE_TEX2D_SAMPLER(_SpecularMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecularMap)).rgb * (_SpecularMax - _SpecularMin);
+        _SpecularMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_SpecularMap, _MainTex, TRANSFORM_TEX(parallaxUV, _SpecularMap));
+    
+    // Map textures to PBR variables
+    fixed metallic = 0;
+    if (_MetallicGlossMapActive)
+        metallic = _MetallicGlossMap_var.r;
+    else metallic = switchChannel(_MetallicGlossMapCombinedMapChannel, _CombinedMap_var);
+
+    fixed3 occlusion = 0;
+    if (_OcclusionMapActive)
+        occlusion = _OcclusionMap_var.rgb;
+    else occlusion = switchChannel(_OcclusionMapCombinedMapChannel, _CombinedMap_var).rrr;
+
+    fixed perceptualRoughness = 0;
+    if (_GlossinessSource == 0)
+        perceptualRoughness = _SpecGlossMap_var.r;
+    else if (_GlossinessSource == 1)
+        perceptualRoughness = switchChannel(_SpecGlossMapCombinedMapChannel, _CombinedMap_var);
+    else if (_GlossinessSource == 2)
+        perceptualRoughness = _MetallicGlossMap_var.a;
+    else if (_GlossinessSource == 3)
+        perceptualRoughness = _SpecularMap_var.a;
+    else perceptualRoughness = _MainTex_var.a;
+
+    fixed3 specularScale;
+    if (_SpecularMapActive)
+        specularScale = _SpecularMap_var.rgb;
+    else specularScale = switchChannel(_SpecularMapCombinedMapChannel, _CombinedMap_var).rrr;
+
+    // Filter PBR variables
+    metallic = _MetallicMin + metallic * (_Metallic - _MetallicMin);
+    if (_GlossinessMode == 1)
+        perceptualRoughness = 1.0 - perceptualRoughness;
+    perceptualRoughness = _GlossinessMin + perceptualRoughness * (_Glossiness - _GlossinessMin);
+    occlusion = lerp(1, occlusion, _OcclusionStrength);
+    specularScale = _SpecularMin + specularScale * (_SpecularMax - _SpecularMin);
     specularScale *= _SpecColor;
+
 
     // Details
     half3 _DetailMask_var = 1;
