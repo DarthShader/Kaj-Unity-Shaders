@@ -15,6 +15,7 @@
 // Unity
 sampler2D _CameraDepthTexture;                          // Camera depth texture
 sampler3D _DitherMaskLOD;                               // Built-in dither tex
+//sampler2D _DitherMaskLOD2D;                           // Built-in dither tex, defined in UNITY_APPLY_DITHER_CROSSFADE
 // Standard
 uniform half4 _Color;                                   // Standard shader color param, used by Enlighten during lightmapping too
 UNITY_DECLARE_TEX2D(_MainTex);                          // Standard main texture
@@ -130,6 +131,7 @@ uniform float _Layout;                                  // Panoramic skybox layo
 // Poiyomi
 uniform float _ParallaxBias;                            // Catlike coding bias
 uniform float _ForceOpaque;                             // In case albedo alpha isn't transparency
+uniform float _DitheringEnabled;                        // Dithered transparency toggle
 
 // Rero
 
@@ -224,13 +226,15 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_DetailNormalMapBlue);    // 3rd detail normal map
     uniform float4 _DetailNormalMapBlue_ST;
     uniform float _DetailNormalMapBlueActive;
     uniform float _DetailNormalMapScaleBlue;
-uniform float _MainTexUV;                   // Main texture UV selector
-uniform float _Version;                     // Kaj Shader version
-uniform float _BlendOpAlpha;                // Blend op parameter for alpha
-uniform float _SrcBlendAlpha;               // Blend ops for alpha
-uniform float _DstBlendAlpha;               // Blend ops for alpha
-uniform float group_toggle_Parallax;        // new Parallax toggle
-uniform float _GlossinessSource;            // PBR shader specific glossiness source toggle
+uniform float _MainTexUV;                               // Main texture UV selector
+uniform float _Version;                                 // Kaj Shader version
+uniform float _BlendOpAlpha;                            // Blend op parameter for alpha
+uniform float _SrcBlendAlpha;                           // Blend ops for alpha
+uniform float _DstBlendAlpha;                           // Blend ops for alpha
+uniform float group_toggle_Parallax;                    // new Parallax toggle
+uniform float _GlossinessSource;                        // PBR shader specific glossiness source toggle
+uniform float _LightingDebugMode;
+uniform float _AlphaToMask;                             // Dedicated paramater toggle
 
 // Reusable defines and functions
 
@@ -496,6 +500,52 @@ half3 switchDetailAlbedo(fixed4 tex, half3 albedo, float combineMode, fixed mask
     else return lerp(albedo, tex.rgb, mask);
 }
 
+// Light intensity(?) function from poiyomi
+half3 GetSHLength()
+{
+    half3 x, x1;
+    x.r = length(unity_SHAr);
+    x.g = length(unity_SHAg);
+    x.b = length(unity_SHAb);
+    x1.r = length(unity_SHBr);
+    x1.g = length(unity_SHBg);
+    x1.b = length(unity_SHBb);
+    return x + x1;
+}
+
+// https://en.wikipedia.org/wiki/Ordered_dithering
+// Shifted up by 1 each to make sure clipping works
+inline half Dither8x8Bayer( int x, int y )
+{
+    const half dither[ 64 ] = {
+    1, 49, 13, 61,  4, 52, 16, 64,
+    33, 17, 45, 29, 36, 20, 48, 32,
+    9, 57,  5, 53, 12, 60,  8, 56,
+    41, 25, 37, 21, 44, 28, 40, 24,
+    3, 51, 15, 63,  2, 50, 14, 62,
+    35, 19, 47, 31, 34, 18, 46, 30,
+    11, 59,  7, 55, 10, 58,  6, 54,
+    43, 27, 39, 23, 42, 26, 38, 22};
+    int r = y * 8 + x;
+    return dither[r] / 64;
+}
+half ditherBayer(half2 position)
+{
+    return Dither8x8Bayer(fmod(position.x, 8), fmod(position.y, 8));
+}
+
+half2 stereoCorrectScreenUV(half4 screenPos)
+{
+    half2 uv = screenPos / (screenPos.w + 0.0000000001); //0.0x1 Stops division by 0 warning in console.
+    #if UNITY_SINGLE_PASS_STEREO
+        uv.xy *= half2(_ScreenParams.x * 2, _ScreenParams.y);	
+    #else
+        uv.xy *= _ScreenParams.xy;
+    #endif
+    
+    return uv;
+}
+
 // Reusable vert/frag/geoms
 
 UNITY_INSTANCING_BUFFER_START(Props)
@@ -510,12 +560,12 @@ struct v2f_full
     float4 uv1 : TEXCOORD1;
     float2 uv2 : TEXCOORD2;
     float2 uv3 : TEXCOORD3;
-    float4 posWorld : TEXCOORD4;
-    float4 posObject : TEXCOORD5;
-	float3 normalWorld : TEXCOORD6;
-	float3 tangentWorld : TEXCOORD7;
-	float3 bitangentWorld : TEXCOORD8;
-	float4 color : TEXCOORD9;
+	float4 color : TEXCOORD4;
+    float4 posWorld : TEXCOORD5;
+    float4 posObject : TEXCOORD6;
+	float3 normalWorld : TEXCOORD7;
+	float3 tangentWorld : TEXCOORD8;
+	float3 bitangentWorld : TEXCOORD9;
     float4 grabPos: TEXCOORD10;
     float4 screenPos: TEXCOORD11;
     float3 tangentViewDir : TEXCOORD12;
@@ -574,7 +624,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(i);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    //UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy)
+    UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy) // idk if this vpos is stereo correct
 
     // Parallax
     fixed3 viewDir = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
@@ -589,23 +639,49 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 		parallaxUV = i.uv.xy + i.tangentViewDir.xy * _Parallax * _ParallaxMap_var.g;
     }
 
-    // Cutout and A2C
+    // Base opacity
     fixed4 _MainTex_var = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(switchUV(_MainTexUV, parallaxUV, i.uv1, i.uv2, i.uv3), _MainTex));
     half3 albedo = _MainTex_var.rgb * _Color.rgb * i.color.rgb;
-    fixed opacity = _MainTex_var.a; // detail abledo doesn't affect transparency
+    float opacity = _MainTex_var.a; // detail abledo doesn't affect transparency
     UNITY_BRANCH
     if (_CoverageMapActive)
         opacity = UNITY_SAMPLE_TEX2D_SAMPLER(_CoverageMap, _MainTex, TRANSFORM_TEX(parallaxUV, _CoverageMap)).r;
     opacity *= _Color.a * i.color.a;
-    if (_ForceOpaque) opacity = 1;
+
+    // A2C
     #ifdef _ALPHATEST_ON
         UNITY_BRANCH
-        if (_AlphaToCoverage)
+        if (_AlphaToCoverage && _AlphaToMask)
         {
-            opacity *= 1 + max(0, CalcMipLevel(i.uv * _MainTex_TexelSize.zw)) * 0.25;
+            opacity *= 1 + max(0, CalcMipLevel(i.uv.xy * _MainTex_TexelSize.zw)) * 0.25;
             opacity = (opacity - _Cutoff) / max(fwidth(opacity), 0.0001) + 0.5;
         }
-        else clip(opacity - _Cutoff);
+    #endif
+
+    // Dithering
+    #if defined(_ALPHATEST_ON) || defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
+        UNITY_BRANCH
+        if (_DitheringEnabled)
+        {
+            half dither = ditherBayer(stereoCorrectScreenUV(i.grabPos));
+            dither -= 0.01; // hack because opacity with vertex color imprecision makes dithering visible at full white
+            UNITY_BRANCH
+            if (_AlphaToMask)
+                opacity = opacity - (dither * (1 - opacity) * 0.15);
+            else 
+            {
+                if (_ForceOpaque) opacity = 1;
+                clip(opacity - dither);
+            }
+        }
+    #endif
+
+    // Cutoff clipping
+    #if defined(_ALPHATEST_ON) || defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
+        if (_ForceOpaque) opacity = 1;
+        UNITY_BRANCH
+        if (!_AlphaToCoverage)
+            clip(opacity - _Cutoff);
     #endif
 
     // PBR texture samples (if textures are active - is this more efficient?)
@@ -664,7 +740,6 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     occlusion = lerp(1, occlusion, _OcclusionStrength);
     specularScale = _SpecularMin + specularScale * (_SpecularMax - _SpecularMin);
     specularScale *= _SpecColor;
-
 
     // Details
     half3 _DetailMask_var = 1;
@@ -753,6 +828,19 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     half3 indirect_diffuse = UnityGI_BaseModular(attenuation, occlusion, lightmapUV, dynamicLightmapUV, i.posWorld.xyz, normalDir, lightColor);
     half3 indirect_specular = UnityGI_IndirectSpecularModular(viewReflectDir, i.posWorld.xyz, perceptualRoughness, occlusion, _GlossyReflections);
 
+    // Arktoon style normalized indirect light, Poiyomi implementation
+    float3 grayscale_vector = float3(.33333, .33333, .33333);
+    float3 ShadeSH9Plus = GetSHLength();
+    float3 ShadeSH9Minus = ShadeSH9(float4(0, 0, 0, 1));
+    float bw_lightColor = dot(lightColor, grayscale_vector);
+    //float bw_directLighting = (((poiLight.nDotL * 0.5 + 0.5) * bw_lightColor * 
+    //                            lerp(1, poiLight.attenuation, _AttenuationMultiplier)) + 
+    //                            dot(ShadeSH9Normal(poiMesh.normals[1]), grayscale_vector));
+    //float bw_bottomIndirectLighting = dot(ShadeSH9Minus, grayscale_vector);
+    //float bw_topIndirectLighting = dot(ShadeSH9Plus, grayscale_vector);
+    //float lightDifference = ((bw_topIndirectLighting + bw_lightColor) - bw_bottomIndirectLighting);
+    //poiLight.lightMap = smoothstep(0, lightDifference, bw_directLighting - bw_bottomIndirectLighting) * lerp(1, AOMap, _AOStrength);
+
     //BRDF adapted from Unity Standard BRDF1
     // Diffuse
     half diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
@@ -781,6 +869,13 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 
     fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_EmissionMap, _MainTex, TRANSFORM_TEX(parallaxUV, _EmissionMap));
     color += _EmissionColor.rgb * _EmissionMap_var.rgb;
+
+    // Debug
+    if (_LightingDebugMode == 1)
+        color = indirect_diffuse;
+    else if (_LightingDebugMode == 2)
+        color = indirect_specular;
+
 	return fixed4(color, opacity);
 }
 
@@ -816,6 +911,7 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
     if (_ForceNoShadowCasting) discard; // This subshader tag toggle doesn't work, so hard coding it here
 
     #if defined(_ALPHATEST_ON) || defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
+        // Base Opacity
         fixed opacity = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv, _MainTex)).a;
         UNITY_BRANCH
         if (_CoverageMapActive)
@@ -823,11 +919,12 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         opacity *= _Color.a * i.color.a;
         if (_ForceOpaque) opacity = 1;
 
-        #if defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
-            UNITY_BRANCH
-            if (_DitheredShadows)
-                clip(tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, opacity * 0.9375)).a - 0.01);
-        #endif 
+        // Dithered shadows
+        UNITY_BRANCH
+        if (_DitheredShadows)
+            clip(tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, opacity * 0.9375)).a - 0.01);
+
+        // Cutoff clipping
         clip(opacity - _Cutoff);
     #endif
     SHADOW_CASTER_FRAGMENT(i)

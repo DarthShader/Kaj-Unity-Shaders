@@ -23,6 +23,7 @@ Shader "Kaj/PBR"
             _Cutoff("Cutoff", Range(0,1)) = 0.5
             [ToggleUI]_ForceOpaque("Force Opaque", Int) = 0
             [ToggleUI]_AlphaToCoverage("Alpha to Coverage", Int) = 0
+            [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
         [UnIndent]
         [Normal]_BumpMap("Normal Map", 2D) = "bump" {}
@@ -113,6 +114,7 @@ Shader "Kaj/PBR"
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
         [WideEnum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
+        [WideEnum(Off,0,On,1)] _AlphaToMask ("Alpha to Mask", Int) = 0
         [WideEnum(Off,0,On,1)] _ZWrite ("ZWrite", Int) = 1
         [WideEnum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
         _OffsetFactor("Offset Factor", Float) = 0
@@ -137,9 +139,10 @@ Shader "Kaj/PBR"
         [HideInInspector]end_Stencil("", Int) = 0
 
         [HideInInspector]group_Debug("Debug", Int) = 0
+        [WideEnum(None,0, Indirect Diffuse,1, Indirect Specular,2)]_LightingDebugMode("Lighting Mode", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 9", Int) = 9
+        [KajLabel]_Version("Shader Version: 10", Int) = 10
     }
 
     CustomEditor "Kaj.ShaderEditor"    
@@ -155,7 +158,7 @@ Shader "Kaj/PBR"
         ZTest [_ZTest]
         ColorMask [_ColorMask]
         Offset [_OffsetFactor], [_OffsetUnits]
-        AlphaToMask [_AlphaToCoverage]
+        AlphaToMask [_AlphaToMask]
 
         Stencil
         {

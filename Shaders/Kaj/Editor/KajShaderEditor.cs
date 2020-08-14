@@ -713,6 +713,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 1);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
@@ -729,6 +730,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
+                        material.SetInt("_AlphaToMask", 1);
                         material.SetInt("_ZWrite", 1);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.EnableKeyword("_ALPHATEST_ON");
@@ -745,6 +747,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
@@ -761,6 +764,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
@@ -777,6 +781,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
@@ -787,6 +792,7 @@ namespace Kaj
                         break;
                     case BlendMode.Overlay:
                         material.SetOverrideTag("RenderType", "Overlay");
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
                         material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay;
@@ -799,6 +805,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
@@ -815,6 +822,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
@@ -831,6 +839,7 @@ namespace Kaj
                         material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                         material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.DstColor);
                         material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                        material.SetInt("_AlphaToMask", 0);
                         material.SetInt("_ZWrite", 0);
                         material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
                         material.DisableKeyword("_ALPHATEST_ON");
