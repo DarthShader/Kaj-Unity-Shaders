@@ -106,11 +106,34 @@ Shader "Kaj/PBR"
         [HideInInspector]end_Details("", Int) = 0
 
         [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax", Int) = 0
-        [TexToggleActive]_ParallaxMap ("Parallax Map", 2D) = "black" {}
+        [TexToggleActive]_ParallaxMap ("Parallax Map", 2D) = "white" {}
         [HideInInspector]_ParallaxMapActive ("", Int) = 0
         _Parallax ("Parallax Scale", Range (0, 0.08)) = 0.02
         _ParallaxBias ("Parallax Bias", Float) = 0.42
         [HideInInspector]end_Parallax("", Int) = 0
+
+        [HideInInspector]group_SubsurfaceScattering("Subsurface Scattering", Int) = 0
+        _DiffuseWrap("Diffuse Wrap", Range(0,1)) = 0.5
+        [HideInInspector][ToggleUI]group_toggle_PreIntegratedSkin("Pre-Integrated Skin", Int) = 0
+        [ToggleUI]_PreIntSkinSpecular("Realistic Skin Specularity", Int) = 1
+        [ToggleUI]_SSSEnvironmentalBRDF("Realistic Skin Reflections", Int) = 1 // May become separate from skin section
+        [NoTilingOffset]_PreIntSkinTex("Scattering Lookup Texture", 2D) = "white" {} // hard lniked to BRDF lookup tex
+        _BumpBlurBias("Normals Blur Bias", Float) = 3.0
+        _BlurStrength("Blur Strength", Range(0,1)) = 1
+        _CurvatureInfluence("Curvature Influence", Range (0,1)) = 0.5
+        _CurvatureScale("Curvature Scale", Float) = 0.02
+        _CurvatureBias("Curvature Bias", Range(0,1)) = 0
+        [HideInInspector]end_PreIntegratedSkin("", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_SSSTransmission("Transmission", Int) = 0
+        _SubsurfaceColor("Subsurface Color", Color) = (1,0.4,0.25)
+        _TranslucencyMap("Translucency Map", 2D) = "white" {}
+        [RangeMax]_SSSTranslucencyMax("Translucency Max", Range(0,1)) = 0
+        [RangeMin]_SSSTranslucencyMin("Translucency Min", Range(0,1)) = 0
+        _SSSTransmissionPower("Power", Range(1,8)) = 2
+        _SSSTransmissionDistortion("Normals Distortion", Range(0,1)) = 0.1
+        _SSSTransmissionScale("Scale", Range(1,8)) = 4
+        [HideInInspector]end_SSSTransmission("", Int) = 0
+        [HideInInspector]end_SubsurfaceScattering("", Int) = 0
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
         [WideEnum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
@@ -142,7 +165,7 @@ Shader "Kaj/PBR"
         [WideEnum(None,0, Indirect Diffuse,1, Indirect Specular,2)]_LightingDebugMode("Lighting Mode", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 10", Int) = 10
+        [KajLabel]_Version("Shader Version: 11", Int) = 11
     }
 
     CustomEditor "Kaj.ShaderEditor"    

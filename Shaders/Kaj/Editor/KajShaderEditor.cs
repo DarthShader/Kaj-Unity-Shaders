@@ -628,29 +628,18 @@ namespace Kaj
                         EditorStyles.foldout.Draw(toggleRect, false, false, expanded, false);
 
                     // Toggle property
-                    // Technically drawers besides Toggles work, but are VERY wonky
+                    // Technically drawers besides ToggleUIs work, but are VERY wonky
                     if (toggle)
                     {
                         // Toggle alignment from Thry's
                         Rect togglePropertyRect = new Rect(rect);
-                        togglePropertyRect.x += 18;
+                        // Add 18 to skip foldout arrow, shift by indents because the original box rect is being used
+                        togglePropertyRect.x += 18 - ((EditorGUI.indentLevel) * 13);
                         togglePropertyRect.y += 1;
                         float labelWidth = EditorGUIUtility.labelWidth;
-                        float fieldWidth = EditorGUIUtility.fieldWidth;
-                        CharacterInfo characterInfo = new CharacterInfo();
-                        char[] arr = props[i].displayName.ToCharArray();
-                        Font f = GUI.skin.font;
-                        int totalLength = 0;
-                        foreach (char c in arr)
-                        {
-                            f.GetCharacterInfo(c, out characterInfo, f.fontSize);
-                            totalLength += characterInfo.advance;
-                        }
-                        EditorGUIUtility.labelWidth = totalLength + EditorGUI.indentLevel * 15 + 45;
-                        EditorGUIUtility.fieldWidth = 20;
+                        EditorGUIUtility.labelWidth = 0;
                         materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
                         EditorGUIUtility.labelWidth = labelWidth;
-                        EditorGUIUtility.fieldWidth = fieldWidth;
                     }
 
                     // Activate foldout even if header was clicked

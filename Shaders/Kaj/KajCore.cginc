@@ -30,7 +30,9 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_MetallicGlossMap);       // Standard metallic map
 uniform float _SpecularHighlights;                      // Standard specular highlights toggle
 uniform float _GlossyReflections;                       // Standard reflections toggle
 uniform half _BumpScale;                                // Standard normal map scale
-UNITY_DECLARE_TEX2D(_BumpMap);                          // Standard normal map
+// Problem using tex2Dbias with the Unity sampler definition
+//UNITY_DECLARE_TEX2D(_BumpMap);                        // Standard normal map
+sampler2D _BumpMap;
     uniform float4 _BumpMap_ST;
 uniform half _Parallax;                                 // Standard height map scale
 UNITY_DECLARE_TEX2D_NOSAMPLER(_ParallaxMap);            // Standard height map
@@ -146,26 +148,11 @@ UNITY_DECLARE_TEX2D(_ReflectionTex1);                   // Mirror shader texture
 UNITY_DECLARE_TEX2D(_BampMap);                          // 4-channel bumpmap not DXTn compressed because alpha channel is used
 UNITY_DECLARE_TEX2D(_ArcSSS);                           // Arc System Works SSS texture
 UNITY_DECLARE_TEX2D(_ArcILM);                           // Arc System Works ILM texture
-UNITY_DECLARE_TEX2D(_SoulCaliburColorMask);             // SC6 RGB color mask
-uniform float4 _SoulCaliburTintR;                       // SC6 tinting
-uniform float4 _SoulCaliburTintG;                       // SC6 tinting
-uniform float4 _SoulCaliburTintB;                       // SC6 tinting
-UNITY_DECLARE_TEX2D(_WarframeTintMask);                 // Warframe 3-channel tint mask
-uniform float4 _WarframeTintR;                          // Warframe tinting
-uniform float4 _WarframeTintG;                          // Warframe tinting
-uniform float4 _WarframeTintB;                          // Warframe tinting
 uniform float _SpecularMax;                             // PBR Scaling utilities
 uniform float _SpecularMin;                             // PBR Scaling utilities
 uniform float _GlossinessMin;                           // PBR Scaling utilities
 uniform float _MetallicMin;                             // PBR Scaling utilities
 uniform float _OcclusionMin;                            // PBR Scaling utilities
-uniform float _BumpBias;                                // SSS normal map LOD sample bias
-uniform float _BlurStrength;                            // SSS blur strength
-uniform float _CurvatureScale;                          // SSS coverage scalar
-uniform fixed _CurvatureInfluence;                      // SSS coverage 
-uniform half _Bias;                                     // SSS ??
-UNITY_DECLARE_TEX2D(_PreIntSkinTex);                    // SSS Pre-integrated skin texture for diffuse wrapping
-    float4 _PreIntSkinTex_ST;
 uniform float _PhongSpecularEnabled;                    // Custom phong toggle
 uniform float _PhongSpecularPower;                      // Custom phong power
 uniform float4 _PhongSpecularColor;                     // Custom phong color
@@ -235,6 +222,27 @@ uniform float group_toggle_Parallax;                    // new Parallax toggle
 uniform float _GlossinessSource;                        // PBR shader specific glossiness source toggle
 uniform float _LightingDebugMode;
 uniform float _AlphaToMask;                             // Dedicated paramater toggle
+uniform float _DiffuseWrap;
+uniform float _DiffuseWrapIntensity;
+uniform float group_toggle_PreIntegratedSkin;
+uniform float _PreIntSkinSpecular;
+uniform float _SSSEnvironmentalBRDF;
+// Problem using tex2Dlod with the Unity texture macro
+//UNITY_DECLARE_TEX2D(_PreIntSkinTex);
+sampler2D _PreIntSkinTex;
+uniform float _BumpBlurBias;
+uniform float _BlurStrength;
+uniform float _CurvatureInfluence;
+uniform float _CurvatureScale;
+uniform float _CurvatureBias;
+uniform float group_toggle_SSSTransmission;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_TranslucencyMap);
+    uniform float4 _TranslucencyMap_ST;
+uniform float _SSSTranslucencyMax;
+uniform float _SSSTranslucencyMin;
+uniform float _SSSTransmissionPower;
+uniform float _SSSTransmissionDistortion;
+uniform float _SSSTransmissionScale;
 
 // Reusable defines and functions
 
@@ -276,21 +284,18 @@ float3 GetBakedLightDir(float3 wPos, float atten)
 // WIP
 half3 getLightDirection(float3 worldPosition, float2 lightmapUV)
 {
-    UNITY_BRANCH
+    #ifdef UNITY_PASS_FORWARDBASE
+        //if (any(_WorldSpaceLightPos0.xyz))
+        return _WorldSpaceLightPos0.xyz;
+    #else
+        return normalize(_WorldSpaceLightPos0.xyz - worldPosition);
+    #endif
     if (any(_WorldSpaceLightPos0.xyz))
         return _WorldSpaceLightPos0.xyz;
-    else
-    {
-        #ifdef UNITY_PASS_FORWARDBASE
-            //return half3(0, 1, 0);
-            return _WorldSpaceLightPos0.xyz;
-            #ifdef LIGHTMAP_ON
-                #ifdef DIRLIGHTMAP_COMBINED
-                #endif
-            #endif
-        #endif
-    }
-    return normalize(_WorldSpaceLightPos0.xyz - worldPosition);
+
+    //#ifdef LIGHTMAP_ON
+        //#ifdef DIRLIGHTMAP_COMBINED
+
 }
 
 // Light color with fallback that estimates
@@ -469,6 +474,12 @@ float3 memeShades_effect(float speed, float2 uv, float3 color1, float3 color2)
     else return color2;
 }
 
+// Runescape style world space vertex snapping
+float3 roundVertex(float3 vert, half factor) // good default is 120
+{
+    return round(vert * factor) / factor;
+}
+
 fixed switchChannel(half channel, fixed4 combinedTex)
 {
     if (channel == 0)
@@ -514,7 +525,7 @@ half3 GetSHLength()
 }
 
 // https://en.wikipedia.org/wiki/Ordered_dithering
-// Shifted up by 1 each to make sure clipping works
+// Shifted up by 1 each to make sure clipping at zero opacity works
 inline half Dither8x8Bayer( int x, int y )
 {
     const half dither[ 64 ] = {
@@ -633,10 +644,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (group_toggle_Parallax) // only affects UV1 right now
     {
         fixed4 _ParallaxMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_ParallaxMap, _MainTex, TRANSFORM_TEX(i.uv, _ParallaxMap));
-        _ParallaxMap_var.g -= 0.5f;
         i.tangentViewDir = normalize(i.tangentViewDir);
         i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
-		parallaxUV = i.uv.xy + i.tangentViewDir.xy * _Parallax * _ParallaxMap_var.g;
+		parallaxUV = i.uv.xy + i.tangentViewDir.xy * _Parallax * (_ParallaxMap_var.g - 0.5f);
     }
 
     // Base opacity
@@ -765,7 +775,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         albedo = switchDetailAlbedo(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailAlbedoMapBlue, _DetailAlbedoMap, TRANSFORM_TEX(detailUV, _DetailAlbedoMapBlue)), albedo, _DetailAlbedoCombineMode, _DetailMask_var.b);
 
     // Normals
-    half3 _BumpMap_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D(_BumpMap, TRANSFORM_TEX(parallaxUV, _BumpMap)), _BumpScale);
+    half3 _BumpMap_var = UnpackScaleNormal(tex2D(_BumpMap, TRANSFORM_TEX(parallaxUV, _BumpMap)), _BumpScale);
     half3 blendedNormal = _BumpMap_var;
     UNITY_BRANCH
     if (_DetailNormalMapActive)
@@ -785,14 +795,14 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         fixed3 _DetailNormalMapBlue_var = UnpackScaleNormal(UNITY_SAMPLE_TEX2D_SAMPLER(_DetailNormalMapBlue, _DetailNormalMap, TRANSFORM_TEX(detailUV, _DetailNormalMapBlue)), _DetailNormalMapScaleBlue);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapBlue_var), _DetailMask_var.b);
     }
-    
     float3x3 tangentTransform = float3x3(i.tangentWorld, i.bitangentWorld, i.normalWorld);
     fixed3 normalDir = normalize(mul(blendedNormal, tangentTransform));
+
 
     // Common vars
     float2 lightmapUV = i.uv1 * unity_LightmapST.xy + unity_LightmapST.zw;
     float2 dynamicLightmapUV = i.uv2 * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
-    fixed3 lightDir = getLightDirection(i.posWorld.xyz, lightmapUV);
+    fixed3 lightDir = getLightDirection(i.posWorld.xyz, lightmapUV); 
     float3 lightColor = getLightColor();
     fixed3 viewReflectDir = reflect(-viewDir, normalDir);
     float3 halfDir = Unity_SafeNormalize (lightDir + viewDir); // BRDF friendly normalize
@@ -816,34 +826,72 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         specColor = specularScale;
         oneMinusReflectivity = 1 - SpecularStrength(specColor);
     }
-    half3 diffColor = albedo * oneMinusReflectivity;
-    #ifdef _ALPHAPREMULTIPLY_ON
-        diffColor *= opacity;
-        opacity = 1-oneMinusReflectivity + opacity*oneMinusReflectivity;
-        if (_ForceOpaque) opacity = 1;
-    #endif
+
 
     // GI
     UNITY_LIGHT_ATTENUATION(attenuation, i, i.posWorld.xyz);
     half3 indirect_diffuse = UnityGI_BaseModular(attenuation, occlusion, lightmapUV, dynamicLightmapUV, i.posWorld.xyz, normalDir, lightColor);
     half3 indirect_specular = UnityGI_IndirectSpecularModular(viewReflectDir, i.posWorld.xyz, perceptualRoughness, occlusion, _GlossyReflections);
 
-    // Arktoon style normalized indirect light, Poiyomi implementation
-    float3 grayscale_vector = float3(.33333, .33333, .33333);
-    float3 ShadeSH9Plus = GetSHLength();
-    float3 ShadeSH9Minus = ShadeSH9(float4(0, 0, 0, 1));
-    float bw_lightColor = dot(lightColor, grayscale_vector);
-    //float bw_directLighting = (((poiLight.nDotL * 0.5 + 0.5) * bw_lightColor * 
-    //                            lerp(1, poiLight.attenuation, _AttenuationMultiplier)) + 
-    //                            dot(ShadeSH9Normal(poiMesh.normals[1]), grayscale_vector));
-    //float bw_bottomIndirectLighting = dot(ShadeSH9Minus, grayscale_vector);
-    //float bw_topIndirectLighting = dot(ShadeSH9Plus, grayscale_vector);
-    //float lightDifference = ((bw_topIndirectLighting + bw_lightColor) - bw_bottomIndirectLighting);
-    //poiLight.lightMap = smoothstep(0, lightDifference, bw_directLighting - bw_bottomIndirectLighting) * lerp(1, AOMap, _AOStrength);
+    // SubSurface Scattering
+    // Wrapped diffuse
+    half wrappedDiffuse = NdotL * _DiffuseWrap + (1-_DiffuseWrap);
+    wrappedDiffuse *= wrappedDiffuse;
+    // something something energy conservation http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
+    //wrappedDiffuse = saturate((NdotL + _DiffuseWrap) / ((1 + _DiffuseWrap) * (1 + _DiffuseWrap)));
+    NdotL = lerp(NdotL, wrappedDiffuse, _DiffuseWrapIntensity);
+
+    // Skin
+    fixed3 blurredWorldNormal;
+    fixed Curvature = 0;
+    UNITY_BRANCH
+    if (group_toggle_PreIntegratedSkin)
+    {
+        // Blur main normal map via tex2Dbias
+        blurredWorldNormal = UnpackScaleNormal(tex2Dbias(_BumpMap, float4(TRANSFORM_TEX(parallaxUV, _BumpMap), 0, _BumpBlurBias)), _BumpScale);
+        // Lerp blurred normal against combined normal by blur strength
+        blurredWorldNormal = lerp(blendedNormal, blurredWorldNormal, _BlurStrength);
+        blurredWorldNormal = normalize(mul(blurredWorldNormal, tangentTransform));
+        // Set skin specular value (0.028)
+        if (_PreIntSkinSpecular)
+        {
+            specColor = unity_ColorSpaceDielectricSpec.rgb * 0.7;
+            oneMinusReflectivity = 1 - SpecularStrength(specColor);
+        }
+        // use fwidth to surface curvature via world normal and world position
+        UNITY_BRANCH
+        if (_CurvatureInfluence > 0)
+        {
+            float deltaWorldNormal = length( fwidth( blurredWorldNormal ) );
+			float deltaWorldPosition = length( max(1e-5f, fwidth ( i.posWorld.xyz ) ) );
+            deltaWorldPosition = (deltaWorldPosition == 0.0) ? 1e-5f : deltaWorldPosition;
+            Curvature = (deltaWorldNormal / deltaWorldPosition) * _CurvatureScale;
+            Curvature *= _CurvatureInfluence;
+        }
+        Curvature = saturate(Curvature + _CurvatureBias);
+    }
+
+    half3 diffColor = albedo * oneMinusReflectivity;
+    // Premultiplied transparency
+    #ifdef _ALPHAPREMULTIPLY_ON
+        diffColor *= opacity;
+        opacity = 1-oneMinusReflectivity + opacity*oneMinusReflectivity;
+        if (_ForceOpaque) opacity = 1;
+    #endif
+
+
 
     //BRDF adapted from Unity Standard BRDF1
     // Diffuse
-    half diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
+    half3 diffuseTerm = 0;
+    UNITY_BRANCH
+    if (group_toggle_PreIntegratedSkin)
+    {
+        float NdotLBlurredUnclamped = dot(blurredWorldNormal, lightDir);
+        // Pre integrated skin lookup tex serves as the BRDF diffuse term
+        diffuseTerm = tex2Dlod(_PreIntSkinTex, float4( (NdotLBlurredUnclamped * 0.5 + 0.5) , Curvature, 0, 0 ) );
+    }
+    else diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
     // Specular
     float roughness = PerceptualRoughnessToRoughness(perceptualRoughness);
     roughness = max(roughness, 0.002);
@@ -855,17 +903,37 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 #   endif
     specularTerm = max(0, specularTerm * NdotL) * occlusion; // added ao
     if (_SpecularHighlights == 0) specularTerm = 0;
-    half surfaceReduction;
-#   ifdef UNITY_COLORSPACE_GAMMA
-        surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
-#   else
-        surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
-#   endif
-    specularTerm *= any(specColor) ? 1.0 : 0.0;
-    half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
-    half3 color =   diffColor * (indirect_diffuse + lightColor * diffuseTerm)
-                    + specularTerm * lightColor * FresnelTerm (specColor, LdotH)
-                    + surfaceReduction * indirect_specular * FresnelLerp (specColor, grazingTerm, NdotV) * _StandardFresnelIntensity;
+
+    half3 color = 0;
+    UNITY_BRANCH
+    if (_SSSEnvironmentalBRDF)
+    {
+        const half4 c0 = { -1, -0.0275, -0.572, 0.022 };
+        const half4 c1 = { 1, 0.0425, 1.04, -0.04 };
+        half4 r = perceptualRoughness * c0 + c1;
+        half a004 = min( r.x * r.x, exp2( -9.28 * NdotV ) ) * r.x + r.y;
+        half2 AB = half2( -1.04, 1.04 ) * a004 + r.zw;
+        half3 F_L = specColor * AB.x + AB.y;
+
+        color = diffColor * (indirect_diffuse + lightColor * diffuseTerm)
+        + specularTerm * lightColor * FresnelTerm (specColor, LdotH)
+        + indirect_specular * F_L;
+    }
+    else
+    {
+        half surfaceReduction;
+        #ifdef UNITY_COLORSPACE_GAMMA
+            surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
+        #else
+            surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
+        #endif
+        specularTerm *= any(specColor) ? 1.0 : 0.0;
+        half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
+        
+        color = diffColor * (indirect_diffuse + lightColor * diffuseTerm)
+        + specularTerm * lightColor * FresnelTerm (specColor, LdotH)
+        + surfaceReduction * indirect_specular * FresnelLerp (specColor, grazingTerm, NdotV) * _StandardFresnelIntensity;
+    }
 
     fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_EmissionMap, _MainTex, TRANSFORM_TEX(parallaxUV, _EmissionMap));
     color += _EmissionColor.rgb * _EmissionMap_var.rgb;
