@@ -225,8 +225,6 @@ uniform float _AlphaToMask;                             // Dedicated paramater t
 uniform float _DiffuseWrap;
 uniform float _DiffuseWrapIntensity;
 uniform float group_toggle_PreIntegratedSkin;
-uniform float _PreIntSkinSpecular;
-uniform float _SSSEnvironmentalBRDF;
 // Problem using tex2Dlod with the Unity texture macro
 //UNITY_DECLARE_TEX2D(_PreIntSkinTex);
 sampler2D _PreIntSkinTex;
@@ -243,6 +241,13 @@ uniform float _SSSTranslucencyMin;
 uniform float _SSSTransmissionPower;
 uniform float _SSSTransmissionDistortion;
 uniform float _SSSTransmissionScale;
+uniform float group_toggle_Diffuse;
+uniform float group_toggle_Specular;
+uniform float group_toggle_Reflections;
+uniform float _DiffuseMode;
+uniform float _SpecularMode;
+uniform float _ReflectionsMode;
+uniform float _VertexColorsEnabled;
 
 // Reusable defines and functions
 
@@ -651,12 +656,16 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 
     // Base opacity
     fixed4 _MainTex_var = UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(switchUV(_MainTexUV, parallaxUV, i.uv1, i.uv2, i.uv3), _MainTex));
-    half3 albedo = _MainTex_var.rgb * _Color.rgb * i.color.rgb;
+    half3 albedo = _MainTex_var.rgb * _Color.rgb;
+    if (_VertexColorsEnabled)
+        albedo *= i.color.rgb;
     float opacity = _MainTex_var.a; // detail abledo doesn't affect transparency
     UNITY_BRANCH
     if (_CoverageMapActive)
         opacity = UNITY_SAMPLE_TEX2D_SAMPLER(_CoverageMap, _MainTex, TRANSFORM_TEX(parallaxUV, _CoverageMap)).r;
-    opacity *= _Color.a * i.color.a;
+    opacity *= _Color.a;
+    if (_VertexColorsEnabled)
+        opacity *= i.color.a;
 
     // A2C
     #ifdef _ALPHATEST_ON
@@ -814,6 +823,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     half LdotH = saturate(dot(lightDir, halfDir));
     fixed RVdotL = max(0, dot(viewReflectDir, lightDir));
     half smoothness = 1.0f - perceptualRoughness;
+    float roughness = PerceptualRoughnessToRoughness(perceptualRoughness);
+    roughness = max(roughness, 0.002);
     half3 specColor;
     half oneMinusReflectivity;
     if (_WorkflowMode == 0) // Metallic workflow
@@ -833,19 +844,18 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     half3 indirect_diffuse = UnityGI_BaseModular(attenuation, occlusion, lightmapUV, dynamicLightmapUV, i.posWorld.xyz, normalDir, lightColor);
     half3 indirect_specular = UnityGI_IndirectSpecularModular(viewReflectDir, i.posWorld.xyz, perceptualRoughness, occlusion, _GlossyReflections);
 
-    // SubSurface Scattering
     // Wrapped diffuse
-    half wrappedDiffuse = NdotL * _DiffuseWrap + (1-_DiffuseWrap);
-    wrappedDiffuse *= wrappedDiffuse;
+    //half wrappedDiffuse = NdotL * _DiffuseWrap + (1-_DiffuseWrap);
+    //wrappedDiffuse *= wrappedDiffuse;
     // something something energy conservation http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
     //wrappedDiffuse = saturate((NdotL + _DiffuseWrap) / ((1 + _DiffuseWrap) * (1 + _DiffuseWrap)));
-    NdotL = lerp(NdotL, wrappedDiffuse, _DiffuseWrapIntensity);
+    //NdotL = lerp(NdotL, wrappedDiffuse, _DiffuseWrapIntensity);
 
     // Skin
     fixed3 blurredWorldNormal;
     fixed Curvature = 0;
     UNITY_BRANCH
-    if (group_toggle_PreIntegratedSkin)
+    if (_DiffuseMode == 2)
     {
         // Blur main normal map via tex2Dbias
         blurredWorldNormal = UnpackScaleNormal(tex2Dbias(_BumpMap, float4(TRANSFORM_TEX(parallaxUV, _BumpMap), 0, _BumpBlurBias)), _BumpScale);
@@ -853,7 +863,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         blurredWorldNormal = lerp(blendedNormal, blurredWorldNormal, _BlurStrength);
         blurredWorldNormal = normalize(mul(blurredWorldNormal, tangentTransform));
         // Set skin specular value (0.028)
-        if (_PreIntSkinSpecular)
+        // Skin specular isn't so much a separate mode as it is a preset for Specular workflow and a spec color
+        // Technically does affect diffuse too
+        if (_SpecularMode == 3)
         {
             specColor = unity_ColorSpaceDielectricSpec.rgb * 0.7;
             oneMinusReflectivity = 1 - SpecularStrength(specColor);
@@ -871,80 +883,104 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         Curvature = saturate(Curvature + _CurvatureBias);
     }
 
+    // Final BRDF setup
     half3 diffColor = albedo * oneMinusReflectivity;
-    // Premultiplied transparency
-    #ifdef _ALPHAPREMULTIPLY_ON
+    #ifdef _ALPHAPREMULTIPLY_ON // Premultiplied transparency
         diffColor *= opacity;
         opacity = 1-oneMinusReflectivity + opacity*oneMinusReflectivity;
         if (_ForceOpaque) opacity = 1;
     #endif
 
-
-
-    //BRDF adapted from Unity Standard BRDF1
+    //BRDF (PBR apdapted from Unity Standard BRDF1)
     // Diffuse
     half3 diffuseTerm = 0;
     UNITY_BRANCH
-    if (group_toggle_PreIntegratedSkin)
+    if (group_toggle_Diffuse)
     {
-        float NdotLBlurredUnclamped = dot(blurredWorldNormal, lightDir);
-        // Pre integrated skin lookup tex serves as the BRDF diffuse term
-        diffuseTerm = tex2Dlod(_PreIntSkinTex, float4( (NdotLBlurredUnclamped * 0.5 + 0.5) , Curvature, 0, 0 ) );
+        UNITY_BRANCH
+        if (_DiffuseMode == 0) // Lambert
+        {
+            diffuseTerm = NdotL;
+        }
+        else if (_DiffuseMode == 1) // PBR
+        {
+            diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
+        }
+        else if (_DiffuseMode == 2) // Skin
+        {
+            float NdotLBlurredUnclamped = dot(blurredWorldNormal, lightDir);
+            //NdotLBlurredUnclamped = NdotLBlurredUnclamped * _DiffuseWrap + (1-_DiffuseWrap);
+            NdotLBlurredUnclamped = NdotLBlurredUnclamped * 0.5 + 0.5;
+            // Pre integrated skin lookup tex serves as the BRDF diffuse term
+            diffuseTerm = tex2Dlod(_PreIntSkinTex, float4(NdotLBlurredUnclamped , Curvature, 0, 0));
+        }
     }
-    else diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
+
     // Specular
-    float roughness = PerceptualRoughnessToRoughness(perceptualRoughness);
-    roughness = max(roughness, 0.002);
-    float V = SmithJointGGXVisibilityTerm (NdotL, NdotV, roughness);
-    float D = GGXTerm (NdotH, roughness);
-    float specularTerm = V*D * UNITY_PI; // Torrance-Sparrow model, Fresnel is applied later
-#   ifdef UNITY_COLORSPACE_GAMMA
-        specularTerm = sqrt(max(1e-4h, specularTerm));
-#   endif
-    specularTerm = max(0, specularTerm * NdotL) * occlusion; // added ao
-    if (_SpecularHighlights == 0) specularTerm = 0;
-
-    half3 color = 0;
+    float specularTerm = 0;
     UNITY_BRANCH
-    if (_SSSEnvironmentalBRDF)
+    if (group_toggle_Specular)
     {
-        const half4 c0 = { -1, -0.0275, -0.572, 0.022 };
-        const half4 c1 = { 1, 0.0425, 1.04, -0.04 };
-        half4 r = perceptualRoughness * c0 + c1;
-        half a004 = min( r.x * r.x, exp2( -9.28 * NdotV ) ) * r.x + r.y;
-        half2 AB = half2( -1.04, 1.04 ) * a004 + r.zw;
-        half3 F_L = specColor * AB.x + AB.y;
+        UNITY_BRANCH
+        if (_SpecularMode == 0) // Phong
+        {
 
-        color = diffColor * (indirect_diffuse + lightColor * diffuseTerm)
-        + specularTerm * lightColor * FresnelTerm (specColor, LdotH)
-        + indirect_specular * F_L;
-    }
-    else
-    {
-        half surfaceReduction;
-        #ifdef UNITY_COLORSPACE_GAMMA
-            surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
-        #else
-            surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
-        #endif
-        specularTerm *= any(specColor) ? 1.0 : 0.0;
-        half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
-        
-        color = diffColor * (indirect_diffuse + lightColor * diffuseTerm)
-        + specularTerm * lightColor * FresnelTerm (specColor, LdotH)
-        + surfaceReduction * indirect_specular * FresnelLerp (specColor, grazingTerm, NdotV) * _StandardFresnelIntensity;
+        }
+        else if (_SpecularMode == 1 || _SpecularMode == 3) // PBR
+        {
+            float V = SmithJointGGXVisibilityTerm (NdotL, NdotV, roughness);
+            float D = GGXTerm (NdotH, roughness);
+            specularTerm = V*D * UNITY_PI; // Torrance-Sparrow model, Fresnel is applied later
+            #ifdef UNITY_COLORSPACE_GAMMA
+                specularTerm = sqrt(max(1e-4h, specularTerm));
+            #endif
+            specularTerm = max(0, specularTerm * NdotL) * occlusion; // added ao
+        }
     }
 
+    // Reflections
+    half3 reflections = 0;
+    UNITY_BRANCH
+    if (group_toggle_Reflections)
+    {
+        UNITY_BRANCH
+        if (_ReflectionsMode == 1) // PBR
+        {
+            half surfaceReduction;
+            #ifdef UNITY_COLORSPACE_GAMMA
+                surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
+            #else
+                surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
+            #endif
+            specularTerm *= any(specColor) ? 1.0 : 0.0; // idk if this still serves a purpose if split up like this
+            half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
+            reflections = surfaceReduction * indirect_specular * FresnelLerp (specColor, grazingTerm, NdotV) * _StandardFresnelIntensity;
+        }
+        else if (_ReflectionsMode == 2) // Skin aka Lazarov environmental
+        {
+            const half4 c0 = { -1, -0.0275, -0.572, 0.022 };
+            const half4 c1 = { 1, 0.0425, 1.04, -0.04 };
+            half4 r = perceptualRoughness * c0 + c1;
+            half a004 = min( r.x * r.x, exp2( -9.28 * NdotV ) ) * r.x + r.y;
+            half2 AB = half2( -1.04, 1.04 ) * a004 + r.zw;
+            half3 F_L = specColor * AB.x + AB.y;
+            reflections = indirect_specular * F_L;
+        }
+    }
+
+    // BRDF combine
+    half4 color;
+    color.rgb = lerp(albedo, diffColor * (indirect_diffuse + lightColor * diffuseTerm), any(group_toggle_Diffuse))
+                + specularTerm * lightColor * FresnelTerm (specColor, LdotH)
+                + reflections;
+    color.a = opacity;
+
+    // Emission
     fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_EmissionMap, _MainTex, TRANSFORM_TEX(parallaxUV, _EmissionMap));
-    color += _EmissionColor.rgb * _EmissionMap_var.rgb;
+    color.rgb += _EmissionColor.rgb * _EmissionMap_var.rgb;
 
-    // Debug
-    if (_LightingDebugMode == 1)
-        color = indirect_diffuse;
-    else if (_LightingDebugMode == 2)
-        color = indirect_specular;
-
-	return fixed4(color, opacity);
+    UNITY_APPLY_FOG(i.fogCoord, color);
+	return color;
 }
 
 // Full shadowcaster with cutout support
@@ -984,7 +1020,9 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         UNITY_BRANCH
         if (_CoverageMapActive)
             opacity = UNITY_SAMPLE_TEX2D_SAMPLER(_CoverageMap, _MainTex, TRANSFORM_TEX(i.uv, _CoverageMap)).r;
-        opacity *= _Color.a * i.color.a;
+        opacity *= _Color.a;
+        if (_VertexColorsEnabled)
+            opacity *= i.color.a;
         if (_ForceOpaque) opacity = 1;
 
         // Dithered shadows
@@ -1038,14 +1076,19 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
         if (_CoverageMapActive)
             opacity = UNITY_SAMPLE_TEX2D_SAMPLER(_CoverageMap, _MainTex, TRANSFORM_TEX(i.uv, _CoverageMap)).r;
         if (_ForceOpaque) opacity = 1;
-        clip(opacity * _Color.a * i.color.a - _Cutoff);
+        opacity *= _Color.a;
+        if (_VertexColorsEnabled)
+            opacity *= i.color.a;
+        clip(opacity - _Cutoff);
     #endif
 
     fixed4 _EmissionMap_var = UNITY_SAMPLE_TEX2D_SAMPLER(_EmissionMap, _MainTex, TRANSFORM_TEX(i.uv, _EmissionMap));
 
     UnityMetaInput o;
     UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);
-    o.Albedo = _MainTex_var.rgb * _Color.rgb * i.color.rgb;
+    o.Albedo = _MainTex_var.rgb * _Color.rgb;
+    if (_VertexColorsEnabled)
+        o.Albedo *= i.color.rgb;
 #ifdef EDITOR_VISUALIZATION
     o.VizUV = i.vizUV;
     o.LightCoord = i.lightCoord;

@@ -58,6 +58,22 @@ namespace Kaj
         LogicalOrInverted
     }
 
+    // Lightmodes so passes can be disabled
+    public enum LightMode
+    {
+        Always,
+        ForwardBase,
+        ForwardAdd,
+        Deferred,
+        ShadowCaster,
+        MotionVectors,
+        PrepassBase,
+        PrepassFinal,
+        Vertex,
+        VertexLMRGBM,
+        VertexLM
+    }
+
     // Simple indent and unindent decorators
     public class IndentDecorator : MaterialPropertyDrawer
     {
@@ -391,6 +407,7 @@ namespace Kaj
         }
 
         MaterialProperty blendMode = null;
+        MaterialProperty lightModes = null;
         MaterialProperty disableBatching = null;
         MaterialProperty ignoreProjector = null; // Doesn't work, thanks Unity
         MaterialProperty forceNoShadowCasting = null; // Doesn't work, thanks Unity
@@ -408,6 +425,7 @@ namespace Kaj
             foldoutStyle.contentOffset = new Vector2(20f, -2f);
 
             blendMode = FindProperty("_Mode", props);
+            lightModes = FindProperty("_LightModes", props);
             disableBatching = FindProperty("_DisableBatching", props);
             ignoreProjector = FindProperty("_IgnoreProjector", props);
             forceNoShadowCasting = FindProperty("_ForceNoShadowCasting", props);
@@ -471,6 +489,81 @@ namespace Kaj
                 materialEditor.RegisterPropertyChangeUndo("Global Illumination");
                 foreach (Material m in materialEditor.targets)
                     m.globalIlluminationFlags = giFlags;
+                EditorUtility.SetDirty(material);
+            }
+
+            // LightModes
+            EditorGUI.showMixedValue = lightModes.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            int lightModesMask = EditorGUILayout.MaskField("Disabled Lightmodes", (int)lightModes.floatValue, Enum.GetNames(typeof(LightMode)));
+            if (EditorGUI.EndChangeCheck())
+            {
+                materialEditor.RegisterPropertyChangeUndo("LightModes");
+                lightModes.floatValue = lightModesMask;
+                if (lightModesMask == -1)
+                {
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Always", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", false);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
+                }
+                else if (lightModesMask == 0)
+                {
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Always", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", true);
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
+                }
+                else
+                {
+                    if (lightModesMask % 1 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "Always", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "Always", true);
+                    if (lightModesMask % 2 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", true);
+                    if (lightModesMask % 4 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", true);
+                    if (lightModesMask % 8 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", true);
+                    if (lightModesMask % 16 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", true);
+                    if (lightModesMask % 32 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", true);
+                    if (lightModesMask % 64 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", true);
+                    if (lightModesMask % 128 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", true);
+                    if (lightModesMask % 256 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", true);
+                    if (lightModesMask % 512 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", true);
+                    if (lightModesMask % 1024 == 0)
+                        SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
+                    else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
+                }
                 EditorUtility.SetDirty(material);
             }
 
@@ -685,6 +778,12 @@ namespace Kaj
         {
             foreach (Material m in mats)
                 m.SetOverrideTag(key, value);
+        }
+
+        private void SetMaterialsLightModeEnabled(UnityEngine.Object[] mats, string pass, bool enabled)
+        {
+            foreach (Material m in mats)
+                m.SetShaderPassEnabled(pass, enabled);
         }
 
         // Rendering modes provide a means to preset blending options AND to enable certain keywords
