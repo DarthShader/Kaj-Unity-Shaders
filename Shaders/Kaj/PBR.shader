@@ -48,6 +48,7 @@ Shader "Kaj/PBR"
         _SpecColor("Specular Color", Color) = (1,1,1,1)
         [RangeMax]_SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
         [RangeMin]_SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
+        [ToggleUI]_ReceiveShadows("Receive Shadows", Int) = 1
         [HideInInspector]group_StandardTextures("Textures", Int) = 0
         [TexToggleActive]_MetallicGlossMap("Metallic Map", 2D) = "white" {}
         [HideInInspector]_MetallicGlossMapActive ("", Int) = 0
@@ -72,9 +73,9 @@ Shader "Kaj/PBR"
         [HideInInspector]end_CombinedMap("", Int) = 0
         [HideInInspector]end_StandardSettings("", Int) = 1
 
-        [HideInInspector][ToggleUI]group_toggle_Diffuse("Diffuse", Int) = 1
+        [HideInInspector][ToggleUI]group_toggle_Diffuse("Shading", Int) = 1
         //[WideEnum(Lambert,0, PBR,1, Skin,2, ToonRamp,3)]_DiffuseMode("Mode", Int) = 1
-        [WideEnum(Lambert,0, PBR,1, Skin,2)]_DiffuseMode("Mode", Int) = 1
+        [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3)]_DiffuseMode("Mode", Int) = 1
         [HideInInspector]group_SkinDiffuse("Skin", Int) = 0
         [NoScaleOffset]_PreIntSkinTex("Scattering Lookup Texture", 2D) = "white" {} // hard lniked to BRDF lookup tex
         _BumpBlurBias("Normals Blur Bias", Float) = 3.0
@@ -89,9 +90,11 @@ Shader "Kaj/PBR"
 
         [HideInInspector][ToggleUI]group_toggle_Specular("Specular", Int) = 1
         //[WideEnum(Phong,0, PBR,1, Anisotropic,2, Skin,3, Toon,4)]_SpecularMode("Mode", Int) = 1
-        [WideEnum(PBR,1, Skin,3)]_SpecularMode("Mode", Int) = 1
-        //[HideInInspector]group_PhongSpecular("Phong", Int) = 0
-        //[HideInInspector]end_PhongSpecular("", Int) = 0
+        [WideEnum(Phong,0, PBR,1, Skin,3)]_SpecularMode("Mode", Int) = 1
+        [HideInInspector]group_PhongSpecular("Phong", Int) = 0
+        _PhongSpecularPower("Power", Range(1,1000)) = 5
+        _PhongSpecularIntensity("Intensity", Range(0,1)) = 1
+        [HideInInspector]end_PhongSpecular("", Int) = 0
         //[HideInInspector]group_AnisotropicSpecular("Anisotropic", Int) = 0
         //[HideInInspector]end_AnisotropicSpecular("", Int) = 0
         //[HideInInspector]group_ToonSpecular("Toon", Int) = 0
@@ -150,15 +153,17 @@ Shader "Kaj/PBR"
         //[HideInInspector]group_SubsurfaceScattering("Subsurface Scattering", Int) = 0
         //_DiffuseWrap("Diffuse Wrap", Range(0.5,1)) = 0.5
         //_DiffuseWrapIntensity("Diffuse Wrap Intensity", Range(0,1)) = 0
-        //[HideInInspector][ToggleUI]group_toggle_SSSTransmission("Subsurface Transmission", Int) = 0
-        //_SubsurfaceColor("Subsurface Color", Color) = (1,0.4,0.25)
-        //_TranslucencyMap("Translucency Map", 2D) = "white" {}
-        //[RangeMax]_SSSTranslucencyMax("Translucency Max", Range(0,1)) = 0
-        //[RangeMin]_SSSTranslucencyMin("Translucency Min", Range(0,1)) = 0
-        //_SSSTransmissionPower("Power", Range(1,8)) = 2
-        //_SSSTransmissionDistortion("Normals Distortion", Range(0,1)) = 0.1
-        //_SSSTransmissionScale("Scale", Range(1,8)) = 4
-        //[HideInInspector]end_SSSTransmission("", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_SSSTransmission("Subsurface Transmission", Int) = 0
+        [ToggleUI]_SSSTransmissionShadowCastingLightsOnly("Shadow Casting Lights Only", Int) = 1
+        [ToggleUI]_SSSTransmissionIgnoreShadowAttenuation("Ignore Shadows", Int) = 0
+        _SubsurfaceColor("Subsurface Color", Color) = (1,0.4,0.25)
+        _TranslucencyMap("Translucency Map", 2D) = "white" {}
+        [RangeMax]_SSSTranslucencyMax("Translucency Max", Range(0,1)) = 0
+        [RangeMin]_SSSTranslucencyMin("Translucency Min", Range(0,1)) = 0
+        _SSSTransmissionPower("Power", Range(1,8)) = 2
+        _SSSTransmissionDistortion("Normals Distortion", Range(0,1)) = 0.1
+        _SSSTransmissionScale("Scale", Range(1,8)) = 4
+        [HideInInspector]end_SSSTransmission("", Int) = 0
         //[HideInInspector]end_SubsurfaceScattering("", Int) = 0
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
@@ -190,7 +195,7 @@ Shader "Kaj/PBR"
         [HideInInspector]group_Debug("Debug", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 12", Int) = 12
+        [KajLabel]_Version("Shader Version: 13", Int) = 13
     }
 
     CustomEditor "Kaj.ShaderEditor"    

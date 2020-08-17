@@ -372,6 +372,7 @@ namespace Kaj
 
     // Minimalistic shader editor extension to edit the few things the base inspector can't access
     // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
+    // Supports grouped foldouts and foldouts with toggles as labels
     public class ShaderEditor : ShaderGUI
     {
         const string groupPrefix = "group_";
@@ -425,12 +426,19 @@ namespace Kaj
             foldoutStyle.contentOffset = new Vector2(20f, -2f);
 
             blendMode = FindProperty("_Mode", props);
+            if (blendMode == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _Mode not found");
             lightModes = FindProperty("_LightModes", props);
+            if (lightModes == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _LightModes not found");
             disableBatching = FindProperty("_DisableBatching", props);
+            if (disableBatching == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _DisableBatching not found");
             ignoreProjector = FindProperty("_IgnoreProjector", props);
+            if (ignoreProjector == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _IgnoreProjector not found");
             forceNoShadowCasting = FindProperty("_ForceNoShadowCasting", props);
+            if (forceNoShadowCasting == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _ForceNoShadowCasting not found");
             canUseSpriteAtlas = FindProperty("_CanUseSpriteAtlas", props);
+            if (canUseSpriteAtlas == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _CanUseSpriteAtlas not found");
             previewType = FindProperty("_PreviewType", props);
+            if (previewType == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _PreviewType not found");
             Material material = materialEditor.target as Material;
 
             if (m_FirstTimeApply)
@@ -439,35 +447,64 @@ namespace Kaj
                 // Loop through all material properties, look for an existing
                 // var with the same name as each texture prop with suffix "Active" 
                 // that is flagged as HideInInspector and apply true or false to it
+                // WARNING: This auto-apply will fail if mixed value texture properties exist
                 foreach (MaterialProperty mp in props)
-                {
                     if (mp.type == MaterialProperty.PropType.Texture)
                     {
                         MaterialProperty activeProp = MaterialEditor.GetMaterialProperty(materialEditor.targets, mp.name + "Active");
                         if (activeProp != null)
                             if (activeProp.flags == MaterialProperty.PropFlags.HideInInspector)
-                                activeProp.floatValue = (mp.textureValue != null) ? 1 : 0;
+                                if (mp.hasMixedValue)
+                                    Debug.LogWarning("[Kaj Shader Editor] TexToggleActiveDrawer auto-apply failed because multiple materials were selected");
+                                else activeProp.floatValue = (mp.textureValue != null) ? 1 : 0;
                     }
-                }
+                
+                // Materials could have their existing tags/override tags assigned to the convention named
+                // properties for them, but those tags might not be consistent across multiple materials.
+                // Conversely, properties also shouldn't be auto-applied to override tags if they have mixed values.
+                // But properties (and hard coded defaults for them)could be inconsistent with override tags, 
+                // so this part applys them where it makes sense to.
+                if (lightModes != null && !lightModes.hasMixedValue)
+                    SetMaterialsLightMode(materialEditor, (int)lightModes.floatValue);
+                if (disableBatching != null && !disableBatching.hasMixedValue)
+                    SetDisableBatchingFlags(materialEditor, (DisableBatchingFlags)disableBatching.floatValue);
+                if (ignoreProjector != null && !ignoreProjector.hasMixedValue)
+                    if (ignoreProjector.floatValue == 1)
+                        SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "True");
+                    else SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "False");
+                if (forceNoShadowCasting != null && !forceNoShadowCasting.hasMixedValue)
+                    if (forceNoShadowCasting.floatValue == 1)
+                        SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "True");
+                    else SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "False");
+                if (canUseSpriteAtlas != null && !canUseSpriteAtlas.hasMixedValue)
+                    if (canUseSpriteAtlas.floatValue == 1)
+                        SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "True");
+                    else SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "False");
+                if (previewType != null && !previewType.hasMixedValue)
+                    SetPreviewTypeFlags(materialEditor, (PreviewType)previewType.floatValue);
+
                 m_FirstTimeApply = false;
             }
 
             // Blend Mode
-            EditorGUI.showMixedValue = blendMode.hasMixedValue;
-            var mode = (BlendMode)blendMode.floatValue;
-            EditorGUI.BeginChangeCheck();
-            mode = (BlendMode)EditorGUILayout.Popup("Rendering Mode", (int)mode, Enum.GetNames(typeof(BlendMode)));
-            if (EditorGUI.EndChangeCheck())
+            if (blendMode != null)
             {
-                materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
-                blendMode.floatValue = (float)mode;
-                SetupMaterialsWithBlendMode(materialEditor.targets, (BlendMode)material.GetFloat("_Mode"));
-                if (mode == BlendMode.Skybox)
+                EditorGUI.showMixedValue = blendMode.hasMixedValue;
+                var mode = (BlendMode)blendMode.floatValue;
+                EditorGUI.BeginChangeCheck();
+                mode = (BlendMode)EditorGUILayout.Popup("Rendering Mode", (int)mode, Enum.GetNames(typeof(BlendMode)));
+                if (EditorGUI.EndChangeCheck())
                 {
-                    previewType.floatValue = (float)PreviewType.Skybox;
-                    SetMaterialsTag(materialEditor.targets, "PreviewType", "Skybox");
+                    materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
+                    blendMode.floatValue = (float)mode;
+                    SetupMaterialsWithBlendMode(materialEditor.targets, (BlendMode)material.GetFloat("_Mode"));
+                    if (mode == BlendMode.Skybox)
+                    {
+                        previewType.floatValue = (float)PreviewType.Skybox;
+                        SetMaterialsTag(materialEditor.targets, "PreviewType", "Skybox");
+                    }
+                    EditorUtility.SetDirty(material);
                 }
-                EditorUtility.SetDirty(material);
             }
 
             // GI flags
@@ -493,173 +530,106 @@ namespace Kaj
             }
 
             // LightModes
-            EditorGUI.showMixedValue = lightModes.hasMixedValue;
-            EditorGUI.BeginChangeCheck();
-            int lightModesMask = EditorGUILayout.MaskField("Disabled Lightmodes", (int)lightModes.floatValue, Enum.GetNames(typeof(LightMode)));
-            if (EditorGUI.EndChangeCheck())
+            if (lightModes != null)
             {
-                materialEditor.RegisterPropertyChangeUndo("LightModes");
-                lightModes.floatValue = lightModesMask;
-                if (lightModesMask == -1)
+                EditorGUI.showMixedValue = lightModes.hasMixedValue;
+                EditorGUI.BeginChangeCheck();
+                int lightModesMask = EditorGUILayout.MaskField("Disabled Lightmodes", (int)lightModes.floatValue, Enum.GetNames(typeof(LightMode)));
+                if (EditorGUI.EndChangeCheck())
                 {
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Always", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", false);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
+                    materialEditor.RegisterPropertyChangeUndo("LightModes");
+                    lightModes.floatValue = lightModesMask;
+                    SetMaterialsLightMode(materialEditor, lightModesMask);
+                    EditorUtility.SetDirty(material);
                 }
-                else if (lightModesMask == 0)
-                {
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Always", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", true);
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
-                }
-                else
-                {
-                    if (lightModesMask % 1 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "Always", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "Always", true);
-                    if (lightModesMask % 2 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", true);
-                    if (lightModesMask % 4 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", true);
-                    if (lightModesMask % 8 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", true);
-                    if (lightModesMask % 16 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", true);
-                    if (lightModesMask % 32 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", true);
-                    if (lightModesMask % 64 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", true);
-                    if (lightModesMask % 128 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", true);
-                    if (lightModesMask % 256 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", true);
-                    if (lightModesMask % 512 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", true);
-                    if (lightModesMask % 1024 == 0)
-                        SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
-                    else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
-                }
-                EditorUtility.SetDirty(material);
             }
 
             // DisableBatching
-            EditorGUI.showMixedValue = disableBatching.hasMixedValue;
-            var batchingFlag = (DisableBatchingFlags)disableBatching.floatValue;
-            EditorGUI.BeginChangeCheck();
-            batchingFlag = (DisableBatchingFlags)EditorGUILayout.Popup("Disable Batching", (int)batchingFlag, Enum.GetNames(typeof(DisableBatchingFlags)));
-            if (EditorGUI.EndChangeCheck())
+            if (disableBatching != null)
             {
-                materialEditor.RegisterPropertyChangeUndo("Disable Batching");
-                disableBatching.floatValue = (float)batchingFlag;
-                switch (batchingFlag)
+                EditorGUI.showMixedValue = disableBatching.hasMixedValue;
+                var batchingFlag = (DisableBatchingFlags)disableBatching.floatValue;
+                EditorGUI.BeginChangeCheck();
+                batchingFlag = (DisableBatchingFlags)EditorGUILayout.Popup("Disable Batching", (int)batchingFlag, Enum.GetNames(typeof(DisableBatchingFlags)));
+                if (EditorGUI.EndChangeCheck())
                 {
-                    case DisableBatchingFlags.False:
-                        SetMaterialsTag(materialEditor.targets, "DisableBatching", "False");
-                        break;
-                    case DisableBatchingFlags.True:
-                        SetMaterialsTag(materialEditor.targets, "DisableBatching", "True");
-                        break;
-                    case DisableBatchingFlags.LODFading:
-                        SetMaterialsTag(materialEditor.targets, "DisableBatching", "LODFading");
-                        break;
+                    materialEditor.RegisterPropertyChangeUndo("Disable Batching");
+                    disableBatching.floatValue = (float)batchingFlag;
+                    SetDisableBatchingFlags(materialEditor, batchingFlag);
+                    EditorUtility.SetDirty(material);
                 }
-                EditorUtility.SetDirty(material);
             }
 
             // PreviewType
-            EditorGUI.showMixedValue = previewType.hasMixedValue;
-            var previewTypeFlag = (PreviewType)previewType.floatValue;
-            EditorGUI.BeginChangeCheck();
-            previewTypeFlag = (PreviewType)EditorGUILayout.Popup("Preview Type", (int)previewTypeFlag, Enum.GetNames(typeof(PreviewType)));
-            if (EditorGUI.EndChangeCheck())
+            if (previewType != null)
             {
-                materialEditor.RegisterPropertyChangeUndo("Preview Type");
-                previewType.floatValue = (float)previewTypeFlag;
-                switch (previewTypeFlag)
+                EditorGUI.showMixedValue = previewType.hasMixedValue;
+                var previewTypeFlag = (PreviewType)previewType.floatValue;
+                EditorGUI.BeginChangeCheck();
+                previewTypeFlag = (PreviewType)EditorGUILayout.Popup("Preview Type", (int)previewTypeFlag, Enum.GetNames(typeof(PreviewType)));
+                if (EditorGUI.EndChangeCheck())
                 {
-                    case PreviewType.Sphere:
-                        SetMaterialsTag(materialEditor.targets, "PreviewType", "");
-                        break;
-                    case PreviewType.Plane:
-                        SetMaterialsTag(materialEditor.targets, "PreviewType", "Plane");
-                        break;
-                    case PreviewType.Skybox:
-                        SetMaterialsTag(materialEditor.targets, "PreviewType", "Skybox");
-                        break;
+                    materialEditor.RegisterPropertyChangeUndo("Preview Type");
+                    previewType.floatValue = (float)previewTypeFlag;
+                    SetPreviewTypeFlags(materialEditor, previewTypeFlag);
+                    EditorUtility.SetDirty(material);
                 }
-                EditorUtility.SetDirty(material);
             }
             
             // IgnoreProjector
-            EditorGUI.showMixedValue = ignoreProjector.hasMixedValue;
-            var projectorFlag = ignoreProjector.floatValue;
-            EditorGUI.BeginChangeCheck();
-            projectorFlag = EditorGUILayout.Toggle("Ignore Projector", projectorFlag == 1) ? 1 : 0;
-            if (EditorGUI.EndChangeCheck())
+            if (ignoreProjector != null)
             {
-                materialEditor.RegisterPropertyChangeUndo("Ignore Projector");
-                ignoreProjector.floatValue = projectorFlag;
-                if (material.GetFloat("_IgnoreProjector") == 1)
-                    SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "True");
-                else SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "False");
-                EditorUtility.SetDirty(material);
+                EditorGUI.showMixedValue = ignoreProjector.hasMixedValue;
+                var projectorFlag = ignoreProjector.floatValue;
+                EditorGUI.BeginChangeCheck();
+                projectorFlag = EditorGUILayout.Toggle("Ignore Projector", projectorFlag == 1) ? 1 : 0;
+                if (EditorGUI.EndChangeCheck())
+                {
+                    materialEditor.RegisterPropertyChangeUndo("Ignore Projector");
+                    ignoreProjector.floatValue = projectorFlag;
+                    if (ignoreProjector.floatValue == 1)
+                        SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "True");
+                    else SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "False");
+                    EditorUtility.SetDirty(material);
+                }
             }
 
             // ForceNoShadowCasting
-            EditorGUI.showMixedValue = forceNoShadowCasting.hasMixedValue;
-            var forceNoShadowCastingFlag = forceNoShadowCasting.floatValue;
-            EditorGUI.BeginChangeCheck();
-            forceNoShadowCastingFlag = EditorGUILayout.Toggle("ForceNoShadowCasting", forceNoShadowCastingFlag == 1) ? 1 : 0;
-            if (EditorGUI.EndChangeCheck())
+            if (forceNoShadowCasting != null)
             {
-                materialEditor.RegisterPropertyChangeUndo("ForceNoShadowCasting");
-                forceNoShadowCasting.floatValue = forceNoShadowCastingFlag;
-                if (material.GetFloat("_ForceNoShadowCasting") == 1)
-                    SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "True");
-                else SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "False");
-                EditorUtility.SetDirty(material);
+                EditorGUI.showMixedValue = forceNoShadowCasting.hasMixedValue;
+                var forceNoShadowCastingFlag = forceNoShadowCasting.floatValue;
+                EditorGUI.BeginChangeCheck();
+                forceNoShadowCastingFlag = EditorGUILayout.Toggle("ForceNoShadowCasting", forceNoShadowCastingFlag == 1) ? 1 : 0;
+                if (EditorGUI.EndChangeCheck())
+                {
+                    materialEditor.RegisterPropertyChangeUndo("ForceNoShadowCasting");
+                    forceNoShadowCasting.floatValue = forceNoShadowCastingFlag;
+                    if (forceNoShadowCasting.floatValue == 1)
+                        SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "True");
+                    else SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "False");
+                    EditorUtility.SetDirty(material);
+                }
             }
 
             // CanUseSpriteAtlas
-            EditorGUI.showMixedValue = canUseSpriteAtlas.hasMixedValue;
-            var canUseSpriteAtlasFlag = canUseSpriteAtlas.floatValue;
-            EditorGUI.BeginChangeCheck();
-            canUseSpriteAtlasFlag = EditorGUILayout.Toggle("CanUseSpriteAtlas", canUseSpriteAtlasFlag == 1) ? 1 : 0;
-            if (EditorGUI.EndChangeCheck())
+            if (canUseSpriteAtlas != null)
             {
-                materialEditor.RegisterPropertyChangeUndo("CanUseSpriteAtlas");
-                canUseSpriteAtlas.floatValue = canUseSpriteAtlasFlag;
-                if (material.GetFloat("_CanUseSpriteAtlas") == 1)
-                    SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "True");
-                else SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "False");
-                EditorUtility.SetDirty(material);
+                EditorGUI.showMixedValue = canUseSpriteAtlas.hasMixedValue;
+                var canUseSpriteAtlasFlag = canUseSpriteAtlas.floatValue;
+                EditorGUI.BeginChangeCheck();
+                canUseSpriteAtlasFlag = EditorGUILayout.Toggle("CanUseSpriteAtlas", canUseSpriteAtlasFlag == 1) ? 1 : 0;
+                if (EditorGUI.EndChangeCheck())
+                {
+                    materialEditor.RegisterPropertyChangeUndo("CanUseSpriteAtlas");
+                    canUseSpriteAtlas.floatValue = canUseSpriteAtlasFlag;
+                    if (canUseSpriteAtlas.floatValue == 1)
+                        SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "True");
+                    else SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "False");
+                    EditorUtility.SetDirty(material);
+                }
+                EditorGUI.showMixedValue = false;
             }
-            EditorGUI.showMixedValue = false;
 
             // Actual shader properties
             materialEditor.SetDefaultGUIWidths();
@@ -721,7 +691,7 @@ namespace Kaj
                         EditorStyles.foldout.Draw(toggleRect, false, false, expanded, false);
 
                     // Toggle property
-                    // Technically drawers besides ToggleUIs work, but are VERY wonky
+                    // Technically drawers besides ToggleUIs work, but are VERY wonky and not resized properly
                     if (toggle)
                     {
                         // Toggle alignment from Thry's
@@ -774,6 +744,38 @@ namespace Kaj
 
         }
 
+        private void SetDisableBatchingFlags(MaterialEditor materialEditor, DisableBatchingFlags flag)
+        {
+            switch (flag)
+            {
+                case DisableBatchingFlags.False:
+                    SetMaterialsTag(materialEditor.targets, "DisableBatching", "False");
+                    break;
+                case DisableBatchingFlags.True:
+                    SetMaterialsTag(materialEditor.targets, "DisableBatching", "True");
+                    break;
+                case DisableBatchingFlags.LODFading:
+                    SetMaterialsTag(materialEditor.targets, "DisableBatching", "LODFading");
+                    break;
+            }
+        }
+
+        private void SetPreviewTypeFlags(MaterialEditor materialEditor, PreviewType previewTypeFlag)
+        {
+            switch (previewTypeFlag)
+            {
+                case PreviewType.Sphere:
+                    SetMaterialsTag(materialEditor.targets, "PreviewType", "");
+                    break;
+                case PreviewType.Plane:
+                    SetMaterialsTag(materialEditor.targets, "PreviewType", "Plane");
+                    break;
+                case PreviewType.Skybox:
+                    SetMaterialsTag(materialEditor.targets, "PreviewType", "Skybox");
+                    break;
+            }
+        }
+
         private void SetMaterialsTag(UnityEngine.Object[] mats, string key, string value)
         {
             foreach (Material m in mats)
@@ -784,6 +786,52 @@ namespace Kaj
         {
             foreach (Material m in mats)
                 m.SetShaderPassEnabled(pass, enabled);
+        }
+
+        private void SetMaterialsLightMode(MaterialEditor materialEditor, int lightModesMask)
+        {
+            if (lightModesMask == -1)
+                foreach (string name in Enum.GetNames(typeof(LightMode)))
+                    SetMaterialsLightModeEnabled(materialEditor.targets, name, false);
+            else if (lightModesMask == 0)
+                foreach (string name in Enum.GetNames(typeof(LightMode)))
+                    SetMaterialsLightModeEnabled(materialEditor.targets, name, true);
+            else
+            {
+                if (lightModesMask % 1 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Always", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "Always", true);
+                if (lightModesMask % 2 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", true);
+                if (lightModesMask % 4 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", true);
+                if (lightModesMask % 8 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", true);
+                if (lightModesMask % 16 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", true);
+                if (lightModesMask % 32 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", true);
+                if (lightModesMask % 64 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", true);
+                if (lightModesMask % 128 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", true);
+                if (lightModesMask % 256 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", true);
+                if (lightModesMask % 512 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", true);
+                if (lightModesMask % 1024 == 0)
+                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
+                else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
+            }
         }
 
         // Rendering modes provide a means to preset blending options AND to enable certain keywords
