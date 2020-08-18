@@ -22,18 +22,24 @@ Shader "Kaj/PBR"
         [TexToggleActive]_CoverageMap ("Coverage (Alpha) Map", 2D) = "white" {}
         [HideInInspector]_CoverageMapActive ("", Int) = 0
         [Indent]
-            _Cutoff("Cutoff", Range(0,1)) = 0.5
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_CoverageMapUV ("UV Set", Int) = 0
+        [UnIndent]
+        _Cutoff("Cutoff", Range(0,1)) = 0.5
+        [Indent]
             [ToggleUI]_ForceOpaque("Force Opaque", Int) = 0
-            [ToggleUI]_AlphaToCoverage("Alpha to Coverage", Int) = 0
+            [ToggleUI]_AlphaToCoverage("Sharpen Alpha to Coverage", Int) = 0
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
         [UnIndent]
         [Normal]_BumpMap("Normal Map", 2D) = "bump" {}
         [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_BumpMapUV ("UV Set", Int) = 0
             _BumpScale("Normals Scale", Float) = 1.0
         [UnIndent]
         [HDR]_EmissionColor("Emission Color", Color) = (1,1,1,1)
         _EmissionMap("Emission Map", 2D) = "white" {}
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_EmissionMapUV ("UV Set", Int) = 0
         [HideInInspector]end_Main("", Int) = 1
 
         [HideInInspector]group_StandardSettings("Standard Settings", Int) = 0
@@ -49,11 +55,18 @@ Shader "Kaj/PBR"
         [RangeMax]_SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
         [RangeMin]_SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
         [ToggleUI]_ReceiveShadows("Receive Shadows", Int) = 1
+        [ToggleUI]_HDREnabled("HDR Enabled", Int) = 1
         [HideInInspector]group_StandardTextures("Textures", Int) = 0
         [TexToggleActive]_MetallicGlossMap("Metallic Map", 2D) = "white" {}
         [HideInInspector]_MetallicGlossMapActive ("", Int) = 0
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_MetallicGlossMapUV ("UV Set", Int) = 0
+        [UnIndent]
         [TexToggleActive]_SpecGlossMap("Glossiness Map", 2D) = "white" {}
         [HideInInspector]_SpecGlossMapActive ("", Int) = 0
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_SpecGlossMapUV ("UV Set", Int) = 0
+        [UnIndent]
         [TexToggleActive]_OcclusionMap("Occlusion Map", 2D) = "white" {}
         [HideInInspector]_OcclusionMapActive ("", Int) = 0
         [Indent]
@@ -61,11 +74,15 @@ Shader "Kaj/PBR"
         [UnIndent]
         [TexToggleActive]_SpecularMap("Specular Map (RGB)", 2D) = "white" {}
         [HideInInspector]_SpecularMapActive ("", Int) = 0
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_SpecularMapUV("UV Set", Int) = 0
+        [UnIndent]
         [HideInInspector]end_StandardTextures("", Int) = 1
         [HideInInspector]group_CombinedMap("Combined Texture", Int) = 0
         [TexToggleActive]_CombinedMap("Combined Map (RGBA)", 2D) = "white" {}
         [HideInInspector]_CombinedMapActive ("", Int) = 0
         [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_CombinedMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_MetallicGlossMapCombinedMapChannel("Metallic Channel", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMapCombinedMapChannel("Glossiness Channel", Int) = 1
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_OcclusionMapCombinedMapChannel("Occlusion Channel", Int) = 2
@@ -76,6 +93,11 @@ Shader "Kaj/PBR"
         [HideInInspector][ToggleUI]group_toggle_Diffuse("Shading", Int) = 1
         //[WideEnum(Lambert,0, PBR,1, Skin,2, ToonRamp,3)]_DiffuseMode("Mode", Int) = 1
         [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3)]_DiffuseMode("Mode", Int) = 1
+        [HideInInspector]group_Lambert("Lambert", Int) = 0
+        [ToggleUI]_DiffuseWrapIntensity("Diffuse Wrap", Int) = 0
+        _DiffuseWrap("Wrap Factor", Range(0,1)) = 0.5
+        [ToggleUI]_DiffuseWrapConserveEnergy("Conserve Energy", Int) = 0
+        [HideInInspector]end_Lambert("", Int) = 0
         [HideInInspector]group_SkinDiffuse("Skin", Int) = 0
         [NoScaleOffset]_PreIntSkinTex("Scattering Lookup Texture", 2D) = "white" {} // hard lniked to BRDF lookup tex
         _BumpBlurBias("Normals Blur Bias", Float) = 3.0
@@ -115,6 +137,9 @@ Shader "Kaj/PBR"
         [HideInInspector]group_Details("Detail Settings", Int) = 0
         [TexToggleActive]_DetailMask("Detail Mask (RGB)", 2D) = "white" {}
         [HideInInspector]_DetailMaskActive("", Int) = 0
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_DetailMaskUV("UV Set", Int) = 0
+        [UnIndent]
         _DetailColorR("Detail Color (Red)", Color) = (1,1,1,1)
         _DetailColorG("Detail Color (Green)", Color) = (1,1,1,1)
         _DetailColorB("Detail Color (Blue)", Color) = (1,1,1,1)
@@ -146,29 +171,38 @@ Shader "Kaj/PBR"
         [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax", Int) = 0
         [TexToggleActive]_ParallaxMap ("Parallax Map", 2D) = "white" {}
         [HideInInspector]_ParallaxMapActive ("", Int) = 0
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_ParallaxMapUV("UV Set", Int) = 0
+        [UnIndent]
         _Parallax ("Parallax Scale", Range (0, 0.08)) = 0.02
         _ParallaxBias ("Parallax Bias", Float) = 0.42
+        [ToggleUI]_ParallaxUV0 ("Affects UV0", Int) = 1
+        [ToggleUI]_ParallaxUV1 ("Affects UV1", Int) = 1
+        [ToggleUI]_ParallaxUV2 ("Affects UV2", Int) = 1
+        [ToggleUI]_ParallaxUV3 ("Affects UV3", Int) = 1
         [HideInInspector]end_Parallax("", Int) = 0
 
-        //[HideInInspector]group_SubsurfaceScattering("Subsurface Scattering", Int) = 0
-        //_DiffuseWrap("Diffuse Wrap", Range(0.5,1)) = 0.5
-        //_DiffuseWrapIntensity("Diffuse Wrap Intensity", Range(0,1)) = 0
         [HideInInspector][ToggleUI]group_toggle_SSSTransmission("Subsurface Transmission", Int) = 0
         [ToggleUI]_SSSTransmissionShadowCastingLightsOnly("Shadow Casting Lights Only", Int) = 1
         [ToggleUI]_SSSTransmissionIgnoreShadowAttenuation("Ignore Shadows", Int) = 0
         _SubsurfaceColor("Subsurface Color", Color) = (1,0.4,0.25)
         _TranslucencyMap("Translucency Map", 2D) = "white" {}
+        [Indent]
+            [Enum(UV0,0,UV1,1,UV2,2,UV3,3)]_TranslucencyMapUV("UV Set", Int) = 0
+        [UnIndent]
         [RangeMax]_SSSTranslucencyMax("Translucency Max", Range(0,1)) = 0
         [RangeMin]_SSSTranslucencyMin("Translucency Min", Range(0,1)) = 0
         _SSSTransmissionPower("Power", Range(1,8)) = 2
         _SSSTransmissionDistortion("Normals Distortion", Range(0,1)) = 0.1
         _SSSTransmissionScale("Scale", Range(1,8)) = 4
+        [ToggleUI]_SSSStylizedIndirect("Stylized Indirect Diffuse Transmission", Int) = 0
+        [Indent]
+            _SSSStylizedIndirectIntensity("Intensity", Range(0,1)) = 1
         [HideInInspector]end_SSSTransmission("", Int) = 0
-        //[HideInInspector]end_SubsurfaceScattering("", Int) = 0
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
         [WideEnum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
-        [WideEnum(Off,0,On,1)] _AlphaToMask ("Alpha to Mask", Int) = 0
+        [WideEnum(Off,0,On,1)] _AlphaToMask ("Alpha To Coverage", Int) = 0
         [WideEnum(Off,0,On,1)] _ZWrite ("ZWrite", Int) = 1
         [WideEnum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
         _OffsetFactor("Offset Factor", Float) = 0
@@ -195,7 +229,7 @@ Shader "Kaj/PBR"
         [HideInInspector]group_Debug("Debug", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 13", Int) = 13
+        [KajLabel]_Version("Shader Version: 14", Int) = 14
     }
 
     CustomEditor "Kaj.ShaderEditor"    
@@ -234,7 +268,7 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
             #pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
             #pragma multi_compile_fwdbase
 			#pragma multi_compile_fog
             #pragma multi_compile_instancing
@@ -260,7 +294,7 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
 			#pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
 			#pragma multi_compile_fwdadd_fullshadows
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
@@ -282,7 +316,7 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
             #pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
             #pragma multi_compile_shadowcaster
             #pragma multi_compile_instancing
             //#pragma instancing_options
@@ -303,7 +337,7 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
             #pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
             #pragma shader_feature EDITOR_VISUALIZATION
 
             #pragma fragmentoption ARB_precision_hint_fastest

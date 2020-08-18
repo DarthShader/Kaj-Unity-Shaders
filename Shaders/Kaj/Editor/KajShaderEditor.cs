@@ -495,9 +495,11 @@ namespace Kaj
                 mode = (BlendMode)EditorGUILayout.Popup("Rendering Mode", (int)mode, Enum.GetNames(typeof(BlendMode)));
                 if (EditorGUI.EndChangeCheck())
                 {
+                    // Idk if these Undo registrations are even still necessary since changing a material property registers one,
+                    // but the Standard shader GUI does this so I will too
                     materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
                     blendMode.floatValue = (float)mode;
-                    SetupMaterialsWithBlendMode(materialEditor.targets, (BlendMode)material.GetFloat("_Mode"));
+                    SetupMaterialsWithBlendMode(materialEditor.targets, mode);
                     if (mode == BlendMode.Skybox)
                     {
                         previewType.floatValue = (float)PreviewType.Skybox;
