@@ -75,6 +75,7 @@ namespace Kaj
     }
 
     // Simple indent and unindent decorators
+    // 2px padding is still added around each decorator, might change to -2 height later
     public class IndentDecorator : MaterialPropertyDrawer
     {
         public override void OnGUI (Rect position, MaterialProperty prop, String label, MaterialEditor editor)
@@ -97,33 +98,6 @@ namespace Kaj
         public override float GetPropertyHeight (MaterialProperty prop, string label, MaterialEditor editor)
         {
             return 0f;
-        }
-    }
-
-    // Sets a material property with the same name as the texture + suffix 'Active' to true
-    // when a texture is assigned, otherwise sets it to false.  Use [HideInInspector] on the 'Active' Properties
-    // Requires the custom inspector to assign all of these when you switch shaders! 
-    // Useful for uniform branching before you sample a texture - probably bad practice to use it to toggle features
-    public class TexToggleActiveDrawer : MaterialPropertyDrawer
-    {
-        public override void OnGUI (Rect position, MaterialProperty prop, String label, MaterialEditor editor)
-        {
-            EditorGUI.BeginChangeCheck();
-            EditorGUI.showMixedValue = prop.hasMixedValue;
-            Texture t = editor.TextureProperty(position, prop, label, prop.flags != MaterialProperty.PropFlags.NoScaleOffset);
-            EditorGUI.showMixedValue = false;
-            if (EditorGUI.EndChangeCheck())
-            {
-                prop.textureValue = t;
-                MaterialProperty activeProp = MaterialEditor.GetMaterialProperty(editor.targets, prop.name + "Active");
-                if (activeProp != null)
-                    activeProp.floatValue = (t != null) ? 1 : 0;
-            }
-        }
-
-        public override float GetPropertyHeight (MaterialProperty prop, string label, MaterialEditor editor)
-        {
-            return base.GetPropertyHeight (prop, label, editor) + 54; // afaik default texture is 54 pixels more than the default height
         }
     }
 
@@ -174,16 +148,8 @@ namespace Kaj
         }
     }
 
-    // Thumbnail texture, no scale/offset.  Could be improved
-    public class MiniTextureDrawer : MaterialPropertyDrawer
-    {
-        public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
-        {
-            prop.textureValue = editor.TexturePropertyMiniThumbnail(position, prop, label.text, label.tooltip);
-        }
-    }
-
     // Enum with normal editor width, rather than MaterialEditor Default GUI widths
+    // Would be nice if Decorators could access Drawers too so this wouldn't be necessary for something to trivial
     // Adapted from Unity interal MaterialEnumDrawer https://github.com/Unity-Technologies/UnityCsReference/
     public class WideEnumDrawer : MaterialPropertyDrawer
     {
@@ -262,7 +228,6 @@ namespace Kaj
                     break;
                 }
  
-            // Todo: Change label and field width here
             float labelWidth = EditorGUIUtility.labelWidth;
             EditorGUIUtility.labelWidth = 0f;
             var selIndex = EditorGUI.Popup(position, label, selectedIndex, names);
@@ -372,12 +337,13 @@ namespace Kaj
 
     // Minimalistic shader editor extension to edit the few things the base inspector can't access
     // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
-    // Supports grouped foldouts and foldouts with toggles as labels
+    // Supports grouped foldouts and foldouts with toggles as labels, and helpbox based information
     public class ShaderEditor : ShaderGUI
     {
         const string groupPrefix = "group_";
         const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
         const string endPrefix = "end_";
+        const string helpBoxPrefix = "helpbox_";
         GUIStyle foldoutStyle;
 
         public enum BlendMode
@@ -443,26 +409,10 @@ namespace Kaj
 
             if (m_FirstTimeApply)
             {
-                // TexToggleActiveDrawer support!
-                // Loop through all material properties, look for an existing
-                // var with the same name as each texture prop with suffix "Active" 
-                // that is flagged as HideInInspector and apply true or false to it
-                // WARNING: This auto-apply will fail if mixed value texture properties exist
-                foreach (MaterialProperty mp in props)
-                    if (mp.type == MaterialProperty.PropType.Texture)
-                    {
-                        MaterialProperty activeProp = MaterialEditor.GetMaterialProperty(materialEditor.targets, mp.name + "Active");
-                        if (activeProp != null)
-                            if (activeProp.flags == MaterialProperty.PropFlags.HideInInspector)
-                                if (mp.hasMixedValue)
-                                    Debug.LogWarning("[Kaj Shader Editor] TexToggleActiveDrawer auto-apply failed because multiple materials were selected");
-                                else activeProp.floatValue = (mp.textureValue != null) ? 1 : 0;
-                    }
-                
                 // Materials could have their existing tags/override tags assigned to the convention named
-                // properties for them, but those tags might not be consistent across multiple materials.
+                // properties for them, but those tags might not be consistent across multiple materials, and also might not exist.
                 // Conversely, properties also shouldn't be auto-applied to override tags if they have mixed values.
-                // But properties (and hard coded defaults for them)could be inconsistent with override tags, 
+                // But properties (and hard coded defaults for them) could be inconsistent with override tags, 
                 // so this part applys them where it makes sense to.
                 if (lightModes != null && !lightModes.hasMixedValue)
                     SetMaterialsLightMode(materialEditor, (int)lightModes.floatValue);
@@ -641,13 +591,14 @@ namespace Kaj
         }
 
         // Recursive to easily deal with foldouts
+        // the group header property can store a toggle value, and the end property stores whether or not the foldout is expanded
         protected void DrawPropertiesGUIRecursive(MaterialEditor materialEditor, MaterialProperty[] props)
         {
             for (var i = 0; i < props.Length; i++)
             {
                 // Check for groups and toggle groups
                 bool toggle = false;
-                if (props[i].name.StartsWith(groupPrefix) && 
+                if (props[i].name.StartsWith(groupPrefix) && // props[i] is group property
                    ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
                 {
                     if (props[i].name.StartsWith(groupPrefix + togglePrefix))
@@ -663,7 +614,7 @@ namespace Kaj
                     int j = i+1;
                     bool foundEnd = false;
                     for (; j<props.Length; j++)
-                        if (props[j].name == endName && 
+                        if (props[j].name == endName && // props[j] is group end property
                             ((props[j].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
                             {
                                 foundEnd = true;
@@ -693,7 +644,7 @@ namespace Kaj
                         EditorStyles.foldout.Draw(toggleRect, false, false, expanded, false);
 
                     // Toggle property
-                    // Technically drawers besides ToggleUIs work, but are VERY wonky and not resized properly
+                    // Technically drawers besides Toggles work, but are VERY wonky and not resized properly
                     if (toggle)
                     {
                         // Toggle alignment from Thry's
@@ -707,7 +658,7 @@ namespace Kaj
                         EditorGUIUtility.labelWidth = labelWidth;
                     }
 
-                    // Activate foldout even if header was clicked
+                    // Activate foldout
                     if (e.type == EventType.MouseDown && rect.Contains(e.mousePosition))
                     {
                         if (props[j].floatValue == 1)
@@ -728,12 +679,18 @@ namespace Kaj
                         EditorGUILayout.Space();
                         DrawPropertiesGUIRecursive(materialEditor, subProps);
                         EditorGUILayout.Space();
-                        // Hard reset to original indent level because [UnIndent] decorators may need the hidden group end property
+                        // Hard reset to original indent level because [UnIndent] decorators may need the hidden group end property, which isn't drawn
                         EditorGUI.indentLevel = originalIndentLevel;
                     }
 
                     // Continue past subgroup props
                     i += j-i; 
+                }
+                else if (props[i].name.StartsWith(helpBoxPrefix) &&
+                        ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
+                {
+                    // Helpbox for displaying information.  This could be a decorator but alas decorator string arguments can't have punctuation.
+                    EditorGUILayout.HelpBox(props[i].displayName, MessageType.Info);
                 }
 
                 // Derived from MaterialEditor.PropertiesDefaultGUI https://github.com/Unity-Technologies/UnityCsReference/
@@ -988,8 +945,6 @@ namespace Kaj
                         break;
                 }
             }
-            
         }
     }
-
 }
