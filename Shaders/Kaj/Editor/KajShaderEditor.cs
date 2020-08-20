@@ -335,6 +335,19 @@ namespace Kaj
         }
     }
 
+    // Simple auto-laid out information box, uses materialproperty display name as text
+    public class HelpBoxDrawer : MaterialPropertyDrawer
+    {
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            EditorGUILayout.HelpBox(label, MessageType.Info);
+        }
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+           return -4f; // Remove the extra drawer padding + helpbox extra padding
+        }
+    }
+
     // Minimalistic shader editor extension to edit the few things the base inspector can't access
     // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
     // Supports grouped foldouts and foldouts with toggles as labels, and helpbox based information
@@ -343,7 +356,6 @@ namespace Kaj
         const string groupPrefix = "group_";
         const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
         const string endPrefix = "end_";
-        const string helpBoxPrefix = "helpbox_";
         GUIStyle foldoutStyle;
 
         public enum BlendMode
@@ -685,12 +697,6 @@ namespace Kaj
 
                     // Continue past subgroup props
                     i += j-i; 
-                }
-                else if (props[i].name.StartsWith(helpBoxPrefix) &&
-                        ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
-                {
-                    // Helpbox for displaying information.  This could be a decorator but alas decorator string arguments can't have punctuation.
-                    EditorGUILayout.HelpBox(props[i].displayName, MessageType.Info);
                 }
 
                 // Derived from MaterialEditor.PropertiesDefaultGUI https://github.com/Unity-Technologies/UnityCsReference/
