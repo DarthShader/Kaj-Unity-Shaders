@@ -31,9 +31,7 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_MetallicGlossMap);       // Standard metallic map
 uniform float _SpecularHighlights;                      // Standard specular highlights toggle
 uniform float _GlossyReflections;                       // Standard reflections toggle
 uniform half _BumpScale;                                // Standard normal map scale
-// Problem using tex2Dbias with the Unity sampler definition
 UNITY_DECLARE_TEX2D(_BumpMap);                          // Standard normal map
-//sampler2D _BumpMap;
     uniform float4 _BumpMap_ST;
     uniform float4 _BumpMap_TexelSize;
 uniform half _Parallax;                                 // Standard height map scale
@@ -227,9 +225,7 @@ uniform float _DiffuseWrap;                             // Lambert shading diffu
 uniform float _DiffuseWrapIntensity;                    // Lambert shading diffuse wrap toggle
 uniform float _DiffuseWrapConserveEnergy;               // Lambert shading diffuse wrap toggle
 uniform float group_toggle_PreIntegratedSkin;
-// Problem using tex2Dlod with the Unity texture macro
-//UNITY_DECLARE_TEX2D(_PreIntSkinTex);
-sampler2D _PreIntSkinTex;                               // BRDF diffuse term lookup texture
+UNITY_DECLARE_TEX2D(_PreIntSkinTex);                    // BRDF diffuse term lookup texture
 uniform float _BumpBlurBias;                            // Pre-Integrated Skin parameters
 uniform float _BlurStrength;                            // Pre-Integrated Skin parameters
 uniform float _CurvatureInfluence;                      // Pre-Integrated Skin parameters
@@ -239,6 +235,7 @@ uniform float group_toggle_SSSTransmission;
 UNITY_DECLARE_TEX2D_NOSAMPLER(_TranslucencyMap);        // Subsurface Transmission relative thickness map
     uniform float4 _TranslucencyMap_ST;
     uniform float4 _TranslucencyMap_TexelSize;
+    uniform float _TranslucencyMapUV;
 uniform float _SSSTranslucencyMax;
 uniform float _SSSTranslucencyMin;
 uniform float _SSSTransmissionPower;
@@ -265,12 +262,21 @@ uniform float _SpecularMapUV;
 uniform float _CombinedMapUV;
 uniform float _DetailMaskUV;
 uniform float _ParallaxMapUV;
-uniform float _TranslucencyMapUV;
 uniform float _ParallaxUV0;
 uniform float _ParallaxUV1;
 uniform float _ParallaxUV2;
 uniform float _ParallaxUV3;
 uniform float _TriplanarUseVertexColors;
+uniform float _DebugWorldNormals;
+uniform float4 _AOColorBleed;
+uniform float _DebugOcclusion;
+uniform float _EmissionTintByAlbedo;
+uniform float _SpecularAnisotropy;
+uniform float _SpecularAnisotropyAngle;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecularAnisotropyTangentMap);
+    uniform float4 _SpecularAnisotropyTangentMap_ST;
+    uniform float4 _SpecularAnisotropyTangentMap_TexelSize;
+    uniform float _SpecularAnisotropyTangentMapUV;
 
 // Reusable macros and functions
 
@@ -589,6 +595,14 @@ float3 roundVertex(float3 vert, half factor) // good default is 120
     return round(vert * factor) / factor;
 }
 
+// Affine texture transformation
+half4 sampleAffine(sampler2D tex, float4 objPosition, float2 coord, float4 st)
+{
+    float3 texcoord = float3((coord.xy* st.xy + st.zw) * objPosition.w, objPosition.w);
+    return tex2D(tex, texcoord.xy / texcoord.z);
+}
+
+
 fixed switchChannel(half channel, fixed4 combinedTex)
 {
     if (channel == 0)
@@ -665,6 +679,22 @@ half2 stereoCorrectScreenUV(half4 screenPos)
     
     return uv;
 }
+
+// Burley12
+// Apparently HDRP implementation doesn't divide by pi, so skipping that
+float GGXTerm_Aniso(float TdotH, float BdotH, float roughnessT, float roughnessB, float NdotH)
+{
+    float denom = TdotH * TdotH / (roughnessT * roughnessT) + BdotH * BdotH / (roughnessB * roughnessB) + NdotH * NdotH;
+    return (1.0 / ( roughnessT*roughnessB * denom*denom));
+}
+
+float SmithJointGGXAniso(float TdotV, float BdotV, float NdotV, float TdotL, float BdotL, float NdotL, float roughnessT, float roughnessB)
+{
+    float lambdaV = NdotL * sqrt(roughnessT * TdotV * TdotV + roughnessB * BdotV * BdotV + NdotV * NdotV);
+    float lambdaL = NdotV * sqrt(roughnessT * TdotL * TdotL + roughnessB * BdotL * BdotL + NdotL * NdotL);
+    return 0.5 / max(1e-5f, (lambdaV + lambdaL) );
+}
+
 
 // Reusable vert/frag/geoms
 
@@ -907,6 +937,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         perceptualRoughness = 1.0 - perceptualRoughness;
     perceptualRoughness = _GlossinessMin + perceptualRoughness * (_Glossiness - _GlossinessMin);
     occlusion = lerp(1, occlusion, _OcclusionStrength);
+    if (_DiffuseMode == 2) // Color bleed only available on Skin diffuse, may change later. Occlusion tint is also a thing
+        occlusion = pow(occlusion, 1 - _AOColorBleed);
     specularScale = _SpecularMin + specularScale * (_SpecularMax - _SpecularMin);
     specularScale *= _SpecColor;
 
@@ -979,8 +1011,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         _DetailNormalMapBlue_var.xyz = UnpackScaleNormal(_DetailNormalMapBlue_var, _DetailNormalMapScaleBlue);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapBlue_var.xyz), _DetailMask_var.b);
     }
-    float3x3 tangentTransform = float3x3(i.tangentWorld, i.bitangentWorld, i.normalWorld);
-    fixed3 normalDir = normalize(mul(blendedNormal, tangentTransform));
+    float3x3 tangentToWorld = float3x3(i.tangentWorld, i.bitangentWorld, i.normalWorld);
+    fixed3 normalDir = normalize(mul(blendedNormal, tangentToWorld));
 
 
     // Common vars
@@ -996,6 +1028,12 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     float NdotH = saturate(dot(normalDir, halfDir));
     half LdotV = saturate(dot(lightDir, viewDir));
     half LdotH = saturate(dot(lightDir, halfDir));
+    float TdotH = dot(i.tangentWorld, halfDir);
+    float BdotH = dot(i.bitangentWorld, halfDir);
+    float TdotV = dot(i.tangentWorld, viewDir);
+    float BdotV = dot(i.bitangentWorld, viewDir);
+    float TdotL = dot(i.tangentWorld, lightDir);
+    float BdotL = dot(i.bitangentWorld, lightDir);
     fixed RVdotL = max(0, dot(viewReflectDir, lightDir));
     half smoothness = 1.0f - perceptualRoughness;
     float roughness = max(PerceptualRoughnessToRoughness(perceptualRoughness), 0.002);
@@ -1043,7 +1081,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         blurredWorldNormal = UnpackScaleNormal(blurredWorldNormal_var, _BumpScale);
         // Lerp blurred normal against combined normal by blur strength
         blurredWorldNormal = lerp(blendedNormal, blurredWorldNormal, _BlurStrength);
-        blurredWorldNormal = normalize(mul(blurredWorldNormal, tangentTransform));
+        blurredWorldNormal = normalize(mul(blurredWorldNormal, tangentToWorld));
 
         // use fwidth to get surface curvature via world normal and world position
         UNITY_BRANCH
@@ -1107,10 +1145,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         else if (_DiffuseMode == 2) // Skin
         {
             float NdotLBlurredUnclamped = dot(blurredWorldNormal, lightDir);
-            //NdotLBlurredUnclamped = NdotLBlurredUnclamped * _DiffuseWrap + (1-_DiffuseWrap);
             NdotLBlurredUnclamped = NdotLBlurredUnclamped * 0.5 + 0.5;
             // Pre integrated skin lookup tex serves as the BRDF diffuse term
-            half3 brdf = tex2Dlod(_PreIntSkinTex, float4(NdotLBlurredUnclamped , Curvature, 0, 0));
+            half3 brdf = UNITY_SAMPLE_TEX2D_LOD(_PreIntSkinTex, half2(NdotLBlurredUnclamped, Curvature), 0);
             color.rgb += diffColor * (indirect_diffuse + lightColor * brdf);
         }
         else if (_DiffuseMode == 3) // Flat Lit
@@ -1135,15 +1172,60 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         {
             color.rgb += pow(RVdotL, _PhongSpecularPower) * _PhongSpecularIntensity * lightColor * specularScale;
         }
-        else if (_SpecularMode == 1 || _SpecularMode == 3) // PBR
+        else if (_SpecularMode == 1 || _SpecularMode == 2 || _SpecularMode == 3) // PBR, Anisotropic, and Skin
         {
-            float V = SmithJointGGXVisibilityTerm (NdotL, NdotV, roughness);
-            float D = GGXTerm (NdotH, roughness);
+            float V = 0;
+            float D = 0;
+
+            UNITY_BRANCH
+            if (_SpecularMode == 2)
+            {
+                // Two roughness params from a single anisotropy parameter
+                // Would be better to have full independent roughness control in the future
+                float roughnessT = roughness;
+                float roughnessB = lerp(0.002, roughness, 1-_SpecularAnisotropy);
+                roughnessT *= roughnessT;
+                roughnessB *= roughnessB;
+
+                // Use tangent map if it exists
+                UNITY_BRANCH
+                if (_SpecularAnisotropyTangentMap_TexelSize.x != 1)
+                {
+                    fixed4 _SpecularAnisotropyTangentMap_var = 0;
+                    PBR_SAMPLE_TEX2DS_SAMPLER(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
+                    _SpecularAnisotropyTangentMap_var.xyz = UnpackNormal(_SpecularAnisotropyTangentMap_var);
+                    // blend with unmultiplied tangent space normal (from normal map?)
+                    // perturb tangent then recalculate bitangent?
+                    // rotate tanget and bitangent
+                    // tangentDirectionMap = mul(tangentToWorld, float3(normalLocalAniso.rg, 0.0)).xyz; ?
+                }
+
+                // Rotate tangent/bitangent via the tangentToWorld matrix
+                half theta = radians(_SpecularAnisotropyAngle);
+                half3 rotatedTangent = half3(cos(theta), sin(theta), 0);
+                rotatedTangent = normalize(mul(rotatedTangent, tangentToWorld));
+                half3 rotatedBitangent = normalize(cross(i.normalWorld, rotatedTangent));
+                // Overwriting these dot products because they're not used anywhere else atm
+                TdotH = dot(rotatedTangent, halfDir);
+                BdotH = dot(rotatedBitangent, halfDir);
+                TdotV = dot(rotatedTangent, viewDir);
+                BdotV = dot(rotatedBitangent, viewDir);
+                TdotL = dot(rotatedTangent, lightDir);
+                BdotL = dot(rotatedBitangent, lightDir);
+                V = SmithJointGGXAniso(TdotV, BdotV, NdotV, TdotL, BdotL, NdotL, roughnessT, roughnessB);
+                D = GGXTerm_Aniso(TdotH, BdotH, roughnessT, roughnessB, NdotH);
+            }
+            else
+            {
+                V = SmithJointGGXVisibilityTerm (NdotL, NdotV, roughness);
+                D = GGXTerm (NdotH, roughness);
+            }
+
             half3 specularTerm = V*D * UNITY_PI; // Torrance-Sparrow model, Fresnel is applied later
             #ifdef UNITY_COLORSPACE_GAMMA
                 specularTerm = sqrt(max(1e-4h, specularTerm));
             #endif
-            specularTerm = max(0, specularTerm * NdotL) * occlusion; // added ao
+            specularTerm = max(0, specularTerm * NdotL) * occlusion; // added direct specular occlusion - should probably be a dedicated setting
             color.rgb += specularTerm * lightColor * FresnelTerm (specColor, LdotH);
         }
     }
@@ -1205,9 +1287,15 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     // Emission
     fixed4 _EmissionMap_var = 0;
     PBR_SAMPLE_TEX2DS_SAMPLER(_EmissionMap_var, _EmissionMap, _MainTex);
-    color.rgb += _EmissionColor.rgb * _EmissionMap_var.rgb;
+    color.rgb += _EmissionColor.rgb * lerp(_EmissionMap_var.rgb, albedo.rgb * _EmissionMap_var.rgb, _EmissionTintByAlbedo);
 
     UNITY_APPLY_FOG(i.fogCoord, color);
+
+    // Debug
+    if (_DebugWorldNormals)
+        color.rgb = normalDir;
+    if (_DebugOcclusion)
+        color.rgb = occlusion;
 	return color;
 }
 
@@ -1429,7 +1517,7 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
     o.VizUV = i.vizUV;
     o.LightCoord = i.lightCoord;
 #endif
-    o.Emission = _EmissionColor.rgb * _EmissionMap_var.rgb;
+    o.Emission = _EmissionColor.rgb * lerp(_EmissionMap_var.rgb, o.Albedo.rgb * _EmissionMap_var.rgb, _EmissionTintByAlbedo);
     return UnityMetaFragment(o);
 }
 

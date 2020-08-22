@@ -704,7 +704,7 @@ namespace Kaj
                     continue;
                 float h = materialEditor.GetPropertyHeight(props[i], props[i].displayName);
                 Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);
-                materialEditor.ShaderProperty(r, props[i], props[i].displayName);
+                materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something is throwing a warning here
             }
 
         }
