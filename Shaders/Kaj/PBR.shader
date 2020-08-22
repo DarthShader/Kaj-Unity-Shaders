@@ -83,16 +83,9 @@ Shader "Kaj/PBR"
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
         [ToggleUI]_HDREnabled("HDR Enabled", Int) = 1
         [ToggleUI]_ReceiveShadows("Receive Shadows", Int) = 1
-        // Receive Fog
-        // Shadow strength (0-1)
-        // Shadow smoothstep (0-1)
-        // Fake light direction (toggle + vector3)
-        // Estimate baked light direction toggle (toggle)
-        // Full vertex light shading and specular toggle
         [HideInInspector]end_Lighting("", Int) = 0
 
         [HideInInspector][ToggleUI]group_toggle_Diffuse("Diffuse Shading", Int) = 1
-        //[WideEnum(Lambert,0, PBR,1, Skin,2, ToonRamp,3)]_DiffuseMode("Mode", Int) = 1
         [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3)]_DiffuseMode("Mode", Int) = 1
         [HideInInspector]group_Lambert("Lambert", Int) = 0
         [ToggleUI]_DiffuseWrapIntensity("Diffuse Wrap", Int) = 0
@@ -108,12 +101,9 @@ Shader "Kaj/PBR"
         _CurvatureBias("Curvature Bias", Range(0,1)) = 0
         _AOColorBleed("AO Color Bleed", Color) = (0.4,0.15,0.13,1)
         [HideInInspector]end_SkinDiffuse("", Int) = 0
-        //[HideInInspector]group_ToonRampDiffuse("Toon", Int) = 0
-        //[HideInInspector]end_ToonRampDiffuse("", Int) = 0
         [HideInInspector]end_Diffuse("", Int) = 0
 
         [HideInInspector][ToggleUI]group_toggle_Specular("Specular Highlights", Int) = 1
-        //[WideEnum(Phong,0, PBR,1, Anisotropic,2, Skin,3, Toon,4)]_SpecularMode("Mode", Int) = 1
         [WideEnum(Phong,0, PBR,1, PBR Anisotropic,2, Skin,3)]_SpecularMode("Mode", Int) = 1
         [HideInInspector]group_PhongSpecular("Phong", Int) = 0
         _PhongSpecularPower("Power", Range(1,1000)) = 5
@@ -122,27 +112,18 @@ Shader "Kaj/PBR"
         [HideInInspector]group_PBRAnisotropicSpecular("PBR Anisotropic", Int) = 0
         _SpecularAnisotropy("Anisotropy", Range(0,1)) = 0
         _SpecularAnisotropyAngle("Angle", Range(-90,90)) = 0
-        //[Normal]_SpecularAnisotropyTangentMap("Tangent Map", 2D) = "bump" {}
-        //[Indent]
-        //    [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_SpecularAnisotropyTangentMapUV ("UV Set", Int) = 0
-        // Independent roughness control toggle
-        // Bitangent roughness map + controls
         [HideInInspector]end_PBRAnisotropicSpecular("", Int) = 0
-        //[HideInInspector]group_ToonSpecular("Toon", Int) = 0
-        //[HideInInspector]end_ToonSpecular("", Int) = 0
         [HideInInspector]end_Specular("", Int) = 0
 
         [HideInInspector][ToggleUI]group_toggle_Reflections("Reflections", Int) = 1
-        //[WideEnum(Basic,0, PBR,1, Skin,2, Toon,3)]_ReflectionsMode("Mode", Int) = 1
-        [WideEnum(PBR,1, Skin,2)]_ReflectionsMode("Mode", Int) = 1
+        [WideEnum(PBR,1, Skin,2, PBR Anisotropic,3)]_ReflectionsMode("Mode", Int) = 1
         [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
-        // Fallback reflection cubemap
-        // Use only as fallback toggle
         [HideInInspector]group_PBRReflections("PBR", Int) = 0
         _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
         [HideInInspector]end_PBRReflections("", Int) = 0
-        //[HideInInspector]group_ToonReflections("Toon", Int) = 0
-        //[HideInInspector]end_ToonReflections("", Int) = 0
+        [HideInInspector]group_PBRAnisotropicReflections("PBR Anisotropic", Int) = 0
+        _ReflectionsAnisotropy("Anisotropy", Range(0,1)) = 0
+        [HideInInspector]end_PBRAnisotropicReflections("", Int) = 0
         [HideInInspector]end_Reflections("", Int) = 0
 
         [HideInInspector]group_Details("Detail Settings", Int) = 0
@@ -182,7 +163,7 @@ Shader "Kaj/PBR"
         [UnIndent]
         _Parallax ("Parallax Scale", Range (0, 0.08)) = 0.02
         _ParallaxBias ("Parallax Bias", Float) = 0.42
-        [ToggleUI]_ParallaxUV0 ("Affects UV0", Int) = 1 // Could probably make a property-friendly mask drawer
+        [ToggleUI]_ParallaxUV0 ("Affects UV0", Int) = 1
         [ToggleUI]_ParallaxUV1 ("Affects UV1", Int) = 1
         [ToggleUI]_ParallaxUV2 ("Affects UV2", Int) = 1
         [ToggleUI]_ParallaxUV3 ("Affects UV3", Int) = 1
@@ -201,11 +182,9 @@ Shader "Kaj/PBR"
         _SSSTransmissionPower("Power", Range(1,8)) = 2
         _SSSTransmissionDistortion("Normals Distortion", Range(0,1)) = 0.1
         _SSSTransmissionScale("Scale", Range(1,8)) = 4
-        // Change to single slider
         [ToggleUI]_SSSStylizedIndirect("Stylized Indirect Diffuse Transmission", Int) = 0
         [Indent]
             _SSSStylizedIndirectIntensity("Intensity", Range(0,1)) = 1
-            // Modulate by translucency checkbox
         [HideInInspector]end_SSSTransmission("", Int) = 0
 
         [HideInInspector]group_Triplanar("Triplanar Mapping", Int) = 0
@@ -244,7 +223,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Show Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 17", Int) = 17
+        [KajLabel]_Version("Shader Version: 18", Int) = 18
     }
 
     CustomEditor "Kaj.ShaderEditor"    

@@ -277,6 +277,7 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecularAnisotropyTangentMap);
     uniform float4 _SpecularAnisotropyTangentMap_ST;
     uniform float4 _SpecularAnisotropyTangentMap_TexelSize;
     uniform float _SpecularAnisotropyTangentMapUV;
+uniform float _ReflectionsAnisotropy;
 
 // Reusable macros and functions
 
@@ -680,21 +681,37 @@ half2 stereoCorrectScreenUV(half4 screenPos)
     return uv;
 }
 
-// Burley12
+// Burley12 + https://openproblems.realtimerendering.com/s2017/02-PhysicallyBasedMaterialWhereAreWe.pdf
 // Apparently HDRP implementation doesn't divide by pi, so skipping that
 float GGXTerm_Aniso(float TdotH, float BdotH, float roughnessT, float roughnessB, float NdotH)
 {
     float denom = TdotH * TdotH / (roughnessT * roughnessT) + BdotH * BdotH / (roughnessB * roughnessB) + NdotH * NdotH;
     return (1.0 / ( roughnessT*roughnessB * denom*denom));
 }
-
 float SmithJointGGXAniso(float TdotV, float BdotV, float NdotV, float TdotL, float BdotL, float NdotL, float roughnessT, float roughnessB)
 {
+    roughnessT *= roughnessT;
+    roughnessB *= roughnessB;
     float lambdaV = NdotL * sqrt(roughnessT * TdotV * TdotV + roughnessB * BdotV * BdotV + NdotV * NdotV);
     float lambdaL = NdotV * sqrt(roughnessT * TdotL * TdotL + roughnessB * BdotL * BdotL + NdotL * NdotL);
     return 0.5 / max(1e-5f, (lambdaV + lambdaL) );
 }
-
+// IBL vector hack for reflections [Revie11] [McAuley15]
+// The grain direction (e.g. hair or brush direction) is assumed to be orthogonal to the normal.
+// The returned normal is NOT normalized.
+float3 ComputeGrainNormal(float3 grainDir, float3 viewDir)
+{
+    float3 B = cross(-viewDir, grainDir);
+    return cross(B, grainDir);
+}
+// Fake anisotropic by distorting the normal.
+// The grain direction (e.g. hair or brush direction) is assumed to be orthogonal to the provided normal.
+// Anisotropic ratio (0->no isotropic; 1->full anisotropy in tangent direction)
+float3 GetAnisotropicModifiedNormal(float3 grainDir, float3 normal, float3 viewDir, float anisotropy)
+{
+    float3 grainNormal = ComputeGrainNormal(grainDir, viewDir);
+    return normalize(lerp(normal, grainNormal, anisotropy));
+}
 
 // Reusable vert/frag/geoms
 
@@ -1060,7 +1077,15 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     half3 lightColorNoAttenuation = lightColor;
     half3 lightColorAttenuationNoShadows = lightColor * attenuation_noshadows;
     lightColor *= attenuation;
-    half3 indirect_specular = UnityGI_IndirectSpecularModular(viewReflectDir, i.posWorld.xyz, perceptualRoughness, occlusion, _GlossyReflections);
+    half3 indirect_specular = 0;
+    UNITY_BRANCH
+    if (_ReflectionsMode == 3) // Anisotropic reflections indirect specular
+    {
+        float3 anisoIblNormalWS = GetAnisotropicModifiedNormal(i.bitangentWorld, normalDir, viewDir, _ReflectionsAnisotropy);
+        float3 iblR = reflect(-viewDir, anisoIblNormalWS);
+        indirect_specular = UnityGI_IndirectSpecularModular(iblR, i.posWorld.xyz, perceptualRoughness, occlusion, _GlossyReflections);
+    }
+    else indirect_specular = UnityGI_IndirectSpecularModular(viewReflectDir, i.posWorld.xyz, perceptualRoughness, occlusion, _GlossyReflections);
 
     // Stylized indirect diffuse transmission
     #ifdef UNITY_PASS_FORWARDBASE
@@ -1163,6 +1188,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     }
     else color.rgb = albedo; // Unlit
 
+
     // Direct Specular
     UNITY_BRANCH
     if (group_toggle_Specular)
@@ -1184,9 +1210,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                 // Would be better to have full independent roughness control in the future
                 float roughnessT = roughness;
                 float roughnessB = lerp(0.002, roughness, 1-_SpecularAnisotropy);
-                roughnessT *= roughnessT;
-                roughnessB *= roughnessB;
-
+                
                 // Use tangent map if it exists
                 UNITY_BRANCH
                 if (_SpecularAnisotropyTangentMap_TexelSize.x != 1)
@@ -1235,7 +1259,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (group_toggle_Reflections)
     {
         UNITY_BRANCH
-        if (_ReflectionsMode == 1) // PBR
+        if (_ReflectionsMode == 1 || _ReflectionsMode == 3) // PBR
         {
             half surfaceReduction;
             #ifdef UNITY_COLORSPACE_GAMMA
