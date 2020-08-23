@@ -106,13 +106,14 @@ namespace Kaj
     {
         public override void OnGUI (Rect position, MaterialProperty prop, String label, MaterialEditor editor)
         {
-            EditorGUIUtility.fieldWidth = EditorGUIUtility.fieldWidth * 2;
-            EditorGUIUtility.labelWidth = EditorGUIUtility.labelWidth * 0.5f;
+            EditorGUIUtility.labelWidth = 0;
             Vector2 v = new Vector2(prop.vectorValue.x, prop.vectorValue.y);
+            EditorGUI.showMixedValue = prop.hasMixedValue;
             EditorGUI.BeginChangeCheck();
             v = EditorGUI.Vector2Field(position, label, v);
             if (EditorGUI.EndChangeCheck())
                 prop.vectorValue = new Vector4(v.x, v.y, prop.vectorValue.z, prop.vectorValue.w);
+            EditorGUI.showMixedValue = false;
             editor.SetDefaultGUIWidths();
         }
     }
@@ -120,15 +121,31 @@ namespace Kaj
     // Vector3 with a prefix to not cause conflicts with other (i.e. Thry's) drawers
     public class KajVector3Drawer : MaterialPropertyDrawer
     {
+        private readonly bool normalize = false;
+
+        public KajVector3Drawer() { }
+        public KajVector3Drawer(string f1) : this(new[] {f1}) {}
+        public KajVector3Drawer(string[] flags)
+        {
+            foreach (string flag in flags)
+            {
+                if (flag == "Normalize") normalize = true;
+            }
+        }
+
         public override void OnGUI (Rect position, MaterialProperty prop, String label, MaterialEditor editor)
         {
-            EditorGUIUtility.fieldWidth = EditorGUIUtility.fieldWidth * 2;
-            EditorGUIUtility.labelWidth = EditorGUIUtility.labelWidth * 0.5f;
+            EditorGUIUtility.labelWidth = 0;
             Vector3 v = new Vector3(prop.vectorValue.x, prop.vectorValue.y, prop.vectorValue.z);
+            EditorGUI.showMixedValue = prop.hasMixedValue;
             EditorGUI.BeginChangeCheck();
             v = EditorGUI.Vector3Field(position, label, v);
             if (EditorGUI.EndChangeCheck())
+            {
+                if (normalize) v.Normalize();
                 prop.vectorValue = new Vector4(v.x, v.y, v.z, prop.vectorValue.w);
+            }
+            EditorGUI.showMixedValue = false;
             editor.SetDefaultGUIWidths();
         }
     }
@@ -138,7 +155,7 @@ namespace Kaj
     {
         public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
         {
-            position.y += 8; // Make this spacing an argument
+            position.y += 8; // This spacing could be an argument
             position = EditorGUI.IndentedRect(position);
             GUI.Label(position, label, EditorStyles.label);
         }
@@ -249,6 +266,7 @@ namespace Kaj
     {
         public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
         {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
             EditorGUI.BeginChangeCheck();
             editor.RangeProperty(prop, label);
             if (EditorGUI.EndChangeCheck())
@@ -281,6 +299,7 @@ namespace Kaj
                     if (min.floatValue > prop.floatValue)
                         min.floatValue = prop.floatValue;
             }
+            EditorGUI.showMixedValue = false;
         }
 
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
@@ -295,6 +314,7 @@ namespace Kaj
     {
         public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
         {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
             EditorGUI.BeginChangeCheck();
             editor.RangeProperty(prop, label);
             if (EditorGUI.EndChangeCheck())
@@ -327,6 +347,7 @@ namespace Kaj
                     if (max.floatValue < prop.floatValue)
                         max.floatValue = prop.floatValue;
             }
+            EditorGUI.showMixedValue = false;
         }
 
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
@@ -345,6 +366,33 @@ namespace Kaj
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
            return -4f; // Remove the extra drawer padding + helpbox extra padding
+        }
+    }
+
+    // Regular float field but with a definable minimum for nonzero stuff and power exponents
+    public class MinimumFloatDrawer : MaterialPropertyDrawer
+    {
+        private readonly float min;
+
+        public MinimumFloatDrawer(float min)
+        {
+            this.min = min;
+        }
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            float f = editor.FloatProperty(prop, label);
+            if (EditorGUI.EndChangeCheck())
+            {
+                if (f < min)
+                   prop.floatValue = min;
+            }
+            EditorGUI.showMixedValue = false;
+        }
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+           return 0;
         }
     }
 
