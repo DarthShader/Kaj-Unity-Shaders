@@ -4,8 +4,9 @@
 Material:
   serializedVersion: 6
   m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
   m_Name: Nothing
   m_Shader: {fileID: 4800000, guid: 954643491a49acd47a03e4d6ce2d9a24, type: 3}
   m_ShaderKeywords: 
@@ -13,8 +14,15 @@ Material:
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
+  stringTagMap:
+    CanUseSpriteAtlas: true
+    DisableBatching: False
+    FORCENOSHADOWCASTING: False
+    IGNOREPROJECTOR: False
+    OptimizedShaderFolder: Assets/Shaders/Kaj/Nothing.Optimized/Nothing-f0ca5840/
+    OriginalShader: Kaj/Nothing
+  disabledShaderPasses:
+  - ALWAYS
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -56,16 +64,23 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _BumpScale: 1
+    - _CanUseSpriteAtlas: 1
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
+    - _DisableBatching: 0
     - _DstBlend: 0
+    - _ForceNoShadowCasting: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
+    - _IgnoreProjector: 0
+    - _LightModes: 1
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
+    - _PreviewType: 0
+    - _ShaderOptimizerEnabled: 0
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1

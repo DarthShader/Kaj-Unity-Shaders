@@ -10,6 +10,8 @@ Shader "Kaj/PBR"
         [HideInInspector] _CanUseSpriteAtlas ("__canUseSpriteAtlas", Int) = 1
         [HideInInspector] _PreviewType ("__previewType", Int) = 0
 
+        [HideInInspector] _ShaderOptimizerEnabled ("__shaderOptimizerEnabled", Int) = 0
+
         [HideInInspector]group_Main("Main Settings", Int) = 0
         [MainColor]_Color("Color", Color) = (1,1,1,1)
         [MainTexture]_MainTex ("Albedo", 2D) = "white" { }
@@ -94,10 +96,14 @@ Shader "Kaj/PBR"
             [MinimumFloat(0)]_FakeLightIntensity("Intensity", Float) = 1.0
         [UnIndent]
         [ToggleUI]_ReceiveFog("Receive Fog", Int) = 1
+        [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
+        [NoScaleOffset]_CubeMap ("Fallback Cubemap", Cube) = "" { }
+        [WideEnum(Off,0, Fallback Only,1, Always Use CubeMap,2)]_CubeMapMode("Fallback Cubemap Mode", Int) = 0
         [HideInInspector]end_Lighting("", Int) = 0
 
         [HideInInspector][ToggleUI]group_toggle_Diffuse("Diffuse Shading", Int) = 1
         [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3)]_DiffuseMode("Mode", Int) = 1
+        _OcclusionDirectDiffuse("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_Lambert("Lambert", Int) = 0
         [ToggleUI]_DiffuseWrapIntensity("Diffuse Wrap", Int) = 0
         _DiffuseWrap("Wrap Factor", Range(0,1)) = 0.5
@@ -116,6 +122,7 @@ Shader "Kaj/PBR"
 
         [HideInInspector][ToggleUI]group_toggle_Specular("Specular Highlights", Int) = 1
         [WideEnum(Phong,0, PBR,1, PBR Anisotropic,2, Skin,3)]_SpecularMode("Mode", Int) = 1
+        _OcclusionDirectSpecular("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_PhongSpecular("Phong", Int) = 0
         [MinimumFloat(1)]_PhongSpecularPower("Power", Float) = 5.0
         _PhongSpecularIntensity("Intensity", Range(0,1)) = 1
@@ -129,9 +136,6 @@ Shader "Kaj/PBR"
 
         [HideInInspector][ToggleUI]group_toggle_Reflections("Reflections", Int) = 1
         [WideEnum(PBR,1, Skin,2, PBR Anisotropic,3)]_ReflectionsMode("Mode", Int) = 1
-        [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
-        [NoTilingOffset]_CubeMap ("Fallback Cubemap", Cube) = "" { }
-        [WideEnum(Off,0, Fallback Only,1, Always Use CubeMap,2)]_CubeMapMode("Fallback Cubemap Mode", Int) = 0
         [HideInInspector]group_PBRReflections("PBR", Int) = 0
         _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
         [HideInInspector]end_PBRReflections("", Int) = 0
@@ -238,7 +242,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Show Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 19", Int) = 19
+        [KajLabel]_Version("Shader Version: 20", Int) = 20
     }
 
     CustomEditor "Kaj.ShaderEditor"    

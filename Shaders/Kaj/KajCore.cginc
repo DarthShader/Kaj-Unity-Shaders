@@ -308,6 +308,8 @@ uniform float _FakeLightIntensity;
 uniform float _ReceiveFog;
 uniform float _PhongSpecularUseRoughness;
 uniform float _CubeMapMode;
+uniform float _OcclusionDirectSpecular;
+uniform float _OcclusionDirectDiffuse;
 
 // Reusable macros and functions
 
@@ -514,6 +516,7 @@ SamplerState sampler_trilinear_mirroronce;
 // PBR shader specific branching and sampling, expects convention texture variables and specific triplanar variable names
 // Checks the convention UV set for the texture.  Either UVs 0-3 are used and transformed using Tiling/Offset or 
 // shader triplanar variables are used with custom Tiling/Offset setup
+//KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS(var,tex,samplertex) \
     UNITY_BRANCH \
     if (tex##UV < 4) \
@@ -521,7 +524,7 @@ SamplerState sampler_trilinear_mirroronce;
     else if (tex##UV == 4) \
         var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor); \
     else var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor);
-
+// KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS_BIAS(var,tex,samplertex,bias) \
     UNITY_BRANCH \
     if (tex##UV < 4) \
@@ -836,8 +839,8 @@ half2 stereoCorrectScreenUV(half4 screenPos)
     return uv;
 }
 
-// Burley12 + https://openproblems.realtimerendering.com/s2017/02-PhysicallyBasedMaterialWhereAreWe.pdf
-// Apparently HDRP implementation doesn't divide by pi, so skipping that
+// https://openproblems.realtimerendering.com/s2017/02-PhysicallyBasedMaterialWhereAreWe.pdf
+// HDRP also uses this implementation
 float GGXTerm_Aniso(float TdotH, float BdotH, float roughnessT, float roughnessB, float NdotH)
 {
     float denom = TdotH * TdotH / (roughnessT * roughnessT) + BdotH * BdotH / (roughnessB * roughnessB) + NdotH * NdotH;
@@ -1375,6 +1378,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                     wrappedDiffuse = saturate((dot(lightDir, normalDir) + _DiffuseWrap) / ((1 + _DiffuseWrap) * (1 + _DiffuseWrap)));
                 else
                     wrappedDiffuse = saturate((dot(lightDir, normalDir) + _DiffuseWrap) / ((1 + _DiffuseWrap)));
+                wrappedDiffuse = lerp(wrappedDiffuse, wrappedDiffuse * occlusion, _OcclusionDirectDiffuse);
                 color.rgb += diffColor * (indirect_diffuse + lightColorAttenuationNoShadows * wrappedDiffuse);
             }
             else color.rgb += diffColor * (indirect_diffuse + lightColor * NdotL);
@@ -1382,6 +1386,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         else if (_DiffuseMode == 1) // PBR
         {
             half3 diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
+            diffuseTerm = lerp(diffuseTerm, diffuseTerm * occlusion, _OcclusionDirectDiffuse);
             color.rgb += diffColor * (indirect_diffuse + lightColor * diffuseTerm);
         }
         else if (_DiffuseMode == 2) // Skin
@@ -1390,6 +1395,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
             NdotLBlurredUnclamped = NdotLBlurredUnclamped * 0.5 + 0.5;
             // Pre integrated skin lookup tex serves as the BRDF diffuse term
             half3 brdf = UNITY_SAMPLE_TEX2D_LOD(_PreIntSkinTex, half2(NdotLBlurredUnclamped, Curvature), 0);
+            brdf = lerp(brdf, brdf * occlusion, _OcclusionDirectDiffuse);
             color.rgb += diffColor * (indirect_diffuse + lightColor * brdf);
         }
         else if (_DiffuseMode == 3) // Flat Lit
@@ -1401,12 +1407,12 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                     flatLitLight = lerp(flatLitLight, 
                                     ShadeSH9(half4(UnityObjectToWorldNormal(i.posObject), 1)), 
                                     _SSSStylizedIndirect * (_SSSStylizedIndrectScaleByTranslucency ? translucency : 1));
-                color.rgb += diffColor * (lightColor + flatLitLight);
+                half3 lightColorOccluded = lerp(lightColor, lightColor * occlusion, _OcclusionDirectDiffuse); // wonky solution?
+                color.rgb += diffColor * (lightColorOccluded + flatLitLight);
             #endif
         }
     }
     else color.rgb = albedo; // Unlit
-
 
     // Direct Specular
     UNITY_BRANCH
@@ -1418,7 +1424,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
             half power = _PhongSpecularPower;
             if (_PhongSpecularUseRoughness)
                 power = PerceptualRoughnessToSpecPower(roughness);
-            color.rgb += pow(RVdotL, power) * _PhongSpecularIntensity * lightColor * specularScale;
+            half specularTerm = pow(RVdotL, power);
+            specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular);
+            color.rgb += specularTerm * _PhongSpecularIntensity * lightColor * specularScale;
         }
         else if (_SpecularMode == 1 || _SpecularMode == 2 || _SpecularMode == 3) // PBR, Anisotropic, and Skin
         {
@@ -1438,6 +1446,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                 if (_SpecularAnisotropyTangentMap_TexelSize.x != 1)
                 {
                     fixed4 _SpecularAnisotropyTangentMap_var = 0;
+                    // InlineSamplerState   ( sampler_MainTex,  _SpecularAnisotropyTangentMapSamplerState )
                     PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
                     _SpecularAnisotropyTangentMap_var.xyz = UnpackNormal(_SpecularAnisotropyTangentMap_var);
                     // blend with unmultiplied tangent space normal (from normal map?)
@@ -1471,7 +1480,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
             #ifdef UNITY_COLORSPACE_GAMMA
                 specularTerm = sqrt(max(1e-4h, specularTerm));
             #endif
-            specularTerm = max(0, specularTerm * NdotL) * occlusion; // added direct specular occlusion - should probably be a dedicated setting
+            specularTerm = max(0, specularTerm * NdotL);
+            specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular);
             color.rgb += specularTerm * lightColor * FresnelTerm (specColor, LdotH);
         }
     }

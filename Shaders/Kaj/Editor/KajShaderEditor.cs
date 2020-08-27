@@ -441,31 +441,39 @@ namespace Kaj
         MaterialProperty canUseSpriteAtlas = null;
         MaterialProperty previewType = null;
 
+        // Shader Optimizer
+        MaterialProperty shaderOptimizer = null;
+
         bool m_FirstTimeApply = true;
 
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
         {
+            // Move to constructor?
             foldoutStyle = new GUIStyle("ShurikenModuleTitle");
             foldoutStyle.font = new GUIStyle(EditorStyles.label).font;
             foldoutStyle.border = new RectOffset(15, 7, 4, 4);
             foldoutStyle.fixedHeight = 22;
             foldoutStyle.contentOffset = new Vector2(20f, -2f);
 
-            blendMode = FindProperty("_Mode", props);
+
+            blendMode = FindProperty("_Mode", props, false);
             if (blendMode == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _Mode not found");
-            lightModes = FindProperty("_LightModes", props);
+            lightModes = FindProperty("_LightModes", props, false);
             if (lightModes == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _LightModes not found");
-            disableBatching = FindProperty("_DisableBatching", props);
+            disableBatching = FindProperty("_DisableBatching", props, false);
             if (disableBatching == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _DisableBatching not found");
-            ignoreProjector = FindProperty("_IgnoreProjector", props);
+            ignoreProjector = FindProperty("_IgnoreProjector", props, false);
             if (ignoreProjector == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _IgnoreProjector not found");
-            forceNoShadowCasting = FindProperty("_ForceNoShadowCasting", props);
+            forceNoShadowCasting = FindProperty("_ForceNoShadowCasting", props, false);
             if (forceNoShadowCasting == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _ForceNoShadowCasting not found");
-            canUseSpriteAtlas = FindProperty("_CanUseSpriteAtlas", props);
+            canUseSpriteAtlas = FindProperty("_CanUseSpriteAtlas", props, false);
             if (canUseSpriteAtlas == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _CanUseSpriteAtlas not found");
-            previewType = FindProperty("_PreviewType", props);
+            previewType = FindProperty("_PreviewType", props, false);
             if (previewType == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _PreviewType not found");
             Material material = materialEditor.target as Material;
+
+            shaderOptimizer = FindProperty("_ShaderOptimizerEnabled", props, false);
+            if (shaderOptimizer == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _ShaderOptimizerEnabled not found");
 
             if (m_FirstTimeApply)
             {
@@ -643,6 +651,49 @@ namespace Kaj
                 EditorGUI.showMixedValue = false;
             }
 
+            // Kaj Shader Optimizer
+            if (shaderOptimizer != null)
+            {
+                // Theoretically this shouldn't ever happen since locked in materials have different shaders.
+                // But in a case where the material property says its locked in but the material really isn't, this
+                // will display and allow users to fix the property/lock in
+                if (shaderOptimizer.hasMixedValue)
+                {
+                    EditorGUI.BeginChangeCheck();
+                    GUILayout.Button("Lock in Optimized Shaders (Beta) (" + materialEditor.targets.Length + " materials)");
+                    if (EditorGUI.EndChangeCheck())
+                        foreach (Material m in materialEditor.targets)
+                        {
+                            m.SetFloat("_ShaderOptimizerEnabled", 1);
+                            if (!ShaderOptimizer.Lock(m, props)) // Error locking shader, revert property
+                                m.SetFloat("_ShaderOptimizerEnabled", 0);
+                        }
+                }
+                else
+                {
+                    EditorGUI.BeginChangeCheck();
+                    if (shaderOptimizer.floatValue == 0)
+                        GUILayout.Button("Lock In Optimized Shader (Beta)");
+                    else GUILayout.Button("Unlock Shader");
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        shaderOptimizer.floatValue = shaderOptimizer.floatValue == 1 ? 0 : 1;
+                        if (shaderOptimizer.floatValue == 1)
+                        {
+                            foreach (Material m in materialEditor.targets)
+                                if (!ShaderOptimizer.Lock(m, props))
+                                    m.SetFloat("_ShaderOptimizerEnabled", 0);
+                        }
+                        else
+                        {
+                            foreach (Material m in materialEditor.targets)
+                                if (!ShaderOptimizer.Unlock(m))
+                                    m.SetFloat("_ShaderOptimizerEnabled", 1);
+                        }
+                    }
+                }
+            }
+
             // Actual shader properties
             materialEditor.SetDefaultGUIWidths();
             DrawPropertiesGUIRecursive(materialEditor, props);            
@@ -691,11 +742,15 @@ namespace Kaj
                     var rect = GUILayoutUtility.GetRect(0, 22f, foldoutStyle);
                     rect.width -= indentPixels;
                     rect.x += indentPixels;
+                    if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                        EditorGUI.BeginDisabledGroup(true);
                     if (toggle)
                         GUI.Box(rect, "", foldoutStyle);
                     else
                         GUI.Box(rect, props[i].displayName, foldoutStyle);
-                    
+                    if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                        EditorGUI.EndDisabledGroup();
+
                     // Draw foldout arrow
                     var toggleRect = new Rect(rect.x + 4f, rect.y + 2f, 13f, 13f);
                     bool expanded = props[j].floatValue == 1;
@@ -714,7 +769,11 @@ namespace Kaj
                         togglePropertyRect.y += 1;
                         float labelWidth = EditorGUIUtility.labelWidth;
                         EditorGUIUtility.labelWidth = 0;
+                        if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                            EditorGUI.BeginDisabledGroup(true);
                         materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
+                        if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                            EditorGUI.EndDisabledGroup();
                         EditorGUIUtility.labelWidth = labelWidth;
                     }
 
@@ -752,7 +811,11 @@ namespace Kaj
                     continue;
                 float h = materialEditor.GetPropertyHeight(props[i], props[i].displayName);
                 Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);
+                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                    EditorGUI.BeginDisabledGroup(true);
                 materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something is throwing a warning here
+                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                    EditorGUI.EndDisabledGroup();
             }
 
         }
