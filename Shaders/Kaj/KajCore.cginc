@@ -18,7 +18,7 @@ sampler3D _DitherMaskLOD;                               // Built-in dither tex
 //sampler2D _DitherMaskLOD2D;                           // Built-in dither tex, defined in UNITY_APPLY_DITHER_CROSSFADE
 // Standard
 uniform half4 _Color;                                   // Standard shader color param, used by Enlighten during lightmapping too
-UNITY_DECLARE_TEX2D(_MainTex);                          // Standard main texture
+UNITY_DECLARE_TEX2D_NOSAMPLER(_MainTex);                // Standard main texture
     uniform float4 _MainTex_ST;
     uniform float4 _MainTex_TexelSize;
 uniform half _Cutoff;                                   // Standard cutoff
@@ -233,7 +233,7 @@ uniform float _DiffuseWrap;                             // Lambert shading diffu
 uniform float _DiffuseWrapIntensity;                    // Lambert shading diffuse wrap toggle
 uniform float _DiffuseWrapConserveEnergy;               // Lambert shading diffuse wrap toggle
 uniform float group_toggle_PreIntegratedSkin;
-UNITY_DECLARE_TEX2D(_PreIntSkinTex);                    // BRDF diffuse term lookup texture
+UNITY_DECLARE_TEX2D_NOSAMPLER(_PreIntSkinTex);          // BRDF diffuse term lookup texture
 uniform float _BumpBlurBias;                            // Pre-Integrated Skin parameters
 uniform float _BlurStrength;                            // Pre-Integrated Skin parameters
 uniform float _CurvatureInfluence;                      // Pre-Integrated Skin parameters
@@ -357,7 +357,7 @@ uniform float _OcclusionDirectDiffuse;
 #define UNITY_SAMPLE_TEX2D_LOD(tex,coord,lod) tex.SampleLevel (sampler##tex,coord,lod)
 #define UNITY_SAMPLE_TEX2D_SAMPLER_LOD(tex,samplertex,coord,lod) tex.SampleLevel (sampler##samplertex,coord,lod)
 
-// Inline sampler states, meant to be used in conjunction with SamplerStateDrawer
+// Inline sampler states, meant to be used in conjunction with KSOSamplerState  
 SamplerState sampler_linear_repeat;
 SamplerState sampler_linear_clamp;
 SamplerState sampler_linear_mirror;
@@ -370,138 +370,7 @@ SamplerState sampler_trilinear_repeat;
 SamplerState sampler_trilinear_clamp;
 SamplerState sampler_trilinear_mirror;
 SamplerState sampler_trilinear_mirroronce;
-// Samplerstates must come from a literal instead of an expression, so MACRO HELL begins
-// Might be awful for performance but idc, should have been able to reference a SamplerState more conveniently.
-// ABSOLUTELY NUKES Unity, as variants for every different samplerstate are created or something
-// These macros expect a variable by the same name as the texture + suffix 'SamplerState' to work
-// DO NOT USE THESE!!!!!!!!!
-/*
-#define SAMPLE_TEX2D_SAMPLERSTATE(var,tex,coord) \
-    UNITY_BRANCH \
-    switch (tex##SamplerState) \
-    { \
-        case 0: \
-            var = tex.Sample(sampler_linear_repeat,(coord)); \
-            break; \
-        case 1: \
-            var = tex.Sample(sampler_linear_clamp,(coord)); \
-            break; \
-        case 2: \
-            var = tex.Sample(sampler_linear_mirror,(coord)); \
-            break; \
-        case 3: \
-            var = tex.Sample(sampler_linear_mirroronce,(coord)); \
-            break; \
-        case 4: \
-            var = tex.Sample(sampler_point_repeat,(coord)); \
-            break; \
-        case 5: \
-            var = tex.Sample(sampler_point_clamp,(coord)); \
-            break; \
-        case 6: \
-            var = tex.Sample(sampler_point_mirror,(coord)); \
-            break; \
-        case 7: \
-            var = tex.Sample(sampler_point_mirroronce,(coord)); \
-            break; \
-        case 8: \
-            var = tex.Sample(sampler_trilinear_repeat,(coord)); \
-            break; \
-        case 9: \
-            var = tex.Sample(sampler_trilinear_clamp,(coord)); \
-            break; \
-        case 10: \
-            var = tex.Sample(sampler_trilinear_mirror,(coord)); \
-            break; \
-        case 11: \
-            var = tex.Sample(sampler_trilinear_mirroronce,(coord)); \
-            break; \
-    }
-// DO NOT USE THESE!!!!!!!!!
-#define SAMPLE_TEX2D_SAMPLERSTATE_BIAS(var,tex,coord,bias) \
-    UNITY_BRANCH \
-    switch (tex##SamplerState) \
-    { \
-        case 0: \
-            var = tex.SampleBias(sampler_linear_repeat,(coord), (bias)); \
-            break; \
-        case 1: \
-            var = tex.SampleBias(sampler_linear_clamp,(coord), (bias)); \
-            break; \
-        case 2: \
-            var = tex.SampleBias(sampler_linear_mirror,(coord), (bias)); \
-            break; \
-        case 3: \
-            var = tex.SampleBias(sampler_linear_mirroronce,(coord), (bias)); \
-            break; \
-        case 4: \
-            var = tex.SampleBias(sampler_point_repeat,(coord), (bias)); \
-            break; \
-        case 5: \
-            var = tex.SampleBias(sampler_point_clamp,(coord), (bias)); \
-            break; \
-        case 6: \
-            var = tex.SampleBias(sampler_point_mirror,(coord), (bias)); \
-            break; \
-        case 7: \
-            var = tex.SampleBias(sampler_point_mirroronce,(coord), (bias)); \
-            break; \
-        case 8: \
-            var = tex.SampleBias(sampler_trilinear_repeat,(coord), (bias)); \
-            break; \
-        case 9: \
-            var = tex.SampleBias(sampler_trilinear_clamp,(coord), (bias)); \
-            break; \
-        case 10: \
-            var = tex.SampleBias(sampler_trilinear_mirror,(coord), (bias)); \
-            break; \
-        case 11: \
-            var = tex.SampleBias(sampler_trilinear_mirroronce,(coord), (bias)); \
-            break; \
-    }
-// DO NOT USE THESE!!!!!!!!!
-#define SAMPLE_TEX2D_SAMPLERSTATE_LOD(var,tex,coord,lod) \
-    UNITY_BRANCH \
-    switch (tex##SamplerState) \
-    { \
-        case 0: \
-            var = tex.SampleLevel(sampler_linear_repeat,(coord), (lod)); \
-            break; \
-        case 1: \
-            var = tex.SampleLevel(sampler_linear_clamp,(coord), (lod)); \
-            break; \
-        case 2: \
-            var = tex.SampleLevel(sampler_linear_mirror,(coord), (lod)); \
-            break; \
-        case 3: \
-            var = tex.SampleLevel(sampler_linear_mirroronce,(coord), (lod)); \
-            break; \
-        case 4: \
-            var = tex.SampleLevel(sampler_point_repeat,(coord), (lod)); \
-            break; \
-        case 5: \
-            var = tex.SampleLevel(sampler_point_clamp,(coord), (lod)); \
-            break; \
-        case 6: \
-            var = tex.SampleLevel(sampler_point_mirror,(coord), (lod)); \
-            break; \
-        case 7: \
-            var = tex.SampleLevel(sampler_point_mirroronce,(coord), (lod)); \
-            break; \
-        case 8: \
-            var = tex.SampleLevel(sampler_trilinear_repeat,(coord), (lod)); \
-            break; \
-        case 9: \
-            var = tex.SampleLevel(sampler_trilinear_clamp,(coord), (lod)); \
-            break; \
-        case 10: \
-            var = tex.SampleLevel(sampler_trilinear_mirror,(coord), (lod)); \
-            break; \
-        case 11: \
-            var = tex.SampleLevel(sampler_trilinear_mirroronce,(coord), (lod)); \
-            break; \
-    }
-*/
+
 // Easy triplanar sampling
 #define SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex,samplertex,coordX,coordY,coordZ,scale,blend) \
     UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, ((coordX) * (scale))) * (blend).x \
@@ -513,25 +382,39 @@ SamplerState sampler_trilinear_mirroronce;
     + UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, ((coordY) * (scale)), bias) * (blend).y \
     + UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, ((coordZ) * (scale)), bias) * (blend).z
 
+
 // PBR shader specific branching and sampling, expects convention texture variables and specific triplanar variable names
 // Checks the convention UV set for the texture.  Either UVs 0-3 are used and transformed using Tiling/Offset or 
 // shader triplanar variables are used with custom Tiling/Offset setup
 //KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS(var,tex,samplertex) \
     UNITY_BRANCH \
-    if (tex##UV < 4) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, TRANSFORM_TEX(switchUV(tex##UV, i.uv, i.uv1, i.uv2, i.uv3), tex)); \
+    if (tex##UV == 0) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv.xy * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 1) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv1.xy * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 2) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv2.xy * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 3) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv3.xy * tex##_ST.xy + tex##_ST.zw)); \
     else if (tex##UV == 4) \
         var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor); \
     else var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor);
 // KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS_BIAS(var,tex,samplertex,bias) \
     UNITY_BRANCH \
-    if (tex##UV < 4) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, TRANSFORM_TEX(switchUV(tex##UV, i.uv, i.uv1, i.uv2, i.uv3), tex), bias); \
+    if (tex##UV == 0) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv.xy * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 1) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv1.xy * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 2) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv2.xy * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 3) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv3.xy * tex##_ST.xy + tex##_ST.zw), bias); \
     else if (tex##UV == 4) \
         var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor, bias); \
     else var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor, bias);
+
 
 
 // VRChat mirror utility
@@ -773,14 +656,6 @@ fixed switchChannel(half channel, fixed4 combinedTex)
     else return combinedTex.a;
 }
 
-float2 switchUV(half selection, float2 uv0, float2 uv1, float2 uv2, float2 uv3)
-{
-    if (selection == 0) return uv0;
-    else if (selection == 1) return uv1;
-    else if (selection == 2) return uv2;
-    else return uv3;
-}
-
 half3 switchDetailAlbedo(fixed4 tex, half3 albedo, float combineMode, fixed mask)
 {
     UNITY_BRANCH
@@ -892,6 +767,20 @@ UNITY_INSTANCING_BUFFER_START(Props)
     //UNITY_DEFINE_INSTANCED_PROP
 UNITY_INSTANCING_BUFFER_END(Props)
 
+
+struct appdata_full_pbr
+{
+    float4 vertex : POSITION;
+    float4 tangent : TANGENT;
+    float3 normal : NORMAL;
+    float4 texcoord : TEXCOORD0;
+    float4 texcoord1 : TEXCOORD1;
+    float4 texcoord2 : TEXCOORD2;
+    float4 texcoord3 : TEXCOORD3;
+    fixed4 color : COLOR;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
 // Full v2f, if you need fewer interpolators make a new vert/v2f
 struct v2f_full
 {
@@ -918,7 +807,7 @@ struct v2f_full
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
-v2f_full vert_full (appdata_full v)
+v2f_full vert_full (appdata_full_pbr v)
 {
 	v2f_full o;
     UNITY_SETUP_INSTANCE_ID(v);
@@ -957,9 +846,10 @@ v2f_full vert_full (appdata_full v)
 	return o;
 }
 
+
 fixed4 frag_unlitSimple (v2f_full i) : SV_Target
 {
-	return UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv, _MainTex)) * _Color * i.color;
+	return UNITY_SAMPLE_TEX2D_SAMPLER(_MainTex, _linear_repeat, TRANSFORM_TEX(i.uv, _MainTex)) * _Color * i.color;
 }
 
 
@@ -967,7 +857,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(i);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy); // idk if this vpos is stereo correct
+    UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
 
     // Triplanar UVs
     // Object Space
@@ -1003,7 +893,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed4 _ParallaxMap_var = 1;
         if (_ParallaxMap_TexelSize.x != 1)
-            PBR_SAMPLE_TEX2DS(_ParallaxMap_var, _ParallaxMap, _MainTex);
+            // KSOInlineSamplerState   ( _linear_repeat,  _ParallaxMap )
+            PBR_SAMPLE_TEX2DS(_ParallaxMap_var, _ParallaxMap, _linear_repeat);
         i.tangentViewDir = normalize(i.tangentViewDir);
         i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
         half2 parallaxOffset = i.tangentViewDir.xy * _Parallax * (_ParallaxMap_var.g - 0.5f);;
@@ -1020,8 +911,11 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     }
 
     // Base opacity
-    fixed4 _MainTex_var = 0;
-    PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
+    fixed4 _MainTex_var = 1;
+    if (_MainTex_TexelSize.x != 1)
+        // Default behaviour is to have all textures bilinear/wrap until you lock in
+        // KSOInlineSamplerState   ( _linear_repeat,  _MainTex )
+        PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _linear_repeat);
     half3 albedo = _MainTex_var.rgb * _Color.rgb;
     if (_VertexColorsEnabled)
         albedo *= i.color.rgb;
@@ -1030,7 +924,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_CoverageMap_TexelSize.x != 1)  // Texel size is used to determine if a texture is being used
     {
         fixed4 _CoverageMap_var = 0;
-        PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _linear_repeat);
         opacity = _CoverageMap_var.r;
     }
     opacity *= _Color.a;
@@ -1042,6 +936,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         UNITY_BRANCH
         if (_AlphaToCoverage && _AlphaToMask)
         {
+            // todo: scale by coverage map if alpha is there
             opacity *= 1 + max(0, CalcMipLevel(i.uv.xy * _MainTex_TexelSize.zw)) * 0.25;
             opacity = (opacity - _Cutoff) / max(fwidth(opacity), 0.0001) + 0.5;
         }
@@ -1077,31 +972,31 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     fixed4 _CombinedMap_var = 1;
     UNITY_BRANCH
     if (_CombinedMap_TexelSize.x != 1)
-        PBR_SAMPLE_TEX2DS(_CombinedMap_var, _CombinedMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_CombinedMap_var, _CombinedMap, _linear_repeat);
     fixed4 _MetallicGlossMap_var = 1;
     UNITY_BRANCH
     if (_MetallicGlossMap_TexelSize.x != 1)
-         PBR_SAMPLE_TEX2DS(_MetallicGlossMap_var, _MetallicGlossMap, _MainTex);
+         PBR_SAMPLE_TEX2DS(_MetallicGlossMap_var, _MetallicGlossMap, _linear_repeat);
     fixed4 _SpecGlossMap_var = 1;
     UNITY_BRANCH
     if (_SpecGlossMap_TexelSize.x != 1)
-        PBR_SAMPLE_TEX2DS(_SpecGlossMap_var, _SpecGlossMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_SpecGlossMap_var, _SpecGlossMap, _linear_repeat);
     fixed4 _OcclusionMap_var = 1;
     UNITY_BRANCH
     if (_OcclusionMap_TexelSize.x != 1)
-        PBR_SAMPLE_TEX2DS(_OcclusionMap_var, _OcclusionMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_OcclusionMap_var, _OcclusionMap, _linear_repeat);
     fixed4 _SpecularMap_var = 1;
     UNITY_BRANCH
     if (_SpecularMap_TexelSize.x != 1)
-        PBR_SAMPLE_TEX2DS(_SpecularMap_var, _SpecularMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_SpecularMap_var, _SpecularMap, _linear_repeat);
     
     // Map textures to PBR variables
-    fixed metallic = 0;
+    fixed metallic = 1;
     if (_MetallicGlossMap_TexelSize.x != 1)
         metallic = _MetallicGlossMap_var.r;
     else metallic = switchChannel(_MetallicGlossMapCombinedMapChannel, _CombinedMap_var);
 
-    fixed3 occlusion = 0;
+    fixed3 occlusion = 1;
     if (_OcclusionMap_TexelSize.x != 1)
         occlusion = _OcclusionMap_var.rgb;
     else occlusion = switchChannel(_OcclusionMapCombinedMapChannel, _CombinedMap_var).rrr;
@@ -1138,20 +1033,29 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (_DetailMask_TexelSize.x != 1)
     {
-        PBR_SAMPLE_TEX2DS(_DetailMask_var, _DetailMask, _MainTex);
+        PBR_SAMPLE_TEX2DS(_DetailMask_var, _DetailMask, _linear_repeat);
         // Detail colors only applied if a mask is applied
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorR.rgb, _DetailMask_var.r);
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorG.rgb, _DetailMask_var.g);
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorB.rgb, _DetailMask_var.b);
     }
 
-    float2 detailUV = switchUV(_UVSec, i.uv, i.uv1, i.uv2, i.uv3);
+    float2 detailUV;
+    if (_UVSec == 0)
+        detailUV = i.uv;
+    else if (_UVSec == 1)
+        detailUV = i.uv1;
+    else if (_UVSec == 2)
+        detailUV = i.uv2;
+    else if (_UVSec == 3)
+        detailUV = i.uv3;
+
     UNITY_BRANCH
     if (_DetailAlbedoMap_TexelSize.x != 1)
     {
         fixed _DetailAlbedoMapUV = _UVSec; // Temporary defines so the macro works, could change macro to switch UVselection just for these details
         fixed4 _DetailAlbedoMap_var = 0;
-        PBR_SAMPLE_TEX2DS(_DetailAlbedoMap_var, _DetailAlbedoMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_DetailAlbedoMap_var, _DetailAlbedoMap, _linear_repeat);
         albedo = switchDetailAlbedo(_DetailAlbedoMap_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.r);
     }
     UNITY_BRANCH
@@ -1159,7 +1063,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailAlbedoMapGreenUV = _UVSec;
         fixed4 _DetailAlbedoMapGreen_var = 0;
-        PBR_SAMPLE_TEX2DS(_DetailAlbedoMapGreen_var, _DetailAlbedoMapGreen, _MainTex);
+        PBR_SAMPLE_TEX2DS(_DetailAlbedoMapGreen_var, _DetailAlbedoMapGreen, _linear_repeat);
         albedo = switchDetailAlbedo(_DetailAlbedoMapGreen_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.g);
     }
     UNITY_BRANCH
@@ -1167,20 +1071,24 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailAlbedoMapBlueUV = _UVSec;
         fixed4 _DetailAlbedoMapBlue_var = 0;
-        PBR_SAMPLE_TEX2DS(_DetailAlbedoMapBlue_var, _DetailAlbedoMapBlue, _MainTex);
+        PBR_SAMPLE_TEX2DS(_DetailAlbedoMapBlue_var, _DetailAlbedoMapBlue, _linear_repeat);
         albedo = switchDetailAlbedo(_DetailAlbedoMapBlue_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.b);
     }
 
     // Normals
-    half4 _BumpMap_var = 0;
-    PBR_SAMPLE_TEX2DS(_BumpMap_var, _BumpMap, _MainTex);
-    half3 blendedNormal = UnpackScaleNormal(_BumpMap_var, _BumpScale);
+    half3 blendedNormal = half3(0,0,1);
+    if (_BumpMap_TexelSize.x != 1)
+    {
+        half4 _BumpMap_var = 0;
+        PBR_SAMPLE_TEX2DS(_BumpMap_var, _BumpMap, _linear_repeat);
+        blendedNormal = UnpackScaleNormal(_BumpMap_var, _BumpScale);
+    }
     UNITY_BRANCH
     if (_DetailNormalMap_TexelSize.x != 1)
     {
         fixed _DetailNormalMapUV = _UVSec;
         fixed4 _DetailNormalMap_var = 0;
-        PBR_SAMPLE_TEX2DS(_DetailNormalMap_var, _DetailNormalMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_DetailNormalMap_var, _DetailNormalMap, _linear_repeat);
         _DetailNormalMap_var.xyz = UnpackScaleNormal(_DetailNormalMap_var, _DetailNormalMapScale);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMap_var.xyz), _DetailMask_var.r);
     }
@@ -1189,7 +1097,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailNormalMapGreenUV = _UVSec;
         fixed4 _DetailNormalMapGreen_var = 0;
-        PBR_SAMPLE_TEX2DS(_DetailNormalMapGreen_var, _DetailNormalMapGreen, _MainTex);
+        PBR_SAMPLE_TEX2DS(_DetailNormalMapGreen_var, _DetailNormalMapGreen, _linear_repeat);
         _DetailNormalMapGreen_var.xyz = UnpackScaleNormal(_DetailNormalMapGreen_var, _DetailNormalMapScaleGreen);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapGreen_var.xyz), _DetailMask_var.g);
     }
@@ -1198,7 +1106,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailNormalMapBlueUV = _UVSec;
         fixed4 _DetailNormalMapBlue_var = 0;
-        PBR_SAMPLE_TEX2DS(_DetailNormalMapBlue_var, _DetailNormalMapBlue, _MainTex);
+        PBR_SAMPLE_TEX2DS(_DetailNormalMapBlue_var, _DetailNormalMapBlue, _linear_repeat);
         _DetailNormalMapBlue_var.xyz = UnpackScaleNormal(_DetailNormalMapBlue_var, _DetailNormalMapScaleBlue);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapBlue_var.xyz), _DetailMask_var.b);
     }
@@ -1301,7 +1209,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (group_toggle_SSSTransmission)
     {
         fixed4 _TranslucencyMap_var = 0;
-        PBR_SAMPLE_TEX2DS(_TranslucencyMap_var, _TranslucencyMap, _MainTex);
+        PBR_SAMPLE_TEX2DS(_TranslucencyMap_var, _TranslucencyMap, _linear_repeat);
         translucency = _SSSTranslucencyMin + _TranslucencyMap_var.r * (_SSSTranslucencyMax - _SSSTranslucencyMin);
     }
 
@@ -1322,7 +1230,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         // Blur main normal map via tex2Dbias
         fixed4 blurredWorldNormal_var = 0;
-        PBR_SAMPLE_TEX2DS_BIAS(blurredWorldNormal_var, _BumpMap, _MainTex, _BumpBlurBias);
+        PBR_SAMPLE_TEX2DS_BIAS(blurredWorldNormal_var, _BumpMap, _linear_repeat, _BumpBlurBias);
         blurredWorldNormal = UnpackScaleNormal(blurredWorldNormal_var, _BumpScale);
         // Lerp blurred normal against combined normal by blur strength
         blurredWorldNormal = lerp(blendedNormal, blurredWorldNormal, _BlurStrength);
@@ -1394,7 +1302,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
             float NdotLBlurredUnclamped = dot(blurredWorldNormal, lightDir);
             NdotLBlurredUnclamped = NdotLBlurredUnclamped * 0.5 + 0.5;
             // Pre integrated skin lookup tex serves as the BRDF diffuse term
-            half3 brdf = UNITY_SAMPLE_TEX2D_LOD(_PreIntSkinTex, half2(NdotLBlurredUnclamped, Curvature), 0);
+            half3 brdf = UNITY_SAMPLE_TEX2D_SAMPLER_LOD(_PreIntSkinTex, _trilinear_clamp, half2(NdotLBlurredUnclamped, Curvature), 0);
             brdf = lerp(brdf, brdf * occlusion, _OcclusionDirectDiffuse);
             color.rgb += diffColor * (indirect_diffuse + lightColor * brdf);
         }
@@ -1445,9 +1353,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                 UNITY_BRANCH
                 if (_SpecularAnisotropyTangentMap_TexelSize.x != 1)
                 {
-                    fixed4 _SpecularAnisotropyTangentMap_var = 0;
-                    // InlineSamplerState   ( sampler_MainTex,  _SpecularAnisotropyTangentMapSamplerState )
-                    PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
+                    fixed4 _SpecularAnisotropyTangentMap_var = 1;
+                    PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _linear_repeat);
                     _SpecularAnisotropyTangentMap_var.xyz = UnpackNormal(_SpecularAnisotropyTangentMap_var);
                     // blend with unmultiplied tangent space normal (from normal map?)
                     // perturb tangent then recalculate bitangent?
@@ -1538,8 +1445,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         color.rgb = saturate(color.rgb);
 
     // Emission
-    fixed4 _EmissionMap_var = 0;
-    PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
+    fixed4 _EmissionMap_var = 1;
+    if (_EmissionMap_TexelSize.x != 1)
+        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _linear_repeat);
     color.rgb += _EmissionColor.rgb * lerp(_EmissionMap_var.rgb, albedo.rgb * _EmissionMap_var.rgb, _EmissionTintByAlbedo);
 
     if (_ReceiveFog)
@@ -1604,10 +1512,13 @@ struct v2f_shadow_full_vpos
 };
 fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
 {
-    UNITY_SETUP_INSTANCE_ID(v);
-
+    // This subshader override tag doesn't work, so hard coding it here.
+    // Use the shader optimizer to make the override tag work & skip shadowcasting calls entirely
     UNITY_BRANCH
-    if (_ForceNoShadowCasting) discard; // This subshader override tag doesn't work, so hard coding it here
+    if (_ForceNoShadowCasting) discard;
+
+    UNITY_SETUP_INSTANCE_ID(v);
+    UNITY_APPLY_DITHER_CROSSFADE(i.vpos.xy);
 
     #if defined(_ALPHATEST_ON) || defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON)
 
@@ -1639,18 +1550,18 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         float2 tpWorldZ = i.posWorld.xy;
 
         // Base Opacity
-        fixed opacity = 0;
+        fixed opacity = 1;
         UNITY_BRANCH
         if (_CoverageMap_TexelSize.x != 1)
         {
             fixed4 _CoverageMap_var = 0;
-            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
+            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _linear_repeat);
             opacity = _CoverageMap_var.r;
         }
-        else
+        else if (_MainTex_TexelSize.x != 1)
         {
-            fixed4 _MainTex_var = 0;
-            PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
+            fixed4 _MainTex_var = 1;
+            PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _linear_repeat);
             opacity = _MainTex_var.a;
         }
         
@@ -1743,8 +1654,9 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
     float2 tpWorldY = i.posWorld.zx;
     float2 tpWorldZ = i.posWorld.xy;
 
-    fixed4 _MainTex_var = 0;
-    PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
+    fixed4 _MainTex_var = 1;
+    if (_MainTex_TexelSize.x != 1)
+        PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _linear_repeat);
 
     #if defined(_ALPHATEST_ON)
         fixed opacity = _MainTex_var.a;
@@ -1752,7 +1664,7 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
         if (_CoverageMap_TexelSize.x != 1)
         {
             fixed4 _CoverageMap_var = 0;
-            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
+            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _linear_repeat);
             opacity = _CoverageMap_var.r;
         }
         opacity *= _Color.a;
@@ -1762,8 +1674,9 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
         clip(opacity - _Cutoff);
     #endif
 
-    fixed4 _EmissionMap_var = 0;
-    PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
+    fixed4 _EmissionMap_var = 1;
+    if (_EmissionMap_TexelSize.x != 1)
+        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _linear_repeat);
 
     UnityMetaInput o;
     UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);

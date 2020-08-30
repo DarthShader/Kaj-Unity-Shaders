@@ -396,6 +396,25 @@ namespace Kaj
         }
     }
 
+    // ToggleUI drawer with left side checkbox
+    public class ToggleUILeftDrawer : MaterialPropertyDrawer
+    {
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            EditorGUI.BeginChangeCheck();
+            bool value = (prop.floatValue == 1);
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            value = EditorGUILayout.ToggleLeft(label, value);
+            EditorGUI.showMixedValue = false;
+            if (EditorGUI.EndChangeCheck())
+                prop.floatValue = value ? 1.0f : 0.0f;
+        }
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return 0;
+        }
+    }
+
     // Minimalistic shader editor extension to edit the few things the base inspector can't access
     // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
     // Supports grouped foldouts and foldouts with toggles as labels, and helpbox based information
@@ -518,6 +537,7 @@ namespace Kaj
                     materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
                     blendMode.floatValue = (float)mode;
                     SetupMaterialsWithBlendMode(materialEditor.targets, mode);
+                    // TODO: This is shader specific logic!
                     if (mode == BlendMode.Skybox)
                     {
                         previewType.floatValue = (float)PreviewType.Skybox;
@@ -778,11 +798,16 @@ namespace Kaj
                     }
 
                     // Activate foldout
+                    // Set the value individually in each material rather than through props[j]'s floatValue because that is recorded
+                    // in the animation clip editor.  Also doesn't make an undo set for it.
                     if (e.type == EventType.MouseDown && rect.Contains(e.mousePosition))
                     {
                         if (props[j].floatValue == 1)
-                            props[j].floatValue = 0;
-                        else props[j].floatValue = 1;
+                            foreach (Material mat in materialEditor.targets)
+                                mat.SetFloat(props[j].name, 0);
+                        else 
+                            foreach (Material mat in materialEditor.targets)
+                                mat.SetFloat(props[j].name, 1);
                         e.Use();
                     }
 
@@ -911,6 +936,7 @@ namespace Kaj
         }
 
         // Rendering modes provide a means to preset blending options AND to enable certain keywords
+        // TODO: Rendering Mode is technically shader specific logic that needs to be moved into shader properties
         private void SetupMaterialsWithBlendMode(UnityEngine.Object[] mats, BlendMode blendMode)
         {
             foreach (Material material in mats)

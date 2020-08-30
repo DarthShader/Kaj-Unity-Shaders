@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using System.Text.RegularExpressions;
 
-// v1
+// v2
 
 namespace Kaj
 {
@@ -14,10 +14,42 @@ namespace Kaj
     // and link that new shader to the material automatically
     public class ShaderOptimizer
     {
-        // set to false if you want to keep UNITY_BRANCH and [branch]
+        // For some reason, 'if' statements with replaced constant (literal) conditions cause some compilation error
+        // So until that is figured out, branches will be removed by default
+        // Set to false if you want to keep UNITY_BRANCH and [branch]
         public static bool RemoveUnityBranches = true;
 
-        // Would be better to dynamically parse the "C:\Program Files\Unity2018\Editor\Data\CGIncludes\" folder
+        // LOD Crossfade Dithing doesn't have multi_compile keyword correctly toggled at build time (its always included) so
+        // this hard-coded material property will uncomment //#pragma multi_compile _ LOD_FADE_CROSSFADE in optimized .shader files
+        public static readonly string LODCrossFadePropertyName = "_DitheredLODCrossfade";
+
+        // IgnoreProjector and ForceNoShadowCasting don't work as override tags, so material properties by these names
+        // will determine whether or not //"IgnoreProjector"="True" etc. will be uncommented in optimized .shader files
+        public static readonly string IgnoreProjectorPropertyName = "_IgnoreProjector";
+        public static readonly string ForceNoShadowCastingPropertyName = "_ForceNoShadowCasting";
+
+        // Material property suffix that controls whether the property of the same name gets baked into the optimized shader
+        // i.e. if _Color exists and _ColorAnimated = 1, _Color will not be baked in
+        public static readonly string AnimatedPropertySuffix = "Animated";
+
+        // In-order list of inline sampler state names that will be replaced by InlineSamplerState() lines
+        public static readonly string[] InlineSamplerStateNames = new string[]
+        {
+            "_linear_repeat",
+            "_linear_clamp",
+            "_linear_mirror",
+            "_linear_mirroronce",
+            "_point_repeat",
+            "_point_clamp",
+            "_point_mirror",
+            "_point_mirroronce",
+            "_trilinear_repeat",
+            "_trilinear_clamp",
+            "_trilinear_mirror",
+            "_trilinear_mirroronce"
+        };
+
+        // Would be better to dynamically parse the "C:\Program Files\UnityXXXX\Editor\Data\CGIncludes\" folder
         // to get version specific includes but eh
         public static readonly string[] DefaultUnityShaderIncludes = new string[]
         {
@@ -103,6 +135,12 @@ namespace Kaj
             public string contents;
         }
 
+        public class ParsedShaderFile
+        {
+            public string filePath;
+            public string contents;
+        }
+
         public static bool Lock(Material material, MaterialProperty[] props)
         {
             // File filepaths and names
@@ -113,15 +151,15 @@ namespace Kaj
             if (materialFullName.StartsWith("Assets/"))
                 materialFullName = materialFullName.Remove(0, "Assets/".Length);
             materialFullName = materialFullName.Remove(materialFullName.Length-".mat".Length, ".mat".Length);
-            string newShaderName = shader.name + ".Optimized/" + materialFullName.Replace("/", ".");
             string smallguid = Guid.NewGuid().ToString().Split('-')[0];
+            string newShaderName = shader.name + ".Optimized/" + material.name + "-" + smallguid;
             string newShaderDirectory = shaderFilePath.Remove(shaderFilePath.Length-".shader".Length, ".shader".Length) + ".Optimized/" + material.name + "-" + smallguid + "/";
 
             // Parse shader and cginc files, renaming them and moving them to a new directory
             // Also gets preprocessor macros
-            List<String> shaderFiles = new List<String>();
+            List<ParsedShaderFile> shaderFiles = new List<ParsedShaderFile>();
             List<Macro> macros = new List<Macro>();
-            if (!ParseShaderFilesRecursive(shaderFiles, newShaderDirectory, newShaderName, shaderFilePath, macros))
+            if (!ParseShaderFilesRecursive(props, shaderFiles, newShaderDirectory, newShaderName, shaderFilePath, macros))
                 return false;
 
             // Get collection of all properties to replace
@@ -129,9 +167,9 @@ namespace Kaj
             foreach (MaterialProperty prop in props)
             {
                 // Check for the convention 'Animated' Property to be true otherwise assume all properties are constant
-                MaterialProperty animatedProp = Array.Find(props, x => x.name == prop.name + "Animated");
-                if (animatedProp != null && ((animatedProp.flags & MaterialProperty.PropFlags.HideInInspector) != 0))
-                    if (animatedProp.floatValue == 1) continue;
+                MaterialProperty animatedProp = Array.Find(props, x => x.name == prop.name + AnimatedPropertySuffix);
+                if (animatedProp != null && animatedProp.floatValue == 1)
+                    continue;
 
                 PropertyData propData;
                 switch(prop.type)
@@ -157,48 +195,51 @@ namespace Kaj
                         propData.value = new Vector4(prop.floatValue, 0, 0, 0);
                         constantProps.Add(propData);
                         break;
+                    case MaterialProperty.PropType.Range:
+                        propData = new PropertyData();
+                        propData.type = PropertyType.Float;
+                        propData.name = prop.name;
+                        propData.value = new Vector4(prop.floatValue, 0, 0, 0);
+                        constantProps.Add(propData);
+                        break;
                     case MaterialProperty.PropType.Texture:
                         if (prop.textureDimension == UnityEngine.Rendering.TextureDimension.Tex2D)
                         {
-                            PropertyData ST = new PropertyData();
-                            ST.type = PropertyType.Vector;
-                            ST.name = prop.name + "_ST";
-                            Vector2 offset = material.GetTextureOffset(prop.name);
-                            Vector2 scale = material.GetTextureScale(prop.name);
-                            ST.value = new Vector4(offset.x, offset.y, scale.x, scale.y);
-                            constantProps.Add(ST);
+                            animatedProp = Array.Find(props, x => x.name == prop.name + "_ST" + AnimatedPropertySuffix);
+                            if (!(animatedProp != null && animatedProp.floatValue == 1))
+                            {
+                                PropertyData ST = new PropertyData();
+                                ST.type = PropertyType.Vector;
+                                ST.name = prop.name + "_ST";
+                                Vector2 offset = material.GetTextureOffset(prop.name);
+                                Vector2 scale = material.GetTextureScale(prop.name);
+                                ST.value = new Vector4(scale.x, scale.y, offset.x, offset.y);
+                                constantProps.Add(ST);
+                            }
+                            animatedProp = Array.Find(props, x => x.name == prop.name + "_TexelSize" + AnimatedPropertySuffix);
+                            if (!(animatedProp != null && animatedProp.floatValue == 1))
+                            {
+                                PropertyData TexelSize = new PropertyData();
+                                TexelSize.type = PropertyType.Vector;
+                                TexelSize.name = prop.name + "_TexelSize";
+                                Texture t = prop.textureValue;
+                                if (t != null)
+                                    TexelSize.value = new Vector4(1.0f / t.width, 1.0f / t.height, t.width, t.height);
+                                else TexelSize.value = new Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+                                constantProps.Add(TexelSize);
+                            }
 
-                            PropertyData TexelSize = new PropertyData();
-                            TexelSize.type = PropertyType.Vector;
-                            TexelSize.name = prop.name + "_TexelSize";
-                            Texture t = prop.textureValue;
-                            if (t != null)
-                                TexelSize.value = new Vector4(1.0f / t.width, 1.0f / t.height, t.width, t.height);
-                            else TexelSize.value = new Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-                            constantProps.Add(TexelSize);
                         }
                         break;
                 }
             }
 
             // Loop back through each new file to apply macros and replace properties
-            foreach (string fileName in shaderFiles)
+            foreach (ParsedShaderFile psf in shaderFiles)
             {
-                string fileContents = null;
-                try
-                {
-                    StreamReader sr = new StreamReader(newShaderDirectory + fileName);
-                    fileContents = sr.ReadToEnd();
-                    sr.Close();
-                }
-                catch (IOException e)
-                {
-                    Debug.LogError("[Kaj Shader Optimizer] Error reading new shader file.  " + e.ToString());
-                    return false;
-                }
-
+                string fileContents = psf.contents;
                 string output = null;
-                if (fileName.EndsWith(".shader"))
+                if (psf.filePath.EndsWith(".shader"))
                 {
                     // Shader property declarations and properties as blending/stencil settings aren't a problem
                     // because they're only in .shader files outside the CG blocks, so isolate CG blocks and
@@ -229,17 +270,17 @@ namespace Kaj
                 }
                 else output = ReplaceShaderValues(fileContents, constantProps, macros);
 
-                // Write output back out.  
-                // This whole process technically could be done without two sets of file writes
+                // Write output to file
+                (new FileInfo(newShaderDirectory + psf.filePath)).Directory.Create();
                 try
                 {
-                    StreamWriter sw = new StreamWriter(newShaderDirectory + fileName);
+                    StreamWriter sw = new StreamWriter(newShaderDirectory + psf.filePath);
                     sw.Write(output);
                     sw.Close();
                 }
                 catch (IOException e)
                 {
-                    Debug.LogError("[Kaj Shader Optimizer] Processed shader file " + newShaderDirectory + fileName + " could not be written.  " + e.ToString());
+                    Debug.LogError("[Kaj Shader Optimizer] Processed shader file " + newShaderDirectory + psf.filePath + " could not be written.  " + e.ToString());
                     return false;
                 }
             }
@@ -250,6 +291,11 @@ namespace Kaj
             // Write the new shader name in an override tag so ONLY EXACTLY THAT SUBFOLDER WILL GET DELETED
             material.SetOverrideTag("OptimizedShaderFolder", newShaderDirectory);
 
+            // For some reason when shaders are swapped on a material the RenderType override tag gets completely deleted and render queue set back to -1
+            // So these are saved as temp values and reassigned after switching shaders
+            string renderType = material.GetTag("RenderType", false, "");
+            int renderQueue = material.renderQueue;
+
             // Actually switch the shader
             Shader newShader = Shader.Find(newShaderName);
             if (newShader == null)
@@ -258,6 +304,8 @@ namespace Kaj
                 return false;
             }
             material.shader = newShader;
+            material.SetOverrideTag("RenderType", renderType);
+            material.renderQueue = renderQueue;
 
             return true;
         }
@@ -265,11 +313,15 @@ namespace Kaj
         // This function not only exists to get a list of all cgincludes referenced by a main shader
         // but also to change absolute paths on #include lines and write new files
         // A little dirty because recursive cginc parsing is mixed in with main .shader file parsing
-        private static bool ParseShaderFilesRecursive(List<String> filesParsed, string newTopLevelDirectory, string newShaderName, string filePath, List<Macro> macros)
+        private static bool ParseShaderFilesRecursive(MaterialProperty[] props, List<ParsedShaderFile> filesParsed, string newTopLevelDirectory, string newShaderName, string filePath, List<Macro> macros)
         {
             // Infinite recursion check
-            if (filesParsed.Contains(filePath)) return true;
-            else filesParsed.Add(filePath);
+            if (filesParsed.Exists(x => x.filePath == filePath)) return true;
+
+            ParsedShaderFile psf = null;
+            psf = new ParsedShaderFile();
+            psf.filePath = filePath;
+            filesParsed.Add(psf);
 
             // Read file
             string fileContents = null;
@@ -326,7 +378,7 @@ namespace Kaj
                     // cginclude filepath is either absolute or relative
                     if (lineParsed.StartsWith("Assets/"))
                     {
-                        if (!ParseShaderFilesRecursive(filesParsed, newTopLevelDirectory, newShaderName, lineParsed, macros))
+                        if (!ParseShaderFilesRecursive(props, filesParsed, newTopLevelDirectory, newShaderName, lineParsed, macros))
                             return false;
                         // Only absolute filepaths need to be renampped in-file
                         fileLines[i] = fileLines[i].Replace(lineParsed, newTopLevelDirectory + lineParsed);
@@ -334,7 +386,7 @@ namespace Kaj
                     else
                     {
                         string fullpath = GetFullPath(lineParsed, Path.GetDirectoryName(filePath));
-                        if (!ParseShaderFilesRecursive(filesParsed, newTopLevelDirectory, newShaderName, fullpath, macros))
+                        if (!ParseShaderFilesRecursive(props, filesParsed, newTopLevelDirectory, newShaderName, fullpath, macros))
                             return false;
                     }
                 }
@@ -351,7 +403,77 @@ namespace Kaj
                     while (fileLines[i].TrimEnd().EndsWith("\\"));
                     macrosList.Add(macro);
                 }
-                // else if (lineParsed.StartsWith(//KSOInlineSamplerState)) soon(tm)
+                else if (lineParsed.StartsWith("//#pragmamulti_compile_LOD_FADE_CROSSFADE"))
+                {
+                    MaterialProperty crossfadeProp = Array.Find(props, x => x.name == LODCrossFadePropertyName);
+                    if (crossfadeProp != null && crossfadeProp.floatValue == 1)
+                        fileLines[i] = fileLines[i].Replace("//#pragma", "#pragma");
+                }
+                else if (lineParsed.StartsWith("//\"IgnoreProjector\"=\"True\""))
+                {
+                    MaterialProperty projProp = Array.Find(props, x => x.name == IgnoreProjectorPropertyName);
+                    if (projProp != null && projProp.floatValue == 1)
+                        fileLines[i] = fileLines[i].Replace("//\"IgnoreProjector", "\"IgnoreProjector");
+                }
+                else if (lineParsed.StartsWith("//\"ForceNoShadowCasting\"=\"True\""))
+                {
+                    MaterialProperty forceNoShadowsProp = Array.Find(props, x => x.name == ForceNoShadowCastingPropertyName);
+                    if (forceNoShadowsProp != null && forceNoShadowsProp.floatValue == 1)
+                        fileLines[i] = fileLines[i].Replace("//\"ForceNoShadowCasting", "\"ForceNoShadowCasting");
+                }
+                else if (lineParsed.StartsWith("//KSOInlineSamplerState("))
+                {
+                    // example usage: //KSOInlineSamplerState(_MainTex, _SpecularAnisotropyTangentMap)
+                    // Will replace all instances of argument 0 (_MainTex) on the next line with the samplerstate
+                    // corresponding to the wrap/filter mode of the texture of name argument 1 (_SpecularAnisotropyTangentMap)
+                    int firstParenthesis = lineParsed.IndexOf('(');
+                    int lastParenthesis = lineParsed.IndexOf(')');
+                    string argsString = lineParsed.Substring(firstParenthesis+1, lastParenthesis - firstParenthesis-1);
+                    string[] args = argsString.Split(',');
+                    MaterialProperty texProp = Array.Find(props, x => x.name == args[1]);
+                    if (texProp != null)
+                    {
+                        Texture t = texProp.textureValue;
+                        int inlineSamplerIndex = 0;
+                        if (t != null)
+                        {
+                            switch (t.filterMode)
+                            {
+                                case FilterMode.Bilinear:
+                                    break;
+                                case FilterMode.Point:
+                                    inlineSamplerIndex += 1 * 4;
+                                    break;
+                                case FilterMode.Trilinear:
+                                    inlineSamplerIndex += 2 * 4;
+                                    break;
+                            }
+                            switch (t.wrapMode)
+                            {
+                                case TextureWrapMode.Repeat:
+                                    break;
+                                case TextureWrapMode.Clamp:
+                                    inlineSamplerIndex += 1;
+                                    break;
+                                case TextureWrapMode.Mirror:
+                                    inlineSamplerIndex += 2;
+                                    break;
+                                case TextureWrapMode.MirrorOnce:
+                                    inlineSamplerIndex += 3;
+                                    break;
+                            }
+                        }
+
+                        // Replace the token on the following line
+                        fileLines[i+1] = fileLines[i+1].Replace(args[0], InlineSamplerStateNames[inlineSamplerIndex]);
+                    }
+                    else Debug.LogWarning("[Kaj Shader Optimizer] KSOInlineSamplerState on texture " + args[1] + " failed, texture not found.");
+                }
+                else if (lineParsed.StartsWith("//KSOPropertyKeyword("))
+                {
+                    // replace this line with #define _PROPERTY floatValue
+                    // Is this ideal?  Look at the best compiler friendly way to cull inputs/interpolators and lines that depend on their output
+                }
             }
             if (isMainShaderFile && !shaderHeaderFound)
             {
@@ -385,21 +507,8 @@ namespace Kaj
             foreach (string line in fileLines)
                 fileContents += line + '\n';
 
-            // Write processed file at new path
-            string newFilePath = newTopLevelDirectory + filePath;
-            (new FileInfo(newFilePath)).Directory.Create();
-            try
-            {
-                StreamWriter sw = new StreamWriter(newFilePath);
-                sw.Write(fileContents);
-                sw.Close();
-            }
-            catch (IOException e)
-            {
-                Debug.LogError("[Kaj Shader Optimizer] Shader file " + newFilePath + " could not be written.  " + e.ToString());
-                return false;
-            }
-
+            // Save processed file into psf list
+            psf.contents = fileContents;
             return true;
         }
 
@@ -554,7 +663,14 @@ namespace Kaj
                 Debug.LogError("[Kaj Shader Optimizer] Original shader " + originalShaderName + " could not be found");
                 return false;
             }
+
+            // For some reason when shaders are swapped on a material the RenderType override tag gets completely deleted and render queue set back to -1
+            // So these are saved as temp values and reassigned after switching shaders
+            string renderType = material.GetTag("RenderType", false, "");
+            int renderQueue = material.renderQueue;
             material.shader = orignalShader;
+            material.SetOverrideTag("RenderType", renderType);
+            material.renderQueue = renderQueue;
 
             // Delete the variants folder and all files in it, as to not orhpan files and inflate Unity project
             string shaderDirectory = material.GetTag("OptimizedShaderFolder", false, "");
