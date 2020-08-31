@@ -2,7 +2,12 @@ Shader "Kaj/PBR"
 {
     Properties
     {
-        [HideInInspector] _Mode ("__mode", Int) = 0
+        [HideInInspector] _Mode ("4", Int) = 0
+        [HideInInspector] _Mode0 ("Opaque;RenderQueue=-1;RenderType=;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=0;_ZWrite=1;_ZTest=4", Int) = 0
+        [HideInInspector] _Mode1 ("Cutout;RenderQueue=2450;RenderType=TransparentCutout;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=1;_ZWrite=1;_ZTest=4", Int) = 0
+        [HideInInspector] _Mode2 ("Fade;RenderQueue=3000;RenderType=Transparent;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=5;_DstBlend=10;_SrcBlendAlpha=5;_DstBlendAlpha=10;_AlphaToMask=0;_ZWrite=0;_ZTest=4", Int) = 0
+        [HideInInspector] _Mode3 ("Transparent;RenderQueue=3000;RenderType=Transparent;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=10;_SrcBlendAlpha=1;_DstBlendAlpha=10;_AlphaToMask=0;_ZWrite=0;_ZTest=4", Int) = 0
+
         [HideInInspector] _LightModes ("__lightmodes", Int) = 0
         [HideInInspector] _DisableBatching ("__disableBatching", Int) = 0
         [HideInInspector] _IgnoreProjector ("__ignoreProjector", Int) = 0
@@ -63,7 +68,7 @@ Shader "Kaj/PBR"
         [Indent]
             [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_SpecGlossMapUV ("UV Set", Int) = 0
         [UnIndent]
-        _OcclusionMap("Occlusion Map", 2D) = "white" {}
+        _OcclusionMap("Occlusion Map (RGB)", 2D) = "white" {}
         [Indent]
             [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_OcclusionMapUV("UV Set", Int) = 0
         [UnIndent]
@@ -72,6 +77,7 @@ Shader "Kaj/PBR"
             [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_SpecularMapUV("UV Set", Int) = 0
         [HideInInspector]end_StandardTextures("", Int) = 1
         [HideInInspector]group_CombinedMap("Combined Texture", Int) = 0
+        [HelpBox]_CombinedMapTooltip("Regular Metallic, Occlusion, and Specular textures will overwrite the Combined texture if they exist.", Int) = 0
         _CombinedMap("Combined Map (RGBA)", 2D) = "white" {}
         [Indent]
             [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_CombinedMapUV("UV Set", Int) = 0
@@ -240,142 +246,142 @@ Shader "Kaj/PBR"
         [HideInInspector]group_OptimizerSettings("Optimizer Settings", Int) = 0
         [HideInInspector]group_AnimatedProperties("Aniamted Properties", Int) = 0
         [HelpBox]_AnimatedPropsTooltip("Any material properties that need to be changed at runtime should be selected here so the Optimizer does not bake them into the optimized shader.", Int) = 0
-        [ToggleUILeft]_ColorAnimated("  _Color", Int) = 0
-        [ToggleUILeft]_MainTex_TexelSizeAnimated("  _MainTex_TexelSize", Int) = 0
-        [ToggleUILeft]_MainTex_STAnimated("  _MainTex_ST", Int) = 0
-        [ToggleUILeft]_MainTexUVAnimated("  _MainTexUV", Int) = 0
-        [ToggleUILeft]_VertexColorsEnabledAnimated("  _VertexColorsEnabled", Int) = 0
-        [ToggleUILeft]_CoverageMap_TexelSizeAnimated("  _CoverageMap_TexelSize", Int) = 0
-        [ToggleUILeft]_CoverageMap_STAnimated("  _CoverageMap_ST", Int) = 0
-        [ToggleUILeft]_CoverageMapUVAnimated("  _CoverageMapUV", Int) = 0
-        [ToggleUILeft]_CutoffAnimated("  _Cutoff", Int) = 0
-        [ToggleUILeft]_ForceOpaqueAnimated("  _ForceOpaque", Int) = 0
-        [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
-        [ToggleUILeft]_DitheringEnabledAnimated("  _DitheringEnabled", Int) = 0
-        [ToggleUILeft]_DitheredShadowsAnimated("  _DitheredShadows", Int) = 0
-        [ToggleUILeft]_BumpMap_TexelSizeAnimated("  _BumpMap_TexelSize", Int) = 0
-        [ToggleUILeft]_BumpMap_STAnimated("  _BumpMap_ST", Int) = 0
-        [ToggleUILeft]_BumpMapUVAnimated("  _BumpMapUV", Int) = 0
-        [ToggleUILeft]_BumpScaleAnimated("  _BumpScale", Int) = 0
-        [ToggleUILeft]_EmissionColorAnimated("  _EmissionColor", Int) = 0
-        [ToggleUILeft]_EmissionMap_TexelSizeAnimated("  _EmissionMap_TexelSize", Int) = 0
-        [ToggleUILeft]_EmissionMap_STAnimated("  _EmissionMap_ST", Int) = 0
-        [ToggleUILeft]_EmissionMapUVAnimated("  _EmissionMapUV", Int) = 0
-        [ToggleUILeft]_EmissionTintByAlbedoAnimated("  _EmissionTintByAlbedo", Int) = 0
-        [ToggleUILeft]_WorkflowModeAnimated("  _WorkflowMode", Int) = 0
-        [ToggleUILeft]_MetallicAnimated("  _Metallic", Int) = 0
-        [ToggleUILeft]_MetallicMinAnimated("  _MetallicMin", Int) = 0
-        [ToggleUILeft]_GlossinessSourceAnimated("  _GlossinessSource", Int) = 0
-        [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
-        [ToggleUILeft]_GlossinessAnimated("  _Glossiness", Int) = 0
-        [ToggleUILeft]_GlossinessMinAnimated("  _GlossinessMin", Int) = 0
-        [ToggleUILeft]_OcclusionStrengthAnimated("  _OcclusionStrength", Int) = 0
-        [ToggleUILeft]_SpecColorAnimated("  _SpecColor", Int) = 0
-        [ToggleUILeft]_SpecularMaxAnimated("  _SpecularMax", Int) = 0
-        [ToggleUILeft]_SpecularMinAnimated("  _SpecularMin", Int) = 0
-        [ToggleUILeft]_MetallicGlossMap_TexelSizeAnimated("  _MetallicGlossMap_TexelSize", Int) = 0
-        [ToggleUILeft]_MetallicGlossMap_STAnimated("  _MetallicGlossMap_ST", Int) = 0
-        [ToggleUILeft]_MetallicGlossMapUVAnimated("  _MetallicGlossMapUV", Int) = 0
-        [ToggleUILeft]_SpecGlossMap_TexelSizeAnimated("  _SpecGlossMap_TexelSize", Int) = 0
-        [ToggleUILeft]_SpecGlossMap_STAnimated("  _SpecGlossMap_ST", Int) = 0
-        [ToggleUILeft]_SpecGlossMapUVAnimated("  _SpecGlossMapUV", Int) = 0
-        [ToggleUILeft]_OcclusionMap_TexelSizeAnimated("  _OcclusionMap_TexelSize", Int) = 0
-        [ToggleUILeft]_OcclusionMap_STAnimated("  _OcclusionMap_ST", Int) = 0
-        [ToggleUILeft]_OcclusionMapUVAnimated("  _OcclusionMapUV", Int) = 0
-        [ToggleUILeft]_SpecularMap_TexelSizeAnimated("  _SpecularMap_TexelSize", Int) = 0
-        [ToggleUILeft]_SpecularMap_STAnimated("  _SpecularMap_ST", Int) = 0
-        [ToggleUILeft]_SpecularMapUVAnimated("  _SpecularMapUV", Int) = 0
-        [ToggleUILeft]_CombinedMap_TexelSizeAnimated("  _CombinedMap_TexelSize", Int) = 0
-        [ToggleUILeft]_CombinedMap_STAnimated("  _CombinedMap_ST", Int) = 0
-        [ToggleUILeft]_CombinedMapUVAnimated("  _CombinedMapUV", Int) = 0
-        [ToggleUILeft]_MetallicGlossMapCombinedMapChannelAnimated("  _MetallicGlossMapCombinedMapChannel", Int) = 0
-        [ToggleUILeft]_SpecGlossMapCombinedMapChannelAnimated("  _SpecGlossMapCombinedMapChannel", Int) = 0
-        [ToggleUILeft]_OcclusionMapCombinedMapChannelAnimated("  _OcclusionMapCombinedMapChannel", Int) = 0
-        [ToggleUILeft]_SpecularMapCombinedMapChannelAnimated("  _SpecularMapCombinedMapChannel", Int) = 0
-        [ToggleUILeft]_HDREnabledAnimated("  _HDREnabled", Int) = 0
-        [ToggleUILeft]_ReceiveShadowsAnimated("  _ReceiveShadows", Int) = 0
-        [ToggleUILeft]_ShadowsSmoothAnimated("  _ShadowsSmooth", Int) = 0
-        [ToggleUILeft]_ShadowsSharpAnimated("  _ShadowsSharp", Int) = 0
-        [ToggleUILeft]_FakeLightToggleAnimated("  _FakeLightToggle", Int) = 0
-        [ToggleUILeft]_FakeLightDirectionAnimated("  _FakeLightDirection", Int) = 0
-        [ToggleUILeft]_FakeLightColorAnimated("  _FakeLightColor", Int) = 0
-        [ToggleUILeft]_FakeLightIntensityAnimated("  _FakeLightIntensity", Int) = 0
-        [ToggleUILeft]_ReceiveFogAnimated("  _ReceiveFog", Int) = 0
-        [ToggleUILeft]_GlossyReflectionsAnimated("  _GlossyReflections", Int) = 0
-        [ToggleUILeft]_CubeMapAnimated("  _CubeMap", Int) = 0
-        [ToggleUILeft]_CubeMapModeAnimated("  _CubeMapMode", Int) = 0
-        [ToggleUILeft]_DiffuseModeAnimated("  _DiffuseMode", Int) = 0
-        [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
-        [ToggleUILeft]_DiffuseWrapIntensityAnimated("  _DiffuseWrapIntensity", Int) = 0
-        [ToggleUILeft]_DiffuseWrapAnimated("  _DiffuseWrap", Int) = 0
-        [ToggleUILeft]_DiffuseWrapConserveEnergyAnimated("  _DiffuseWrapConserveEnergy", Int) = 0
-        [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("  _PreIntSkinTex_TexelSize", Int) = 0
-        [ToggleUILeft]_PreIntSkinTex_STAnimated("  _PreIntSkinTex_ST", Int) = 0
-        [ToggleUILeft]_BumpBlurBiasAnimated("  _BumpBlurBias", Int) = 0
-        [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
-        [ToggleUILeft]_CurvatureInfluenceAnimated("  _CurvatureInfluence", Int) = 0
-        [ToggleUILeft]_CurvatureScaleAnimated("  _CurvatureScale", Int) = 0
-        [ToggleUILeft]_CurvatureBiasAnimated("  _CurvatureBias", Int) = 0
-        [ToggleUILeft]_AOColorBleedAnimated("  _AOColorBleed", Int) = 0
-        [ToggleUILeft]_SpecularModeAnimated("  _SpecularMode", Int) = 0
-        [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
-        [ToggleUILeft]_PhongSpecularPowerAnimated("  _PhongSpecularPower", Int) = 0
-        [ToggleUILeft]_PhongSpecularIntensityAnimated("  _PhongSpecularIntensity", Int) = 0
-        [ToggleUILeft]_PhongSpecularUseRoughnessAnimated("  _PhongSpecularUseRoughness", Int) = 0
-        [ToggleUILeft]_SpecularAnisotropyAnimated("  _SpecularAnisotropy", Int) = 0
-        [ToggleUILeft]_SpecularAnisotropyAngleAnimated("  _SpecularAnisotropyAngle", Int) = 0
-        [ToggleUILeft]_ReflectionsModeAnimated("  _ReflectionsMode", Int) = 0
-        [ToggleUILeft]_StandardFresnelIntensityAnimated("  _StandardFresnelIntensity", Int) = 0
-        [ToggleUILeft]_ReflectionsAnisotropyAnimated("  _ReflectionsAnisotropy", Int) = 0
-        [ToggleUILeft]_ReflectionsAnisotropyAngleAnimated("  _ReflectionsAnisotropyAngle", Int) = 0
-        [ToggleUILeft]_DetailMask_TexelSizeAnimated("  _DetailMask_TexelSize", Int) = 0
-        [ToggleUILeft]_DetailMask_STAnimated("  _DetailMask_ST", Int) = 0
-        [ToggleUILeft]_DetailMaskUVAnimated("  _DetailMaskUV", Int) = 0
-        [ToggleUILeft]_DetailColorRAnimated("  _DetailColorR", Int) = 0
-        [ToggleUILeft]_DetailColorGAnimated("  _DetailColorG", Int) = 0
-        [ToggleUILeft]_DetailColorBAnimated("  _DetailColorB", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMap_TexelSizeAnimated("  _DetailAlbedoMap_TexelSize", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMap_STAnimated("  _DetailAlbedoMap_ST", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMapGreen_TexelSizeAnimated("  _DetailAlbedoMapGreen_TexelSize", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMapGreen_STAnimated("  _DetailAlbedoMapGreen_ST", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMapBlue_TexelSizeAnimated("  _DetailAlbedoMapBlue_TexelSize", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMapBlue_STAnimated("  _DetailAlbedoMapBlue_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMap_TexelSizeAnimated("  _DetailNormalMap_TexelSize", Int) = 0
-        [ToggleUILeft]_DetailNormalMap_STAnimated("  _DetailNormalMap_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMapScaleAnimated("  _DetailNormalMapScale", Int) = 0
-        [ToggleUILeft]_DetailNormalMapGreen_TexelSizeAnimated("  _DetailNormalMapGreen_TexelSize", Int) = 0
-        [ToggleUILeft]_DetailNormalMapGreen_STAnimated("  _DetailNormalMapGreen_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMapScaleGreenAnimated("  _DetailNormalMapScaleGreen", Int) = 0
-        [ToggleUILeft]_DetailNormalMapBlue_TexelSizeAnimated("  _DetailNormalMapBlue_TexelSize", Int) = 0
-        [ToggleUILeft]_DetailNormalMapBlue_STAnimated("  _DetailNormalMapBlue_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMapScaleBlueAnimated("  _DetailNormalMapScaleBlue", Int) = 0
-        [ToggleUILeft]_UVSecAnimated("  _UVSec", Int) = 0
-        [ToggleUILeft]_DetailAlbedoCombineModeAnimated("  _DetailAlbedoCombineMode", Int) = 0
-        [ToggleUILeft]_ParallaxMap_TexelSizeAnimated("  _ParallaxMap_TexelSize", Int) = 0
-        [ToggleUILeft]_ParallaxMap_STAnimated("  _ParallaxMap_ST", Int) = 0
-        [ToggleUILeft]_ParallaxMapUVAnimated("  _ParallaxMapUV", Int) = 0
-        [ToggleUILeft]_ParallaxAnimated("  _Parallax", Int) = 0
-        [ToggleUILeft]_ParallaxBiasAnimated("  _ParallaxBias", Int) = 0
-        [ToggleUILeft]_ParallaxUV0Animated("  _ParallaxUV0", Int) = 0
-        [ToggleUILeft]_ParallaxUV1Animated("  _ParallaxUV1", Int) = 0
-        [ToggleUILeft]_ParallaxUV2Animated("  _ParallaxUV2", Int) = 0
-        [ToggleUILeft]_ParallaxUV3Animated("  _ParallaxUV3", Int) = 0
-        [ToggleUILeft]_SSSTransmissionShadowCastingLightsOnlyAnimated("  _SSSTransmissionShadowCastingLightsOnly", Int) = 0
-        [ToggleUILeft]_SSSTransmissionIgnoreShadowAttenuationAnimated("  _SSSTransmissionIgnoreShadowAttenuation", Int) = 0
-        [ToggleUILeft]_SubsurfaceColorAnimated("  _SubsurfaceColor", Int) = 0
-        [ToggleUILeft]_TranslucencyMap_TexelSizeAnimated("  _TranslucencyMap_TexelSize", Int) = 0
-        [ToggleUILeft]_TranslucencyMap_STAnimated("  _TranslucencyMap_ST", Int) = 0
-        [ToggleUILeft]_TranslucencyMapUVAnimated("  _TranslucencyMapUV", Int) = 0
-        [ToggleUILeft]_SSSTranslucencyMaxAnimated("  _SSSTranslucencyMax", Int) = 0
-        [ToggleUILeft]_SSSTranslucencyMinAnimated("  _SSSTranslucencyMin", Int) = 0
-        [ToggleUILeft]_SSSTransmissionPowerAnimated("  _SSSTransmissionPower", Int) = 0
-        [ToggleUILeft]_SSSTransmissionDistortionAnimated("  _SSSTransmissionDistortion", Int) = 0
-        [ToggleUILeft]_SSSTransmissionScaleAnimated("  _SSSTransmissionScale", Int) = 0
-        [ToggleUILeft]_SSSStylizedIndirectAnimated("  _SSSStylizedIndirect", Int) = 0
-        [ToggleUILeft]_SSSStylizedIndrectScaleByTranslucencyAnimated("  _SSSStylizedIndrectScaleByTranslucency", Int) = 0
-        [ToggleUILeft]_TriplanarUseVertexColorsAnimated("  _TriplanarUseVertexColors", Int) = 0
-        [ToggleUILeft]_DebugWorldNormalsAnimated("  _DebugWorldNormals", Int) = 0
-        [ToggleUILeft]_DebugOcclusionAnimated("  _DebugOcclusion", Int) = 0
+        [ToggleUILeft]_ColorAnimated("_Color", Int) = 0
+        [ToggleUILeft]_MainTex_TexelSizeAnimated("_MainTex_TexelSize", Int) = 0
+        [ToggleUILeft]_MainTex_STAnimated("_MainTex_ST", Int) = 0
+        [ToggleUILeft]_MainTexUVAnimated("_MainTexUV", Int) = 0
+        [ToggleUILeft]_VertexColorsEnabledAnimated("_VertexColorsEnabled", Int) = 0
+        [ToggleUILeft]_CoverageMap_TexelSizeAnimated("_CoverageMap_TexelSize", Int) = 0
+        [ToggleUILeft]_CoverageMap_STAnimated("_CoverageMap_ST", Int) = 0
+        [ToggleUILeft]_CoverageMapUVAnimated("_CoverageMapUV", Int) = 0
+        [ToggleUILeft]_CutoffAnimated("_Cutoff", Int) = 0
+        [ToggleUILeft]_ForceOpaqueAnimated("_ForceOpaque", Int) = 0
+        [ToggleUILeft]_AlphaToCoverageAnimated("_AlphaToCoverage", Int) = 0
+        [ToggleUILeft]_DitheringEnabledAnimated("_DitheringEnabled", Int) = 0
+        [ToggleUILeft]_DitheredShadowsAnimated("_DitheredShadows", Int) = 0
+        [ToggleUILeft]_BumpMap_TexelSizeAnimated("_BumpMap_TexelSize", Int) = 0
+        [ToggleUILeft]_BumpMap_STAnimated("_BumpMap_ST", Int) = 0
+        [ToggleUILeft]_BumpMapUVAnimated("_BumpMapUV", Int) = 0
+        [ToggleUILeft]_BumpScaleAnimated("_BumpScale", Int) = 0
+        [ToggleUILeft]_EmissionColorAnimated("_EmissionColor", Int) = 0
+        [ToggleUILeft]_EmissionMap_TexelSizeAnimated("_EmissionMap_TexelSize", Int) = 0
+        [ToggleUILeft]_EmissionMap_STAnimated("_EmissionMap_ST", Int) = 0
+        [ToggleUILeft]_EmissionMapUVAnimated("_EmissionMapUV", Int) = 0
+        [ToggleUILeft]_EmissionTintByAlbedoAnimated("_EmissionTintByAlbedo", Int) = 0
+        [ToggleUILeft]_WorkflowModeAnimated("_WorkflowMode", Int) = 0
+        [ToggleUILeft]_MetallicAnimated("_Metallic", Int) = 0
+        [ToggleUILeft]_MetallicMinAnimated("_MetallicMin", Int) = 0
+        [ToggleUILeft]_GlossinessSourceAnimated("_GlossinessSource", Int) = 0
+        [ToggleUILeft]_GlossinessModeAnimated("_GlossinessMode", Int) = 0
+        [ToggleUILeft]_GlossinessAnimated("_Glossiness", Int) = 0
+        [ToggleUILeft]_GlossinessMinAnimated("_GlossinessMin", Int) = 0
+        [ToggleUILeft]_OcclusionStrengthAnimated("_OcclusionStrength", Int) = 0
+        [ToggleUILeft]_SpecColorAnimated("_SpecColor", Int) = 0
+        [ToggleUILeft]_SpecularMaxAnimated("_SpecularMax", Int) = 0
+        [ToggleUILeft]_SpecularMinAnimated("_SpecularMin", Int) = 0
+        [ToggleUILeft]_MetallicGlossMap_TexelSizeAnimated("_MetallicGlossMap_TexelSize", Int) = 0
+        [ToggleUILeft]_MetallicGlossMap_STAnimated("_MetallicGlossMap_ST", Int) = 0
+        [ToggleUILeft]_MetallicGlossMapUVAnimated("_MetallicGlossMapUV", Int) = 0
+        [ToggleUILeft]_SpecGlossMap_TexelSizeAnimated("_SpecGlossMap_TexelSize", Int) = 0
+        [ToggleUILeft]_SpecGlossMap_STAnimated("_SpecGlossMap_ST", Int) = 0
+        [ToggleUILeft]_SpecGlossMapUVAnimated("_SpecGlossMapUV", Int) = 0
+        [ToggleUILeft]_OcclusionMap_TexelSizeAnimated("_OcclusionMap_TexelSize", Int) = 0
+        [ToggleUILeft]_OcclusionMap_STAnimated("_OcclusionMap_ST", Int) = 0
+        [ToggleUILeft]_OcclusionMapUVAnimated("_OcclusionMapUV", Int) = 0
+        [ToggleUILeft]_SpecularMap_TexelSizeAnimated("_SpecularMap_TexelSize", Int) = 0
+        [ToggleUILeft]_SpecularMap_STAnimated("_SpecularMap_ST", Int) = 0
+        [ToggleUILeft]_SpecularMapUVAnimated("_SpecularMapUV", Int) = 0
+        [ToggleUILeft]_CombinedMap_TexelSizeAnimated("_CombinedMap_TexelSize", Int) = 0
+        [ToggleUILeft]_CombinedMap_STAnimated("_CombinedMap_ST", Int) = 0
+        [ToggleUILeft]_CombinedMapUVAnimated("_CombinedMapUV", Int) = 0
+        [ToggleUILeft]_MetallicGlossMapCombinedMapChannelAnimated("_MetallicGlossMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_SpecGlossMapCombinedMapChannelAnimated("_SpecGlossMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_OcclusionMapCombinedMapChannelAnimated("_OcclusionMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_SpecularMapCombinedMapChannelAnimated("_SpecularMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_HDREnabledAnimated("_HDREnabled", Int) = 0
+        [ToggleUILeft]_ReceiveShadowsAnimated("_ReceiveShadows", Int) = 0
+        [ToggleUILeft]_ShadowsSmoothAnimated("_ShadowsSmooth", Int) = 0
+        [ToggleUILeft]_ShadowsSharpAnimated("_ShadowsSharp", Int) = 0
+        [ToggleUILeft]_FakeLightToggleAnimated("_FakeLightToggle", Int) = 0
+        [ToggleUILeft]_FakeLightDirectionAnimated("_FakeLightDirection", Int) = 0
+        [ToggleUILeft]_FakeLightColorAnimated("_FakeLightColor", Int) = 0
+        [ToggleUILeft]_FakeLightIntensityAnimated("_FakeLightIntensity", Int) = 0
+        [ToggleUILeft]_ReceiveFogAnimated("_ReceiveFog", Int) = 0
+        [ToggleUILeft]_GlossyReflectionsAnimated("_GlossyReflections", Int) = 0
+        [ToggleUILeft]_CubeMapAnimated("_CubeMap", Int) = 0
+        [ToggleUILeft]_CubeMapModeAnimated("_CubeMapMode", Int) = 0
+        [ToggleUILeft]_DiffuseModeAnimated("_DiffuseMode", Int) = 0
+        [ToggleUILeft]_OcclusionDirectDiffuseAnimated("_OcclusionDirectDiffuse", Int) = 0
+        [ToggleUILeft]_DiffuseWrapIntensityAnimated("_DiffuseWrapIntensity", Int) = 0
+        [ToggleUILeft]_DiffuseWrapAnimated("_DiffuseWrap", Int) = 0
+        [ToggleUILeft]_DiffuseWrapConserveEnergyAnimated("_DiffuseWrapConserveEnergy", Int) = 0
+        [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("_PreIntSkinTex_TexelSize", Int) = 0
+        [ToggleUILeft]_PreIntSkinTex_STAnimated("_PreIntSkinTex_ST", Int) = 0
+        [ToggleUILeft]_BumpBlurBiasAnimated("_BumpBlurBias", Int) = 0
+        [ToggleUILeft]_BlurStrengthAnimated("_BlurStrength", Int) = 0
+        [ToggleUILeft]_CurvatureInfluenceAnimated("_CurvatureInfluence", Int) = 0
+        [ToggleUILeft]_CurvatureScaleAnimated("_CurvatureScale", Int) = 0
+        [ToggleUILeft]_CurvatureBiasAnimated("_CurvatureBias", Int) = 0
+        [ToggleUILeft]_AOColorBleedAnimated("_AOColorBleed", Int) = 0
+        [ToggleUILeft]_SpecularModeAnimated("_SpecularMode", Int) = 0
+        [ToggleUILeft]_OcclusionDirectSpecularAnimated("_OcclusionDirectSpecular", Int) = 0
+        [ToggleUILeft]_PhongSpecularPowerAnimated("_PhongSpecularPower", Int) = 0
+        [ToggleUILeft]_PhongSpecularIntensityAnimated("_PhongSpecularIntensity", Int) = 0
+        [ToggleUILeft]_PhongSpecularUseRoughnessAnimated("_PhongSpecularUseRoughness", Int) = 0
+        [ToggleUILeft]_SpecularAnisotropyAnimated("_SpecularAnisotropy", Int) = 0
+        [ToggleUILeft]_SpecularAnisotropyAngleAnimated("_SpecularAnisotropyAngle", Int) = 0
+        [ToggleUILeft]_ReflectionsModeAnimated("_ReflectionsMode", Int) = 0
+        [ToggleUILeft]_StandardFresnelIntensityAnimated("_StandardFresnelIntensity", Int) = 0
+        [ToggleUILeft]_ReflectionsAnisotropyAnimated("_ReflectionsAnisotropy", Int) = 0
+        [ToggleUILeft]_ReflectionsAnisotropyAngleAnimated("_ReflectionsAnisotropyAngle", Int) = 0
+        [ToggleUILeft]_DetailMask_TexelSizeAnimated("_DetailMask_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailMask_STAnimated("_DetailMask_ST", Int) = 0
+        [ToggleUILeft]_DetailMaskUVAnimated("_DetailMaskUV", Int) = 0
+        [ToggleUILeft]_DetailColorRAnimated("_DetailColorR", Int) = 0
+        [ToggleUILeft]_DetailColorGAnimated("_DetailColorG", Int) = 0
+        [ToggleUILeft]_DetailColorBAnimated("_DetailColorB", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMap_TexelSizeAnimated("_DetailAlbedoMap_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMap_STAnimated("_DetailAlbedoMap_ST", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapGreen_TexelSizeAnimated("_DetailAlbedoMapGreen_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapGreen_STAnimated("_DetailAlbedoMapGreen_ST", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapBlue_TexelSizeAnimated("_DetailAlbedoMapBlue_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapBlue_STAnimated("_DetailAlbedoMapBlue_ST", Int) = 0
+        [ToggleUILeft]_DetailNormalMap_TexelSizeAnimated("_DetailNormalMap_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMap_STAnimated("_DetailNormalMap_ST", Int) = 0
+        [ToggleUILeft]_DetailNormalMapScaleAnimated("_DetailNormalMapScale", Int) = 0
+        [ToggleUILeft]_DetailNormalMapGreen_TexelSizeAnimated("_DetailNormalMapGreen_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMapGreen_STAnimated("_DetailNormalMapGreen_ST", Int) = 0
+        [ToggleUILeft]_DetailNormalMapScaleGreenAnimated("_DetailNormalMapScaleGreen", Int) = 0
+        [ToggleUILeft]_DetailNormalMapBlue_TexelSizeAnimated("_DetailNormalMapBlue_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMapBlue_STAnimated("_DetailNormalMapBlue_ST", Int) = 0
+        [ToggleUILeft]_DetailNormalMapScaleBlueAnimated("_DetailNormalMapScaleBlue", Int) = 0
+        [ToggleUILeft]_UVSecAnimated("_UVSec", Int) = 0
+        [ToggleUILeft]_DetailAlbedoCombineModeAnimated("_DetailAlbedoCombineMode", Int) = 0
+        [ToggleUILeft]_ParallaxMap_TexelSizeAnimated("_ParallaxMap_TexelSize", Int) = 0
+        [ToggleUILeft]_ParallaxMap_STAnimated("_ParallaxMap_ST", Int) = 0
+        [ToggleUILeft]_ParallaxMapUVAnimated("_ParallaxMapUV", Int) = 0
+        [ToggleUILeft]_ParallaxAnimated("_Parallax", Int) = 0
+        [ToggleUILeft]_ParallaxBiasAnimated("_ParallaxBias", Int) = 0
+        [ToggleUILeft]_ParallaxUV0Animated("_ParallaxUV0", Int) = 0
+        [ToggleUILeft]_ParallaxUV1Animated("_ParallaxUV1", Int) = 0
+        [ToggleUILeft]_ParallaxUV2Animated("_ParallaxUV2", Int) = 0
+        [ToggleUILeft]_ParallaxUV3Animated("_ParallaxUV3", Int) = 0
+        [ToggleUILeft]_SSSTransmissionShadowCastingLightsOnlyAnimated("_SSSTransmissionShadowCastingLightsOnly", Int) = 0
+        [ToggleUILeft]_SSSTransmissionIgnoreShadowAttenuationAnimated("_SSSTransmissionIgnoreShadowAttenuation", Int) = 0
+        [ToggleUILeft]_SubsurfaceColorAnimated("_SubsurfaceColor", Int) = 0
+        [ToggleUILeft]_TranslucencyMap_TexelSizeAnimated("_TranslucencyMap_TexelSize", Int) = 0
+        [ToggleUILeft]_TranslucencyMap_STAnimated("_TranslucencyMap_ST", Int) = 0
+        [ToggleUILeft]_TranslucencyMapUVAnimated("_TranslucencyMapUV", Int) = 0
+        [ToggleUILeft]_SSSTranslucencyMaxAnimated("_SSSTranslucencyMax", Int) = 0
+        [ToggleUILeft]_SSSTranslucencyMinAnimated("_SSSTranslucencyMin", Int) = 0
+        [ToggleUILeft]_SSSTransmissionPowerAnimated("_SSSTransmissionPower", Int) = 0
+        [ToggleUILeft]_SSSTransmissionDistortionAnimated("_SSSTransmissionDistortion", Int) = 0
+        [ToggleUILeft]_SSSTransmissionScaleAnimated("_SSSTransmissionScale", Int) = 0
+        [ToggleUILeft]_SSSStylizedIndirectAnimated("_SSSStylizedIndirect", Int) = 0
+        [ToggleUILeft]_SSSStylizedIndrectScaleByTranslucencyAnimated("_SSSStylizedIndrectScaleByTranslucency", Int) = 0
+        [ToggleUILeft]_TriplanarUseVertexColorsAnimated("_TriplanarUseVertexColors", Int) = 0
+        [ToggleUILeft]_DebugWorldNormalsAnimated("_DebugWorldNormals", Int) = 0
+        [ToggleUILeft]_DebugOcclusionAnimated("_DebugOcclusion", Int) = 0
         [HideInInspector]end_AnimatedProperties("", Int) = 0
         [HideInInspector]group_AllowedKeywords("Shader Variants", Int) = 0
         [ToggleUILeft]_DitheredLODCrossfade(" Dithered LOD Crossfade (LOD_FADE_CROSSFADE)", Int) = 0
@@ -387,7 +393,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 21", Int) = 21
+        [KajLabel]_Version("Shader Version: 22", Int) = 22
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -426,7 +432,6 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
             #pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
             #pragma multi_compile_fwdbase
 			#pragma multi_compile_fog
             #pragma multi_compile_instancing
@@ -434,7 +439,6 @@ Shader "Kaj/PBR"
 			#pragma multi_compile _ LIGHTMAP_ON VERTEXLIGHT_ON
             //#pragma multi_compile _ LOD_FADE_CROSSFADE // Uncommented dynamically by the optimizer
 
-            #pragma fragmentoption ARB_precision_hint_fastest
             #pragma vertex vert_full
             #pragma fragment frag_full_pbr
             #include "KajCore.cginc"
@@ -452,14 +456,12 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
 			#pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
 			#pragma multi_compile_fwdadd_fullshadows
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             //#pragma instancing_options
             //#pragma multi_compile _ LOD_FADE_CROSSFADE
 
-            #pragma fragmentoption ARB_precision_hint_fastest
             #pragma vertex vert_full
             #pragma fragment frag_full_pbr
             #include "KajCore.cginc"
@@ -474,13 +476,11 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
             #pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
             #pragma multi_compile_shadowcaster
             #pragma multi_compile_instancing
             //#pragma instancing_options
             //#pragma multi_compile _ LOD_FADE_CROSSFADE
 
-            #pragma fragmentoption ARB_precision_hint_fastest
             #pragma vertex vert_shadow_full
             #pragma fragment frag_shadow_full
             #include "KajCore.cginc"
@@ -495,10 +495,8 @@ Shader "Kaj/PBR"
 
             CGPROGRAM
             #pragma target 5.0
-            #pragma shader_feature _ _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON _ALPHAMODULATE_ON
             #pragma shader_feature EDITOR_VISUALIZATION
 
-            #pragma fragmentoption ARB_precision_hint_fastest
             #pragma vertex vert_meta_full
             #pragma fragment frag_meta_full
             #include "KajCore.cginc"

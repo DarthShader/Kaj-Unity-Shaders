@@ -404,7 +404,7 @@ namespace Kaj
             EditorGUI.BeginChangeCheck();
             bool value = (prop.floatValue == 1);
             EditorGUI.showMixedValue = prop.hasMixedValue;
-            value = EditorGUILayout.ToggleLeft(label, value);
+            value = EditorGUILayout.ToggleLeft("  " + label, value);
             EditorGUI.showMixedValue = false;
             if (EditorGUI.EndChangeCheck())
                 prop.floatValue = value ? 1.0f : 0.0f;
@@ -424,19 +424,6 @@ namespace Kaj
         const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
         const string endPrefix = "end_";
         GUIStyle foldoutStyle;
-
-        public enum BlendMode
-        {
-            Opaque,
-            Cutout,
-            Fade,   // Old school alpha-blending mode, fresnel does not affect amount of transparency
-            Transparent, // Physically plausible transparency mode, implemented as alpha pre-multiply
-            Skybox, // Background queue
-            Overlay, // Flare, halo
-            Additive,
-            Subtractive,
-            Modulate
-        }
 
         public enum DisableBatchingFlags
         {
@@ -464,6 +451,7 @@ namespace Kaj
         MaterialProperty shaderOptimizer = null;
 
         bool m_FirstTimeApply = true;
+        string[] modeNames;
 
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
         {
@@ -477,6 +465,15 @@ namespace Kaj
 
             blendMode = FindProperty("_Mode", props, false);
             if (blendMode == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _Mode not found");
+            // Cache the names of each mode preset
+            if (blendMode != null)
+            {
+                int modeCount = Int32.Parse(blendMode.displayName);
+                modeNames = new string[modeCount];
+                for (int i=0; i<modeCount;i++)
+                    modeNames[i] = Array.Find(props, x => x.name == "_Mode" + i).displayName.Split(';')[0];
+            }
+
             lightModes = FindProperty("_LightModes", props, false);
             if (lightModes == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _LightModes not found");
             disableBatching = FindProperty("_DisableBatching", props, false);
@@ -527,21 +524,29 @@ namespace Kaj
             if (blendMode != null)
             {
                 EditorGUI.showMixedValue = blendMode.hasMixedValue;
-                var mode = (BlendMode)blendMode.floatValue;
+                var mode = blendMode.floatValue;
                 EditorGUI.BeginChangeCheck();
-                mode = (BlendMode)EditorGUILayout.Popup("Rendering Mode", (int)mode, Enum.GetNames(typeof(BlendMode)));
+                mode = EditorGUILayout.Popup("Rendering Mode", (int)mode, modeNames);
                 if (EditorGUI.EndChangeCheck())
                 {
                     // Idk if these Undo registrations are even still necessary since changing a material property registers one,
                     // but the Standard shader GUI does this so I will too
                     materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
-                    blendMode.floatValue = (float)mode;
-                    SetupMaterialsWithBlendMode(materialEditor.targets, mode);
-                    // TODO: This is shader specific logic!
-                    if (mode == BlendMode.Skybox)
+                    blendMode.floatValue = mode;
+                    // Apply Rendering Mode preset
+                    // Rendering modes provide a simple way to preset blending options/render queue
+                    string[] renderModeSettings = Array.Find(props, x => x.name == "_Mode" + (int)mode).displayName.Split(';');
+                    for (int i=1; i<renderModeSettings.Length; i++)
                     {
-                        previewType.floatValue = (float)PreviewType.Skybox;
-                        SetMaterialsTag(materialEditor.targets, "PreviewType", "Skybox");
+                        // [0] is name and [1] is value
+                        string[] renderModeSetting = renderModeSettings[i].Split('=');
+                        if (renderModeSetting[0] == "RenderQueue")
+                            foreach (Material m in materialEditor.targets)
+                                m.renderQueue = Int32.Parse(renderModeSetting[1]);
+                        else if (renderModeSetting[0] == "RenderType")
+                            foreach (Material m in materialEditor.targets)
+                                m.SetOverrideTag("RenderType", renderModeSetting[1]);
+                        else Array.Find(props, x => x.name == renderModeSetting[0]).floatValue = Single.Parse(renderModeSetting[1]);
                     }
                     EditorUtility.SetDirty(material);
                 }
@@ -935,159 +940,5 @@ namespace Kaj
             }
         }
 
-        // Rendering modes provide a means to preset blending options AND to enable certain keywords
-        // TODO: Rendering Mode is technically shader specific logic that needs to be moved into shader properties
-        private void SetupMaterialsWithBlendMode(UnityEngine.Object[] mats, BlendMode blendMode)
-        {
-            foreach (Material material in mats)
-            {
-                switch (blendMode)
-                {
-                    case BlendMode.Opaque:
-                        material.SetOverrideTag("RenderType", "");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 1);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.DisableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.DisableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = -1;
-                        break;
-                    case BlendMode.Cutout:
-                        material.SetOverrideTag("RenderType", "TransparentCutout");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
-                        material.SetInt("_AlphaToMask", 1);
-                        material.SetInt("_ZWrite", 1);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.EnableKeyword("_ALPHATEST_ON");
-                        material.DisableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.DisableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
-                        break;
-                    case BlendMode.Fade:
-                        material.SetOverrideTag("RenderType", "Transparent");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 0);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.EnableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.DisableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                        break;
-                    case BlendMode.Transparent:
-                        material.SetOverrideTag("RenderType", "Transparent");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 0);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.DisableKeyword("_ALPHABLEND_ON");
-                        material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.DisableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                        break;
-                    case BlendMode.Skybox:
-                        material.SetOverrideTag("RenderType", "Background");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.Zero);
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 0);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.DisableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.DisableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Background;
-                        break;
-                    case BlendMode.Overlay:
-                        material.SetOverrideTag("RenderType", "Overlay");
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 0);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Overlay;
-                        break;
-                    case BlendMode.Additive:
-                        material.SetOverrideTag("RenderType", "Transparent");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 0);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.EnableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.DisableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                        break;
-                    case BlendMode.Subtractive:
-                        material.SetOverrideTag("RenderType", "Transparent");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.ReverseSubtract);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.ReverseSubtract);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.One);
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 0);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.EnableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.DisableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                        break;
-                    case BlendMode.Modulate:
-                        material.SetOverrideTag("RenderType", "Transparent");
-                        material.SetInt("_BlendOp", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_BlendOpAlpha", (int)UnityEngine.Rendering.BlendOp.Add);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.DstColor);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        material.SetInt("_SrcBlendAlpha", (int)UnityEngine.Rendering.BlendMode.DstColor);
-                        material.SetInt("_DstBlendAlpha", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        material.SetInt("_AlphaToMask", 0);
-                        material.SetInt("_ZWrite", 0);
-                        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.DisableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.EnableKeyword("_ALPHAMODULATE_ON");
-                        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                        break;
-                }
-            }
-        }
     }
 }

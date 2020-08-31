@@ -17,7 +17,7 @@ namespace Kaj
         // For some reason, 'if' statements with replaced constant (literal) conditions cause some compilation error
         // So until that is figured out, branches will be removed by default
         // Set to false if you want to keep UNITY_BRANCH and [branch]
-        public static bool RemoveUnityBranches = true;
+        public static bool RemoveUnityBranches = false;
 
         // LOD Crossfade Dithing doesn't have multi_compile keyword correctly toggled at build time (its always included) so
         // this hard-coded material property will uncomment //#pragma multi_compile _ LOD_FADE_CROSSFADE in optimized .shader files
@@ -31,6 +31,13 @@ namespace Kaj
         // Material property suffix that controls whether the property of the same name gets baked into the optimized shader
         // i.e. if _Color exists and _ColorAnimated = 1, _Color will not be baked in
         public static readonly string AnimatedPropertySuffix = "Animated";
+
+        // Properties can be assigned to preprocessor defined keywords via the optimizer (//KSOPropertyKeyword)
+        // This is mainly targeted at culling interpolators and lines that rely on that input.
+        // (The compiler is not smart enough to cull VS output that isn't used anywhere in the PS)
+        // Additionally, simply enabling the optimizer can define a keyword, whose name is stored here.
+        // This keyword is added to the beginning of all passes, right after CGPROGRAM
+        public static readonly string OptimizerEnabledKeyword = "OPTIMIZER_ENABLED";
 
         // In-order list of inline sampler state names that will be replaced by InlineSamplerState() lines
         public static readonly string[] InlineSamplerStateNames = new string[]
@@ -178,7 +185,8 @@ namespace Kaj
                         propData = new PropertyData();
                         propData.type = PropertyType.Vector;
                         propData.name = prop.name;
-                        propData.value = prop.colorValue;
+                        // Could probably check for Gamma space color property flag
+                        propData.value = prop.colorValue.linear;
                         constantProps.Add(propData);
                         break;
                     case MaterialProperty.PropType.Vector:
@@ -472,7 +480,6 @@ namespace Kaj
                 else if (lineParsed.StartsWith("//KSOPropertyKeyword("))
                 {
                     // replace this line with #define _PROPERTY floatValue
-                    // Is this ideal?  Look at the best compiler friendly way to cull inputs/interpolators and lines that depend on their output
                 }
             }
             if (isMainShaderFile && !shaderHeaderFound)
