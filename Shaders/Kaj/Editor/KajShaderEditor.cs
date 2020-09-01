@@ -404,7 +404,7 @@ namespace Kaj
             EditorGUI.BeginChangeCheck();
             bool value = (prop.floatValue == 1);
             EditorGUI.showMixedValue = prop.hasMixedValue;
-            value = EditorGUILayout.ToggleLeft("  " + label, value);
+            value = EditorGUILayout.ToggleLeft(label, value);
             EditorGUI.showMixedValue = false;
             if (EditorGUI.EndChangeCheck())
                 prop.floatValue = value ? 1.0f : 0.0f;
@@ -446,6 +446,7 @@ namespace Kaj
         MaterialProperty forceNoShadowCasting = null; // Doesn't work, thanks Unity
         MaterialProperty canUseSpriteAtlas = null;
         MaterialProperty previewType = null;
+        MaterialProperty ditheredLODcrossfade = null; // Hard coded fix for Unity's inability to only include this keyword when necessary
 
         // Shader Optimizer
         MaterialProperty shaderOptimizer = null;
@@ -486,6 +487,8 @@ namespace Kaj
             if (canUseSpriteAtlas == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _CanUseSpriteAtlas not found");
             previewType = FindProperty("_PreviewType", props, false);
             if (previewType == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _PreviewType not found");
+            ditheredLODcrossfade = FindProperty("_DitheredLODCrossfade", props, false);
+            if (ditheredLODcrossfade == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _DitheredLODCrossfade not found");
             Material material = materialEditor.target as Material;
 
             shaderOptimizer = FindProperty("_ShaderOptimizerEnabled", props, false);
@@ -676,6 +679,18 @@ namespace Kaj
                 EditorGUI.showMixedValue = false;
             }
 
+            // Dithered LOD Crossfade
+            if (ditheredLODcrossfade != null)
+            {
+                EditorGUI.showMixedValue = ditheredLODcrossfade.hasMixedValue;
+                var ditheredLODcrossfadeFlag = ditheredLODcrossfade.floatValue;
+                EditorGUI.BeginChangeCheck();
+                ditheredLODcrossfadeFlag = EditorGUILayout.Toggle("Dithered LOD Crossfade", ditheredLODcrossfadeFlag == 1) ? 1 : 0;
+                if (EditorGUI.EndChangeCheck())
+                    ditheredLODcrossfade.floatValue = ditheredLODcrossfadeFlag;
+                EditorGUI.showMixedValue = false;
+            }
+
             // Kaj Shader Optimizer
             if (shaderOptimizer != null)
             {
@@ -721,7 +736,7 @@ namespace Kaj
 
             // Actual shader properties
             materialEditor.SetDefaultGUIWidths();
-            DrawPropertiesGUIRecursive(materialEditor, props);            
+            DrawPropertiesGUIRecursive(materialEditor, props);
             // Render queue, GPU instancing, and double sided GI checkboxes
             base.OnGUI(materialEditor, new MaterialProperty[0]);
         }
