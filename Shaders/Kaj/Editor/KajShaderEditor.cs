@@ -74,6 +74,24 @@ namespace Kaj
         VertexLM
     }
 
+    // Reusable enum for texture UV modes, technically shader specific but
+    // it's either add this or remake the regular width Enum drawer
+    public enum UVMapping
+    {
+        UV0,
+        UV1,
+        UV2,
+        UV3,
+        WorldTriplanar,
+        ObjectTriplanar,
+        XYWorldPlanar,
+        YZWorldPlanar,
+        ZXWorldPlanar,
+        XYObjectPlanar,
+        YZObjectPlanar,
+        ZXObjectPlanar
+    }
+
     // Simple indent and unindent decorators
     // 2px padding is still added around each decorator, might change to -2 height later
     public class IndentDecorator : MaterialPropertyDrawer
@@ -424,6 +442,8 @@ namespace Kaj
         const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
         const string endPrefix = "end_";
         GUIStyle foldoutStyle;
+        bool m_FirstTimeApply = true;
+        string[] modeNames;
 
         public enum DisableBatchingFlags
         {
@@ -451,30 +471,10 @@ namespace Kaj
         // Shader Optimizer
         MaterialProperty shaderOptimizer = null;
 
-        bool m_FirstTimeApply = true;
-        string[] modeNames;
-
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
         {
-            // Move to constructor?
-            foldoutStyle = new GUIStyle("ShurikenModuleTitle");
-            foldoutStyle.font = new GUIStyle(EditorStyles.label).font;
-            foldoutStyle.border = new RectOffset(15, 7, 4, 4);
-            foldoutStyle.fixedHeight = 22;
-            foldoutStyle.contentOffset = new Vector2(20f, -2f);
-
-
             blendMode = FindProperty("_Mode", props, false);
             if (blendMode == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _Mode not found");
-            // Cache the names of each mode preset
-            if (blendMode != null)
-            {
-                int modeCount = Int32.Parse(blendMode.displayName);
-                modeNames = new string[modeCount];
-                for (int i=0; i<modeCount;i++)
-                    modeNames[i] = Array.Find(props, x => x.name == "_Mode" + i).displayName.Split(';')[0];
-            }
-
             lightModes = FindProperty("_LightModes", props, false);
             if (lightModes == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _LightModes not found");
             disableBatching = FindProperty("_DisableBatching", props, false);
@@ -489,13 +489,28 @@ namespace Kaj
             if (previewType == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _PreviewType not found");
             ditheredLODcrossfade = FindProperty("_DitheredLODCrossfade", props, false);
             if (ditheredLODcrossfade == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _DitheredLODCrossfade not found");
-            Material material = materialEditor.target as Material;
-
             shaderOptimizer = FindProperty("_ShaderOptimizerEnabled", props, false);
             if (shaderOptimizer == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _ShaderOptimizerEnabled not found");
+            Material material = materialEditor.target as Material;
 
             if (m_FirstTimeApply)
             {
+                foldoutStyle = new GUIStyle("ShurikenModuleTitle");
+                foldoutStyle.font = new GUIStyle(EditorStyles.label).font;
+                foldoutStyle.border = new RectOffset(15, 7, 4, 4);
+                foldoutStyle.fixedHeight = 22;
+                foldoutStyle.contentOffset = new Vector2(20f, -2f);
+
+                // Cache the names of each mode preset
+                if (blendMode != null)
+                {
+                    int modeCount = 0;
+                    while (FindProperty("_Mode" + modeCount, props, false) != null) modeCount++;
+                    modeNames = new string[modeCount];
+                    for (int i=0; i<modeCount;i++)
+                        modeNames[i] = FindProperty("_Mode" + i, props, false).displayName.Split(';')[0];
+                }
+
                 // Materials could have their existing tags/override tags assigned to the convention named
                 // properties for them, but those tags might not be consistent across multiple materials, and also might not exist.
                 // Conversely, properties also shouldn't be auto-applied to override tags if they have mixed values.
@@ -852,7 +867,7 @@ namespace Kaj
                 }
 
                 // Derived from MaterialEditor.PropertiesDefaultGUI https://github.com/Unity-Technologies/UnityCsReference/
-                if ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0)
+                if ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0) 
                     continue;
                 float h = materialEditor.GetPropertyHeight(props[i], props[i].displayName);
                 Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);

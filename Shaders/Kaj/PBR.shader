@@ -2,7 +2,7 @@ Shader "Kaj/PBR"
 {
     Properties
     {
-        [HideInInspector] _Mode ("4", Int) = 0
+        [HideInInspector] _Mode ("__mode", Int) = 0
         [HideInInspector] _Mode0 ("Opaque;RenderQueue=-1;RenderType=;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=0;_ZWrite=1;_ZTest=4", Int) = 0
         [HideInInspector] _Mode1 ("Cutout;RenderQueue=2450;RenderType=TransparentCutout;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=1;_ZWrite=1;_ZTest=4", Int) = 0
         [HideInInspector] _Mode2 ("Fade;RenderQueue=3000;RenderType=Transparent;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=5;_DstBlend=10;_SrcBlendAlpha=5;_DstBlendAlpha=10;_AlphaToMask=0;_ZWrite=0;_ZTest=4", Int) = 0
@@ -22,12 +22,12 @@ Shader "Kaj/PBR"
         [MainColor]_Color("Color", Color) = (1,1,1,1)
         [MainTexture]_MainTex ("Albedo", 2D) = "white" { }
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_MainTexUV ("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_MainTexUV ("UV Set", Int) = 0
         [UnIndent]
         [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo and Transparency", Int) = 1
         _CoverageMap ("Coverage (Alpha) Map", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_CoverageMapUV ("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_CoverageMapUV ("UV Set", Int) = 0
         [UnIndent]
         _Cutoff("Cutoff", Range(0,1)) = 0.5
         [Indent]
@@ -38,13 +38,13 @@ Shader "Kaj/PBR"
         [UnIndent]
         [Normal]_BumpMap("Normal Map", 2D) = "bump" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_BumpMapUV ("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_BumpMapUV ("UV Set", Int) = 0
             _BumpScale("Normals Scale", Float) = 1.0
         [UnIndent]
         [HDR]_EmissionColor("Emission Color", Color) = (1,1,1,1)
         _EmissionMap("Emission Map", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_EmissionMapUV ("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_EmissionMapUV ("UV Set", Int) = 0
             _EmissionTintByAlbedo("Tint by Albedo", Range(0,1)) = 0
         [HideInInspector]end_Main("", Int) = 1
 
@@ -63,25 +63,25 @@ Shader "Kaj/PBR"
         [HideInInspector]group_StandardTextures("Textures", Int) = 0
         _MetallicGlossMap("Metallic Map", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_MetallicGlossMapUV ("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_MetallicGlossMapUV ("UV Set", Int) = 0
         [UnIndent]
         _SpecGlossMap("Glossiness Map", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_SpecGlossMapUV ("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_SpecGlossMapUV ("UV Set", Int) = 0
         [UnIndent]
         _OcclusionMap("Occlusion Map (RGB)", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_OcclusionMapUV("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_OcclusionMapUV("UV Set", Int) = 0
         [UnIndent]
         _SpecularMap("Specular Map (RGB)", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_SpecularMapUV("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_SpecularMapUV("UV Set", Int) = 0
         [HideInInspector]end_StandardTextures("", Int) = 1
         [HideInInspector]group_CombinedMap("Combined Texture", Int) = 0
         [HelpBox]_CombinedMapTooltip("Regular Metallic, Occlusion, and Specular textures will override the Combined texture's values if they exist.", Int) = 0
         _CombinedMap("Combined Map (RGBA)", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_CombinedMapUV("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_CombinedMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_MetallicGlossMapCombinedMapChannel("Metallic Channel", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMapCombinedMapChannel("Glossiness Channel", Int) = 1
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_OcclusionMapCombinedMapChannel("Occlusion Channel", Int) = 2
@@ -155,7 +155,7 @@ Shader "Kaj/PBR"
         [HideInInspector]group_Details("Detail Settings", Int) = 0
         _DetailMask("Detail Mask (RGB)", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_DetailMaskUV("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_DetailMaskUV("UV Set", Int) = 0
         [UnIndent]
         _DetailColorR("Detail Color (Red)", Color) = (1,1,1,1)
         _DetailColorG("Detail Color (Green)", Color) = (1,1,1,1)
@@ -178,14 +178,14 @@ Shader "Kaj/PBR"
             _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
         [UnIndent]
         [Space(10)]
-        [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_UVSec ("Detail Textures UV Set", Int) = 0
+        [Enum(Kaj.UVMapping)]_UVSec ("Detail Textures UV Set", Int) = 0
         [WideEnum(Multiply x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Albedo Combine Mode", Int) = 0
         [HideInInspector]end_Details("", Int) = 0
 
         [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax", Int) = 0
         _ParallaxMap ("Parallax (Height) Map", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_ParallaxMapUV("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_ParallaxMapUV("UV Set", Int) = 0
         [UnIndent]
         _Parallax ("Parallax Scale", Range (0, 0.08)) = 0.02
         _ParallaxBias ("Parallax Bias", Float) = 0.42
@@ -201,7 +201,7 @@ Shader "Kaj/PBR"
         _SubsurfaceColor("Subsurface Color", Color) = (1,0.4,0.25)
         _TranslucencyMap("Translucency (Thickness) Map", 2D) = "white" {}
         [Indent]
-            [Enum(UV0,0,UV1,1,UV2,2,UV3,3,World Triplanar,4,Object Triplanar,5)]_TranslucencyMapUV("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_TranslucencyMapUV("UV Set", Int) = 0
         [UnIndent]
         [RangeMax]_SSSTranslucencyMax("Translucency Max", Range(0,1)) = 0
         [RangeMin]_SSSTranslucencyMin("Translucency Min", Range(0,1)) = 0
@@ -390,7 +390,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 24", Int) = 24
+        [KajLabel]_Version("Shader Version: 25", Int) = 25
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -402,6 +402,8 @@ Shader "Kaj/PBR"
                //"ForceNoShadowCasting"="True" // Use the optimizer to lock in, which will uncomment if they're used
              }
 
+        // These blending and stencil options could technically be per-pass settings, but to simplify the material editor
+        // for end users everything is put into one group of settings with a few differences in each pass
         Cull [_Cull]
         ZTest [_ZTest]
         ColorMask [_ColorMask]
@@ -500,5 +502,4 @@ Shader "Kaj/PBR"
             ENDCG
         }
     }
-    Fallback "Standard"
 }

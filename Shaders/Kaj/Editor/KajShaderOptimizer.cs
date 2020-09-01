@@ -37,6 +37,7 @@ namespace Kaj
         // (The compiler is not smart enough to cull VS output that isn't used anywhere in the PS)
         // Additionally, simply enabling the optimizer can define a keyword, whose name is stored here.
         // This keyword is added to the beginning of all passes, right after CGPROGRAM
+        // NOT IMPLEMENTED YET
         public static readonly string OptimizerEnabledKeyword = "OPTIMIZER_ENABLED";
 
         // In-order list of inline sampler state names that will be replaced by InlineSamplerState() lines
@@ -153,17 +154,13 @@ namespace Kaj
             // File filepaths and names
             Shader shader = material.shader;
             string shaderFilePath = AssetDatabase.GetAssetPath(shader);
-            string materialFullName = AssetDatabase.GetAssetPath(material);
-            // Remove the assets folder prefix safely (all mats should be in the assets folder anyway)
-            if (materialFullName.StartsWith("Assets/"))
-                materialFullName = materialFullName.Remove(0, "Assets/".Length);
-            materialFullName = materialFullName.Remove(materialFullName.Length-".mat".Length, ".mat".Length);
+            string materialFilePath = AssetDatabase.GetAssetPath(material);
+            string materialFolder = Path.GetDirectoryName(materialFilePath);
             string smallguid = Guid.NewGuid().ToString().Split('-')[0];
             string newShaderName = shader.name + ".Optimized/" + material.name + "-" + smallguid;
-            string newShaderDirectory = shaderFilePath.Remove(shaderFilePath.Length-".shader".Length, ".shader".Length) + ".Optimized/" + material.name + "-" + smallguid + "/";
+            string newShaderDirectory = materialFolder + "/OptimizedShaders/" + material.name + "-" + smallguid + "/";
 
-            // Parse shader and cginc files, renaming them and moving them to a new directory
-            // Also gets preprocessor macros
+            // Parse shader and cginc files, also gets preprocessor macros
             List<ParsedShaderFile> shaderFiles = new List<ParsedShaderFile>();
             List<Macro> macros = new List<Macro>();
             if (!ParseShaderFilesRecursive(props, shaderFiles, newShaderDirectory, newShaderName, shaderFilePath, macros))
@@ -173,6 +170,10 @@ namespace Kaj
             List<PropertyData> constantProps = new List<PropertyData>();
             foreach (MaterialProperty prop in props)
             {
+                if (prop == null) continue;
+                // Properties ending with convention suffix will be skipped!
+                if (prop.name.EndsWith(AnimatedPropertySuffix)) continue;
+
                 // Check for the convention 'Animated' Property to be true otherwise assume all properties are constant
                 MaterialProperty animatedProp = Array.Find(props, x => x.name == prop.name + AnimatedPropertySuffix);
                 if (animatedProp != null && animatedProp.floatValue == 1)
@@ -185,8 +186,9 @@ namespace Kaj
                         propData = new PropertyData();
                         propData.type = PropertyType.Vector;
                         propData.name = prop.name;
-                        // Could probably check for Gamma space color property flag
-                        propData.value = prop.colorValue.linear;
+                        if ((prop.flags & MaterialProperty.PropFlags.Gamma) == 0)
+                            propData.value = prop.colorValue.linear;
+                        else propData.value = prop.colorValue;
                         constantProps.Add(propData);
                         break;
                     case MaterialProperty.PropType.Vector:
@@ -211,32 +213,28 @@ namespace Kaj
                         constantProps.Add(propData);
                         break;
                     case MaterialProperty.PropType.Texture:
-                        if (prop.textureDimension == UnityEngine.Rendering.TextureDimension.Tex2D)
+                        animatedProp = Array.Find(props, x => x.name == prop.name + "_ST" + AnimatedPropertySuffix);
+                        if (!(animatedProp != null && animatedProp.floatValue == 1))
                         {
-                            animatedProp = Array.Find(props, x => x.name == prop.name + "_ST" + AnimatedPropertySuffix);
-                            if (!(animatedProp != null && animatedProp.floatValue == 1))
-                            {
-                                PropertyData ST = new PropertyData();
-                                ST.type = PropertyType.Vector;
-                                ST.name = prop.name + "_ST";
-                                Vector2 offset = material.GetTextureOffset(prop.name);
-                                Vector2 scale = material.GetTextureScale(prop.name);
-                                ST.value = new Vector4(scale.x, scale.y, offset.x, offset.y);
-                                constantProps.Add(ST);
-                            }
-                            animatedProp = Array.Find(props, x => x.name == prop.name + "_TexelSize" + AnimatedPropertySuffix);
-                            if (!(animatedProp != null && animatedProp.floatValue == 1))
-                            {
-                                PropertyData TexelSize = new PropertyData();
-                                TexelSize.type = PropertyType.Vector;
-                                TexelSize.name = prop.name + "_TexelSize";
-                                Texture t = prop.textureValue;
-                                if (t != null)
-                                    TexelSize.value = new Vector4(1.0f / t.width, 1.0f / t.height, t.width, t.height);
-                                else TexelSize.value = new Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-                                constantProps.Add(TexelSize);
-                            }
-
+                            PropertyData ST = new PropertyData();
+                            ST.type = PropertyType.Vector;
+                            ST.name = prop.name + "_ST";
+                            Vector2 offset = material.GetTextureOffset(prop.name);
+                            Vector2 scale = material.GetTextureScale(prop.name);
+                            ST.value = new Vector4(scale.x, scale.y, offset.x, offset.y);
+                            constantProps.Add(ST);
+                        }
+                        animatedProp = Array.Find(props, x => x.name == prop.name + "_TexelSize" + AnimatedPropertySuffix);
+                        if (!(animatedProp != null && animatedProp.floatValue == 1))
+                        {
+                            PropertyData TexelSize = new PropertyData();
+                            TexelSize.type = PropertyType.Vector;
+                            TexelSize.name = prop.name + "_TexelSize";
+                            Texture t = prop.textureValue;
+                            if (t != null)
+                                TexelSize.value = new Vector4(1.0f / t.width, 1.0f / t.height, t.width, t.height);
+                            else TexelSize.value = new Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+                            constantProps.Add(TexelSize);
                         }
                         break;
                 }
@@ -253,9 +251,10 @@ namespace Kaj
                     // because they're only in .shader files outside the CG blocks, so isolate CG blocks and
                     // treat each of them like a full cginclude file
                     // Cheese it and only process any text between CGPROGRAM and ENDCG and CGINCLUDE and ENDCG anywhere
-                    // Should probably stringbuilder these
                     output = "";
                     int cgIndex;
+                    // Use IndexOf(String, int startIndex) as to not reallocate string of the original contents, still returns -1
+                    // Stringbuilder the output
                     while ((cgIndex = fileContents.IndexOf("CGINCLUDE")) != -1)
                     {
                         output += fileContents.Substring(0, cgIndex + "CGINCLUDE".Length);
@@ -263,7 +262,7 @@ namespace Kaj
                         int ENDCG = fileContents.IndexOf("ENDCG");
                         string cg = fileContents.Substring(0, ENDCG);
                         fileContents = fileContents.Remove(0, ENDCG);
-                        output += ReplaceShaderValues(cg, constantProps, macros);
+                        output += ReplaceShaderValues(cg, constantProps, macros); 
                     }
                     while ((cgIndex = fileContents.IndexOf("CGPROGRAM")) != -1)
                     {
@@ -296,8 +295,8 @@ namespace Kaj
 
             // Write original shader to override tag
             material.SetOverrideTag("OriginalShader", shader.name);
-            // Write the new shader name in an override tag so ONLY EXACTLY THAT SUBFOLDER WILL GET DELETED
-            material.SetOverrideTag("OptimizedShaderFolder", newShaderDirectory);
+            // Write the new shader folder name in an override tag so it will be deleted 
+            material.SetOverrideTag("OptimizedShaderFolder", material.name + "-" + smallguid);
 
             // For some reason when shaders are swapped on a material the RenderType override tag gets completely deleted and render queue set back to -1
             // So these are saved as temp values and reassigned after switching shaders
@@ -686,11 +685,14 @@ namespace Kaj
                 Debug.LogError("[Kaj Shader Optimizer] Optimized shader folder could not be found, not deleting anything");
                 return false;
             }
+            string materialFilePath = AssetDatabase.GetAssetPath(material);
+            string materialFolder = Path.GetDirectoryName(materialFilePath);
+            string newShaderDirectory = materialFolder + "/OptimizedShaders/" + shaderDirectory;
             // Both safe ways of removing the shader make the editor GUI throw an error, so just don't refresh the
             // asset database immediately
             //AssetDatabase.DeleteAsset(shaderFilePath);
-            FileUtil.DeleteFileOrDirectory(shaderDirectory);
-            FileUtil.DeleteFileOrDirectory(shaderDirectory.TrimEnd('/') + ".meta");
+            FileUtil.DeleteFileOrDirectory(newShaderDirectory + "/");
+            FileUtil.DeleteFileOrDirectory(newShaderDirectory + ".meta");
             //AssetDatabase.Refresh();
 
             return true;
