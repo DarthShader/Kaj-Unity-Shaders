@@ -5,8 +5,9 @@ using UnityEditor;
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Text;
 
-// v2
+// v3
 
 namespace Kaj
 {
@@ -146,7 +147,7 @@ namespace Kaj
         public class ParsedShaderFile
         {
             public string filePath;
-            public string contents;
+            public string[] lines;
         }
 
         public static bool Lock(Material material, MaterialProperty[] props)
@@ -159,12 +160,6 @@ namespace Kaj
             string smallguid = Guid.NewGuid().ToString().Split('-')[0];
             string newShaderName = shader.name + ".Optimized/" + material.name + "-" + smallguid;
             string newShaderDirectory = materialFolder + "/OptimizedShaders/" + material.name + "-" + smallguid + "/";
-
-            // Parse shader and cginc files, also gets preprocessor macros
-            List<ParsedShaderFile> shaderFiles = new List<ParsedShaderFile>();
-            List<Macro> macros = new List<Macro>();
-            if (!ParseShaderFilesRecursive(props, shaderFiles, newShaderDirectory, newShaderName, shaderFilePath, macros))
-                return false;
 
             // Get collection of all properties to replace
             List<PropertyData> constantProps = new List<PropertyData>();
@@ -239,43 +234,79 @@ namespace Kaj
                         break;
                 }
             }
+                
+            // Parse shader and cginc files, also gets preprocessor macros
+            List<ParsedShaderFile> shaderFiles = new List<ParsedShaderFile>();
+            List<Macro> macros = new List<Macro>();
+            if (!ParseShaderFilesRecursiveNew(shaderFiles, newShaderDirectory, shaderFilePath, macros))
+                return false;
 
-            // Loop back through each new file to apply macros and replace properties
+            
+            // Loop back through and do macros, props, and all other things line by line as to save string ops
+            // Will still be a massive n2 operation from each line * each property
             foreach (ParsedShaderFile psf in shaderFiles)
             {
-                string fileContents = psf.contents;
-                string output = null;
+                // Shader file specific stuff
                 if (psf.filePath.EndsWith(".shader"))
                 {
-                    // Shader property declarations and properties as blending/stencil settings aren't a problem
-                    // because they're only in .shader files outside the CG blocks, so isolate CG blocks and
-                    // treat each of them like a full cginclude file
-                    // Cheese it and only process any text between CGPROGRAM and ENDCG and CGINCLUDE and ENDCG anywhere
-                    output = "";
-                    int cgIndex;
-                    // Use IndexOf(String, int startIndex) as to not reallocate string of the original contents, still returns -1
-                    // Stringbuilder the output
-                    while ((cgIndex = fileContents.IndexOf("CGINCLUDE")) != -1)
+                    for (int i=0; i<psf.lines.Length;i++)
                     {
-                        output += fileContents.Substring(0, cgIndex + "CGINCLUDE".Length);
-                        fileContents = fileContents.Remove(0, cgIndex + "CGINCLUDE".Length);
-                        int ENDCG = fileContents.IndexOf("ENDCG");
-                        string cg = fileContents.Substring(0, ENDCG);
-                        fileContents = fileContents.Remove(0, ENDCG);
-                        output += ReplaceShaderValues(cg, constantProps, macros); 
+                        string trimmedLine = psf.lines[i].TrimStart();
+                        if (trimmedLine.StartsWith("Shader"))
+                        {
+                            string originalSgaderName = psf.lines[i].Split('\"')[1];
+                            psf.lines[i] = psf.lines[i].Replace(originalSgaderName, newShaderName);
+                        }
+                        else if (trimmedLine.StartsWith("//#pragmamulti_compile_LOD_FADE_CROSSFADE"))
+                        {
+                            MaterialProperty crossfadeProp = Array.Find(props, x => x.name == LODCrossFadePropertyName);
+                            if (crossfadeProp != null && crossfadeProp.floatValue == 1)
+                                psf.lines[i] = psf.lines[i].Replace("//#pragma", "#pragma");
+                        }
+                        else if (trimmedLine.StartsWith("//\"IgnoreProjector\"=\"True\""))
+                        {
+                            MaterialProperty projProp = Array.Find(props, x => x.name == IgnoreProjectorPropertyName);
+                            if (projProp != null && projProp.floatValue == 1)
+                                psf.lines[i] = psf.lines[i].Replace("//\"IgnoreProjector", "\"IgnoreProjector");
+                        }
+                        else if (trimmedLine.StartsWith("//\"ForceNoShadowCasting\"=\"True\""))
+                        {
+                            MaterialProperty forceNoShadowsProp = Array.Find(props, x => x.name == ForceNoShadowCastingPropertyName);
+                            if (forceNoShadowsProp != null && forceNoShadowsProp.floatValue == 1)
+                                psf.lines[i] = psf.lines[i].Replace("//\"ForceNoShadowCasting", "\"ForceNoShadowCasting");
+                        }
+                        else if (trimmedLine.StartsWith("CGINCLUDE"))
+                        {
+                            for (int j=i+1; j<psf.lines.Length;j++)
+                                if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
+                                {
+                                    ReplaceShaderValuesNew(psf.lines, i+1, j, props, constantProps, macros);
+                                    break;
+                                }
+                        }
+                        else if (trimmedLine.StartsWith("CGPROGRAM"))
+                        {
+                            for (int j=i+1; j<psf.lines.Length;j++)
+                                if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
+                                {
+                                    ReplaceShaderValuesNew(psf.lines, i+1, j, props, constantProps, macros);
+                                    break;
+                                }
+                        }
                     }
-                    while ((cgIndex = fileContents.IndexOf("CGPROGRAM")) != -1)
-                    {
-                        output += fileContents.Substring(0, cgIndex + "CGPROGRAM".Length);
-                        fileContents = fileContents.Remove(0, cgIndex + "CGPROGRAM".Length);
-                        int ENDCG = fileContents.IndexOf("ENDCG");
-                        string cg = fileContents.Substring(0, ENDCG);
-                        fileContents = fileContents.Remove(0, ENDCG);
-                        output += ReplaceShaderValues(cg, constantProps, macros);
-                    }
-                    output += fileContents;
                 }
-                else output = ReplaceShaderValues(fileContents, constantProps, macros);
+                else // CGINC file
+                    ReplaceShaderValuesNew(psf.lines, 0, psf.lines.Length, props, constantProps, macros);
+
+                // Recombine file lines into a single string
+                int totalLen = psf.lines.Length; // extra space for newline chars
+                foreach (string line in psf.lines)
+                    totalLen += line.Length;
+                StringBuilder sb = new StringBuilder(totalLen);
+                // This appendLine function is incompatible with the '\n's that are being added elsewhere
+                foreach (string line in psf.lines)
+                    sb.AppendLine(line);
+                string output = sb.ToString();
 
                 // Write output to file
                 (new FileInfo(newShaderDirectory + psf.filePath)).Directory.Create();
@@ -291,8 +322,8 @@ namespace Kaj
                     return false;
                 }
             }
+            
             AssetDatabase.Refresh();
-
             // Write original shader to override tag
             material.SetOverrideTag("OriginalShader", shader.name);
             // Write the new shader folder name in an override tag so it will be deleted 
@@ -317,16 +348,15 @@ namespace Kaj
             return true;
         }
 
-        // This function not only exists to get a list of all cgincludes referenced by a main shader
-        // but also to change absolute paths on #include lines and write new files
-        // A little dirty because recursive cginc parsing is mixed in with main .shader file parsing
-        private static bool ParseShaderFilesRecursive(MaterialProperty[] props, List<ParsedShaderFile> filesParsed, string newTopLevelDirectory, string newShaderName, string filePath, List<Macro> macros)
+        // Preprocess each file for macros and includes
+        // Save each file as string[], parse each macro with //KSOEvaluateMacro
+        // Only editing done is replacing #include "X" filepaths where necessary
+        private static bool ParseShaderFilesRecursiveNew(List<ParsedShaderFile> filesParsed, string newTopLevelDirectory, string filePath, List<Macro> macros)
         {
             // Infinite recursion check
             if (filesParsed.Exists(x => x.filePath == filePath)) return true;
 
-            ParsedShaderFile psf = null;
-            psf = new ParsedShaderFile();
+            ParsedShaderFile psf = new ParsedShaderFile();
             psf.filePath = filePath;
             filesParsed.Add(psf);
 
@@ -350,89 +380,110 @@ namespace Kaj
             }
 
             // Parse file line by line
-            bool isMainShaderFile = filePath.EndsWith(".shader");
-            bool shaderHeaderFound = false;
             List<String> macrosList = new List<string>();
             string[] fileLines = Regex.Split(fileContents, "\r\n|\r|\n");
             for (int i=0; i<fileLines.Length; i++)
             {
-                string lineParsed = fileLines[i].Replace(" ", "").Replace("\t", "");
-
-                // Rename the main shader in the file
-                if (isMainShaderFile && !shaderHeaderFound)
-                    // Quickly find the Shader name header without complicated regex or parsing logic
-                    // Can false positive on lines between /* */ comments
-                    if (lineParsed.StartsWith("Shader"))
-                    {
-                        string originalSgaderName = lineParsed.Split('\"')[1];
-                        fileLines[i] = fileLines[i].Replace(originalSgaderName, newShaderName);
-                        shaderHeaderFound = true;
-                    }
-
-                // Recurse on cgincludes
-                // UsePass referenced shaders currently not supported!
-                // Quickly find include directives without complicated regex or parsing logic
-                // Can false positive on lines between /* */ comments
-                // will fail on "#  include" so people learn their lesson
+                string lineParsed = fileLines[i].TrimStart();
+                // Specifically requires no whitespace between # and include, as it should be
                 if (lineParsed.StartsWith("#include"))
                 {
-                    lineParsed = lineParsed.Split('\"')[1];
+                    int firstQuotation = lineParsed.IndexOf('\"',0);
+                    int lastQuotation = lineParsed.IndexOf('\"',firstQuotation+1);
+                    string includeFilename = lineParsed.Substring(firstQuotation+1, lastQuotation-firstQuotation-1);
 
                     // Skip default includes
-                    if (Array.Exists(DefaultUnityShaderIncludes, x => x.Equals(lineParsed, StringComparison.InvariantCultureIgnoreCase)))
+                    if (Array.Exists(DefaultUnityShaderIncludes, x => x.Equals(includeFilename, StringComparison.InvariantCultureIgnoreCase)))
                         continue;
 
                     // cginclude filepath is either absolute or relative
-                    if (lineParsed.StartsWith("Assets/"))
+                    if (includeFilename.StartsWith("Assets/"))
                     {
-                        if (!ParseShaderFilesRecursive(props, filesParsed, newTopLevelDirectory, newShaderName, lineParsed, macros))
+                        if (!ParseShaderFilesRecursiveNew(filesParsed, newTopLevelDirectory, includeFilename, macros))
                             return false;
                         // Only absolute filepaths need to be renampped in-file
-                        fileLines[i] = fileLines[i].Replace(lineParsed, newTopLevelDirectory + lineParsed);
+                        fileLines[i] = fileLines[i].Replace(includeFilename, newTopLevelDirectory + includeFilename);
                     }
                     else
                     {
-                        string fullpath = GetFullPath(lineParsed, Path.GetDirectoryName(filePath));
-                        if (!ParseShaderFilesRecursive(props, filesParsed, newTopLevelDirectory, newShaderName, fullpath, macros))
+                        string includeFullpath = GetFullPath(includeFilename, Path.GetDirectoryName(filePath));
+                        if (!ParseShaderFilesRecursiveNew(filesParsed, newTopLevelDirectory, includeFullpath, macros))
                             return false;
                     }
                 }
+                // Specifically requires no whitespace between // and KSOEvaluateMacro
                 else if (lineParsed == "//KSOEvaluateMacro")
                 {
                     string macro = "";
+                    string lineTrimmed = null;
                     do
                     {
                         i++;
-                        if (fileLines[i].TrimEnd().EndsWith("\\"))
-                            macro += fileLines[i].TrimEnd().TrimEnd('\\') + '\n'; // keep new lines in macro to make output more readable
-                        else macro += fileLines[i].TrimEnd().TrimEnd('\\');
+                        lineTrimmed = fileLines[i].TrimEnd();
+                        if (lineTrimmed.EndsWith("\\"))
+                            macro += lineTrimmed.TrimEnd('\\') + Environment.NewLine; // keep new lines in macro to make output more readable
+                        else macro += lineTrimmed;
                     } 
-                    while (fileLines[i].TrimEnd().EndsWith("\\"));
+                    while (lineTrimmed.EndsWith("\\"));
                     macrosList.Add(macro);
                 }
-                else if (lineParsed.StartsWith("//#pragmamulti_compile_LOD_FADE_CROSSFADE"))
+            }
+
+            // Prepare the macros list into pattern matchable structs
+            // Revise this later to not do so many string ops
+            foreach (string macroString in macrosList)
+            {
+                string m = macroString;
+                Macro macro = new Macro();
+                m = m.TrimStart();
+                if (m[0] != '#') continue;
+                m = m.Remove(0, "#".Length).TrimStart();
+                if (!m.StartsWith("define")) continue;
+                m = m.Remove(0, "define".Length).TrimStart();
+                int firstParenthesis = m.IndexOf('(');
+                macro.name = m.Substring(0, firstParenthesis);
+                m = m.Remove(0, firstParenthesis + "(".Length);
+                int lastParenthesis = m.IndexOf(')');
+                string allArgs = m.Substring(0, lastParenthesis).Replace(" ", "").Replace("\t", "");
+                macro.args = allArgs.Split(',');
+                m = m.Remove(0, lastParenthesis + ")".Length);
+                macro.contents = m;
+                macros.Add(macro);
+            }
+
+            // Save psf lines to list
+            psf.lines = fileLines;
+            return true;
+        }
+
+        // error CS1501: No overload for method 'Path.GetFullPath' takes 2 arguments
+        // Thanks Unity
+        // Could be made more efficent with stringbuilder
+        public static string GetFullPath(string relativePath, string basePath)
+        {
+            while (relativePath.StartsWith("./"))
+                relativePath = relativePath.Remove(0, "./".Length);
+            while (relativePath.StartsWith("../"))
+            {
+                basePath = basePath.Remove(basePath.LastIndexOf("/"), basePath.Length - basePath.LastIndexOf("/"));
+                relativePath = relativePath.Remove(0, "../".Length);
+            }
+            return basePath + '/' + relativePath;
+        }
+ 
+        // Replace properties! The meat of the shader optimization process
+        // For each constantProp, pattern match and find each instance of the property that isn't a declaration
+        private static void ReplaceShaderValuesNew(string[] lines, int startLine, int endLine, MaterialProperty[] props, List<PropertyData> constants, List<Macro> macros)
+        {
+            // Outside loop is each line
+            for (int i=startLine;i<endLine;i++)
+            {
+                string lineTrimmed = lines[i].TrimStart();
+                // Replace inline smapler states
+                if (lineTrimmed.StartsWith("//KSOInlineSamplerState"))
                 {
-                    MaterialProperty crossfadeProp = Array.Find(props, x => x.name == LODCrossFadePropertyName);
-                    if (crossfadeProp != null && crossfadeProp.floatValue == 1)
-                        fileLines[i] = fileLines[i].Replace("//#pragma", "#pragma");
-                }
-                else if (lineParsed.StartsWith("//\"IgnoreProjector\"=\"True\""))
-                {
-                    MaterialProperty projProp = Array.Find(props, x => x.name == IgnoreProjectorPropertyName);
-                    if (projProp != null && projProp.floatValue == 1)
-                        fileLines[i] = fileLines[i].Replace("//\"IgnoreProjector", "\"IgnoreProjector");
-                }
-                else if (lineParsed.StartsWith("//\"ForceNoShadowCasting\"=\"True\""))
-                {
-                    MaterialProperty forceNoShadowsProp = Array.Find(props, x => x.name == ForceNoShadowCastingPropertyName);
-                    if (forceNoShadowsProp != null && forceNoShadowsProp.floatValue == 1)
-                        fileLines[i] = fileLines[i].Replace("//\"ForceNoShadowCasting", "\"ForceNoShadowCasting");
-                }
-                else if (lineParsed.StartsWith("//KSOInlineSamplerState("))
-                {
-                    // example usage: //KSOInlineSamplerState(_MainTex, _SpecularAnisotropyTangentMap)
-                    // Will replace all instances of argument 0 (_MainTex) on the next line with the samplerstate
-                    // corresponding to the wrap/filter mode of the texture of name argument 1 (_SpecularAnisotropyTangentMap)
+                    string lineParsed = lineTrimmed.Replace(" ", "").Replace("\t", "");
+                    // Remove all whitespace
                     int firstParenthesis = lineParsed.IndexOf('(');
                     int lastParenthesis = lineParsed.IndexOf(')');
                     string argsString = lineParsed.Substring(firstParenthesis+1, lastParenthesis - firstParenthesis-1);
@@ -472,186 +523,107 @@ namespace Kaj
                         }
 
                         // Replace the token on the following line
-                        fileLines[i+1] = fileLines[i+1].Replace(args[0], InlineSamplerStateNames[inlineSamplerIndex]);
+                        lines[i+1] = lines[i+1].Replace(args[0], InlineSamplerStateNames[inlineSamplerIndex]);
                     }
-                    else Debug.LogWarning("[Kaj Shader Optimizer] KSOInlineSamplerState on texture " + args[1] + " failed, texture not found.");
                 }
-                else if (lineParsed.StartsWith("//KSOPropertyKeyword("))
+                // then replace macros
+                foreach (Macro macro in macros)
                 {
-                    // replace this line with #define _PROPERTY floatValue
-                }
-            }
-            if (isMainShaderFile && !shaderHeaderFound)
-            {
-                Debug.LogError("[Kaj Shader Optimizer] Could not rename " + filePath + " to new shader name " + newShaderName);
-                return false;
-            }
-
-            // Prepare the macros list into pattern matchable structs
-            foreach (string macroString in macrosList)
-            {
-                string m = macroString;
-                Macro macro = new Macro();
-                m = m.TrimStart();
-                if (m[0] != '#') continue;
-                m = m.Remove(0, "#".Length).TrimStart();
-                if (!m.StartsWith("define")) continue;
-                m = m.Remove(0, "define".Length).TrimStart();
-                int firstParenthesis = m.IndexOf('(');
-                macro.name = m.Substring(0, firstParenthesis);
-                m = m.Remove(0, firstParenthesis + "(".Length);
-                int lastParenthesis = m.IndexOf(')');
-                string allArgs = m.Substring(0, lastParenthesis).Replace(" ", "").Replace("\t", "");
-                macro.args = allArgs.Split(',');
-                m = m.Remove(0, lastParenthesis + ")".Length);
-                macro.contents = m;
-                macros.Add(macro);
-            }
-
-            // Recombine file after parse
-            fileContents = "";
-            foreach (string line in fileLines)
-                fileContents += line + '\n';
-
-            // Save processed file into psf list
-            psf.contents = fileContents;
-            return true;
-        }
-
-        // error CS1501: No overload for method 'Path.GetFullPath' takes 2 arguments
-        // Thanks Unity
-        public static string GetFullPath(string relativePath, string basePath)
-        {
-            while (relativePath.StartsWith("./"))
-                relativePath = relativePath.Remove(0, "./".Length);
-            while (relativePath.StartsWith("../"))
-            {
-                basePath = basePath.Remove(basePath.LastIndexOf("/"), basePath.Length - basePath.LastIndexOf("/"));
-                relativePath = relativePath.Remove(0, "../".Length);
-            }
-            return basePath + '/' + relativePath;
-        }
- 
-        // Replace properties! The meat of the shader optimization process
-        // For each constantProp, pattern match and find each instance of the property that isn't a declaration
-        private static string ReplaceShaderValues(string originalText, List<PropertyData> constants, List<Macro> macros)
-        {
-            // Apply all macros
-            foreach (Macro macro in macros)
-            {
-                string macroProcessed = "";
-                int macroIndex;
-                while ((macroIndex = originalText.IndexOf(macro.name)) != -1)
-                {
-                    macroProcessed += originalText.Substring(0, macroIndex);
-                    // Skip macro definitions
-                    if (macroProcessed.Replace(" ", "").Replace("\t", "").EndsWith("#define"))
+                    // Expects only one instance of a macro per line!
+                    int macroIndex;
+                    if ((macroIndex = lines[i].IndexOf(macro.name + "(")) != -1)
                     {
-                        macroProcessed += originalText.Substring(macroIndex, macro.name.Length);
-                        originalText = originalText.Remove(0, macroIndex + macro.name.Length);
-                        continue;
-                    }
-                    // Skip instances where macro name doesn't have '(' directly to the right, as it is a subname of something else
-                    string restOftheFile = originalText.Substring(macroIndex + macro.name.Length).Trim();
-                    if (!restOftheFile.StartsWith("("))
-                    {
-                        macroProcessed += originalText.Substring(macroIndex, macro.name.Length);
-                        originalText = originalText.Remove(0, macroIndex + macro.name.Length);
-                        continue;
-                    }
-                    // Remove macro name, find next '(' and ')' and call everything between that args
-                    // Will fail on expressions, but I don't want to do the regex atm
-                    originalText = originalText.Remove(0, macroIndex + macro.name.Length); // Remove macro.name
-                    int firstParenthesis = originalText.IndexOf("(");
-                    originalText = originalText.Remove(0, firstParenthesis + "(".Length); // Remove whitespiace and first parenthesis
-                    int lastParenthesis = originalText.IndexOf(")");
-                    string allArgs = originalText.Substring(0, lastParenthesis);
-                    originalText = originalText.Remove(0, lastParenthesis + ")".Length); // Remove whitespace and args up to closing parenthesis
-                    // Again, this will fail unless macro use is very basic
-                    string[] args = allArgs.Split(',');
-                    for (int i=0; i<args.Length;i++)
-                        args[i] = args[i].Trim(); // Remove whitespace on args
+                        // Macro exists on this line, make sure its not the definition
+                        string lineParsed = lineTrimmed.Replace(" ", "").Replace("\t", "");
+                        if (lineParsed.StartsWith("#define")) continue;
 
-                    string newContents = macro.contents;
-                    for (int i=0; i<args.Length; i++)
-                    {
-                        string contentsProcessed = "";
-                        int argIndex;
-                        while ((argIndex = newContents.IndexOf(macro.args[i])) != -1)
+                        // parse args between first '(' and first ')'
+                        int firstParenthesis = macroIndex + macro.name.Length;
+                        int lastParenthesis = lines[i].IndexOf(')', macroIndex + macro.name.Length+1);
+                        string allArgs = lines[i].Substring(firstParenthesis+1, lastParenthesis-firstParenthesis-1);
+                        string[] args = allArgs.Split(',');
+                        
+                        // Replace macro parts
+                        string newContents = macro.contents;
+                        for (int j=0; j<args.Length;j++)
                         {
-                            contentsProcessed += newContents.Substring(0, argIndex);
-                            // check to see if chars to the left and right of args are valid separator chars
-                            char charLeft = newContents[argIndex-1];
-                            char charRight = newContents[argIndex+macro.args[i].Length];
-                            if (Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight))
+                            args[j] = args[j].Trim();
+                            int argIndex;
+                            int lastIndex = 0;
+                            while ((argIndex = newContents.IndexOf(macro.args[j], lastIndex)) != -1)
                             {
-                                contentsProcessed += args[i]; // Replace the arg!
-                            } else contentsProcessed += macro.args[i]; // False positive, arg name is probably sub-name of another symbol
-                            newContents = newContents.Remove(0, argIndex + macro.args[i].Length); // remove original arg name from macro contents that are being processed
+                                lastIndex = argIndex+1;
+                                char charLeft = newContents[argIndex-1];
+                                char charRight = newContents[argIndex+macro.args[j].Length];
+                                if (Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight))
+                                {
+                                    // Replcae the arg!
+                                    StringBuilder sbm = new StringBuilder(newContents.Length - macro.args[j].Length + args[j].Length);
+                                    sbm.Append(newContents, 0, argIndex);
+                                    sbm.Append(args[j]);
+                                    sbm.Append(newContents, argIndex + macro.args[j].Length, newContents.Length - argIndex - macro.args[j].Length);
+                                    newContents = sbm.ToString();
+                                }
+                            }
                         }
-                        contentsProcessed += newContents; // Append the rest of the macro
-                        newContents = contentsProcessed; // Reset for next argument loop
+                        newContents = newContents.Replace("##", ""); // Remove token pasting separators
+                        // Replace the line with the evaluated macro
+                        StringBuilder sb = new StringBuilder(lines[i].Length + newContents.Length);
+                        sb.Append(lines[i], 0, macroIndex);
+                        sb.Append(newContents);
+                        sb.Append(lines[i], lastParenthesis+1, lines[i].Length - lastParenthesis-1);
+                        lines[i] = sb.ToString();
                     }
-                    
-                    newContents = newContents.Replace("##", ""); // Remove token pasting separators
-                    macroProcessed += newContents; // Append the processed macro
                 }
-                macroProcessed += originalText; // Append the rest of the file
-                originalText = macroProcessed; // Reset whole text file for next macro
-            }
-
-            // Loop through text another time to replace constants
-            foreach (PropertyData constant in constants)
-            {
-                string constantProcessed = "";
-                int constantIndex;
-                while ((constantIndex = originalText.IndexOf(constant.name)) != -1)
+                // then replace properties
+                foreach (PropertyData constant in constants)
                 {
-                    constantProcessed += originalText.Substring(0, constantIndex);
-                    // Check for valid left and right characters
-                    char charLeft = originalText[constantIndex-1];
-                    char charRight = originalText[constantIndex + constant.name.Length];
-                    // Skip invalid matches (probably a subname in another symbol)
-                    if (!(Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight)))
+                    int constantIndex;
+                    int lastIndex = 0;
+                    bool declarationFound = false;
+                    while ((constantIndex = lines[i].IndexOf(constant.name, lastIndex)) != -1)
                     {
-                        constantProcessed += originalText.Substring(constantIndex, constant.name.Length);
-                        originalText = originalText.Remove(0, constantIndex + constant.name.Length);
-                        continue;
-                    }
-                    // Skip basic declarations of unity shader properties i.e. "uniform float4 _Color;"
-                    // whitespace removed string immediately to the left should be float or float4
-                    // whitespace removed character immediately to the right should be ;
-                    string precedingText = constantProcessed.TrimEnd();
-                    string restOftheFile = originalText.Substring(constantIndex + constant.name.Length).Trim();
-                    //Debug.Log(constant.name + " declaration testing");
-                    if (Array.Exists(ValidPropertyDataTypes, x => precedingText.EndsWith(x)) && restOftheFile.StartsWith(";"))
-                    {
-                        constantProcessed += originalText.Substring(constantIndex, constant.name.Length);
-                        originalText = originalText.Remove(0, constantIndex + constant.name.Length);
-                        continue;
-                    }
+                        lastIndex = constantIndex+1;
+                        char charLeft = lines[i][constantIndex-1];
+                        char charRight = lines[i][constantIndex + constant.name.Length];
+                        // Skip invalid matches (probably a subname of another symbol)
+                        if (!(Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight)))
+                            continue;
+                        
+                        // Skip basic declarations of unity shader properties i.e. "uniform float4 _Color;"
+                        if (!declarationFound)
+                        {
+                            string precedingText = lines[i].Substring(0, constantIndex-1).TrimEnd(); // whitespace removed string immediately to the left should be float or float4
+                            string restOftheFile = lines[i].Substring(constantIndex + constant.name.Length).TrimStart(); // whitespace removed character immediately to the right should be ;
+                            if (Array.Exists(ValidPropertyDataTypes, x => precedingText.EndsWith(x)) && restOftheFile.StartsWith(";"))
+                            {
+                                declarationFound = true;
+                                continue;
+                            }
+                        }
 
-                    // Replace with constant!
-                    switch (constant.type)
-                    {
-                        case PropertyType.Float:
-                            constantProcessed += "float(" + constant.value.x + ")";
-                            break;
-                        case PropertyType.Vector:
-                            constantProcessed += "float4("+constant.value.x+","+constant.value.y+","+constant.value.z+","+constant.value.w+")";
-                            break;
+                        // Replace with constant!
+                        StringBuilder sb = new StringBuilder(lines[i].Length * 2);
+                        sb.Append(lines[i], 0, constantIndex);
+                        switch (constant.type)
+                        {
+                            case PropertyType.Float:
+                                sb.Append("float(" + constant.value.x + ")");
+                                break;
+                            case PropertyType.Vector:
+                                sb.Append("float4("+constant.value.x+","+constant.value.y+","+constant.value.z+","+constant.value.w+")");
+                                break;
+                        }
+                        sb.Append(lines[i], constantIndex+constant.name.Length, lines[i].Length-constantIndex-constant.name.Length);
+                        lines[i] = sb.ToString();
+
+                        // Check for Unity branches on previous line here?
                     }
-                    originalText = originalText.Remove(0, constantIndex + constant.name.Length);
                 }
-                constantProcessed += originalText; // append the rest of the file
-                originalText = constantProcessed; // Reset whole text file for next constant
+                // Then remove Unity branches
+                if (RemoveUnityBranches)
+                    lines[i] = lines[i].Replace("UNITY_BRANCH", "").Replace("[branch]", "");
             }
-
-            // Lastly, hard replace UNITY_BRANCH or [branch] if the setting is enabled
-            if (RemoveUnityBranches)
-                originalText = originalText.Replace("UNITY_BRANCH", "").Replace("[branch]", "");
-
-            return originalText;
         }
 
         public static bool Unlock (Material material)
