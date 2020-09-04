@@ -181,9 +181,15 @@ namespace Kaj
                         propData = new PropertyData();
                         propData.type = PropertyType.Vector;
                         propData.name = prop.name;
-                        if ((prop.flags & MaterialProperty.PropFlags.Gamma) == 0)
-                            propData.value = prop.colorValue.linear;
-                        else propData.value = prop.colorValue;
+                        if ((prop.flags & MaterialProperty.PropFlags.HDR) != 0)
+                        {
+                            if ((prop.flags & MaterialProperty.PropFlags.Gamma) != 0)
+                                propData.value = prop.colorValue.linear;
+                            else propData.value = prop.colorValue;
+                        }
+                        else if ((prop.flags & MaterialProperty.PropFlags.Gamma) != 0)
+                            propData.value = prop.colorValue;
+                        else propData.value = prop.colorValue.linear;
                         constantProps.Add(propData);
                         break;
                     case MaterialProperty.PropType.Vector:

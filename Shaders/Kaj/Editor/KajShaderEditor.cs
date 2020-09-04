@@ -89,7 +89,8 @@ namespace Kaj
         ZXWorldPlanar,
         XYObjectPlanar,
         YZObjectPlanar,
-        ZXObjectPlanar
+        ZXObjectPlanar,
+        Screenspace
     }
 
     // Simple indent and unindent decorators
@@ -179,7 +180,7 @@ namespace Kaj
         }
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
-            return EditorGUIUtility.singleLineHeight;
+            return EditorGUIUtility.singleLineHeight * 2f;
         }
     }
 
@@ -700,7 +701,7 @@ namespace Kaj
                 EditorGUI.showMixedValue = ditheredLODcrossfade.hasMixedValue;
                 var ditheredLODcrossfadeFlag = ditheredLODcrossfade.floatValue;
                 EditorGUI.BeginChangeCheck();
-                ditheredLODcrossfadeFlag = EditorGUILayout.Toggle("Dithered LOD Crossfade", ditheredLODcrossfadeFlag == 1) ? 1 : 0;
+                ditheredLODcrossfadeFlag = EditorGUILayout.Toggle("LOD Crossfade", ditheredLODcrossfadeFlag == 1) ? 1 : 0;
                 if (EditorGUI.EndChangeCheck())
                     ditheredLODcrossfade.floatValue = ditheredLODcrossfadeFlag;
                 EditorGUI.showMixedValue = false;
@@ -752,8 +753,9 @@ namespace Kaj
             // Actual shader properties
             materialEditor.SetDefaultGUIWidths();
             DrawPropertiesGUIRecursive(materialEditor, props);
-            // Render queue, GPU instancing, and double sided GI checkboxes
-            base.OnGUI(materialEditor, new MaterialProperty[0]);
+            materialEditor.RenderQueueField();
+            materialEditor.EnableInstancingField();
+            materialEditor.DoubleSidedGIField();
         }
 
         // Recursive to easily deal with foldouts

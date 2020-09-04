@@ -390,7 +390,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 26", Int) = 26
+        [KajLabel]_Version("Shader Version: 27", Int) = 27
     }
 
     CustomEditor "Kaj.ShaderEditor"

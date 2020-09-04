@@ -415,7 +415,15 @@ SamplerState sampler_trilinear_mirroronce;
         var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor, bias); \
     else var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor, bias);
 
-
+//KSOEvaluateMacro
+#define SWITCH_CHANNEL(var,channel,value) \
+    if (channel == 0) \
+        var = value.r; \
+    else if (channel == 1) \
+        var = value.g; \
+    else if (channel == 2) \
+        var = value.b; \
+    else var = value.a;
 
 // VRChat mirror utility
 bool IsInMirror()
@@ -642,18 +650,6 @@ half4 sampleAffine(sampler2D tex, float4 objPosition, float2 coord, float4 st)
 {
     float3 texcoord = float3((coord.xy* st.xy + st.zw) * objPosition.w, objPosition.w);
     return tex2D(tex, texcoord.xy / texcoord.z);
-}
-
-
-fixed switchChannel(half channel, fixed4 combinedTex)
-{
-    if (channel == 0)
-        return combinedTex.r;
-    else if (channel == 1)
-        return combinedTex.g;
-    else if (channel == 2)
-        return combinedTex.b;
-    else return combinedTex.a;
 }
 
 half3 switchDetailAlbedo(fixed4 tex, half3 albedo, float combineMode, fixed mask)
@@ -1003,18 +999,27 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     fixed metallic = 1;
     if (_MetallicGlossMap_TexelSize.x != 1)
         metallic = _MetallicGlossMap_var.r;
-    else metallic = switchChannel(_MetallicGlossMapCombinedMapChannel, _CombinedMap_var);
+    else 
+    {
+        SWITCH_CHANNEL(metallic, _MetallicGlossMapCombinedMapChannel, _CombinedMap_var);
+    } 
 
     fixed3 occlusion = 1;
     if (_OcclusionMap_TexelSize.x != 1)
         occlusion = _OcclusionMap_var.rgb;
-    else occlusion = switchChannel(_OcclusionMapCombinedMapChannel, _CombinedMap_var).rrr;
+    else 
+    {
+        SWITCH_CHANNEL(occlusion, _OcclusionMapCombinedMapChannel, _CombinedMap_var);
+        occlusion = occlusion.rrr;
+    }
 
     fixed perceptualRoughness = 0;
     if (_GlossinessSource == 0)
         perceptualRoughness = _SpecGlossMap_var.r;
     else if (_GlossinessSource == 1)
-        perceptualRoughness = switchChannel(_SpecGlossMapCombinedMapChannel, _CombinedMap_var);
+    {
+        SWITCH_CHANNEL(perceptualRoughness, _SpecGlossMapCombinedMapChannel, _CombinedMap_var);
+    }
     else if (_GlossinessSource == 2)
         perceptualRoughness = _MetallicGlossMap_var.a;
     else if (_GlossinessSource == 3)
@@ -1024,7 +1029,11 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     fixed3 specularScale;
     if (_SpecularMap_TexelSize.x != 1)
         specularScale = _SpecularMap_var.rgb;
-    else specularScale = switchChannel(_SpecularMapCombinedMapChannel, _CombinedMap_var).rrr;
+    else 
+    {
+        SWITCH_CHANNEL(specularScale, _SpecularMapCombinedMapChannel, _CombinedMap_var);
+        specularScale = specularScale.rrr;
+    }
 
     // Filter PBR variables
     metallic = _MetallicMin + metallic * (_Metallic - _MetallicMin);
@@ -1422,6 +1431,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     }
 
     // Reflections (Indirect Specular)
+#ifdef UNITY_PASS_FORWARDBASE
     UNITY_BRANCH
     if (group_toggle_Reflections)
     {
@@ -1449,6 +1459,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
             color.rgb += indirect_specular * F_L;
         }
     }
+#endif
 
     // Subsurface Transmission
     // Needs energy conservation
@@ -1474,11 +1485,13 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         color.rgb = saturate(color.rgb);
 
     // Emission
-    fixed4 _EmissionMap_var = 1;
-    if (_EmissionMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_linear_repeat, _EmissionMap)
-        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _linear_repeat);
-    color.rgb += _EmissionColor.rgb * lerp(_EmissionMap_var.rgb, albedo.rgb * _EmissionMap_var.rgb, _EmissionTintByAlbedo);
+    #ifdef UNITY_PASS_FORWARDBASE
+        fixed4 _EmissionMap_var = 1;
+        if (_EmissionMap_TexelSize.x != 1)
+            //KSOInlineSamplerState(_linear_repeat, _EmissionMap)
+            PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _linear_repeat);
+        color.rgb += _EmissionColor.rgb * lerp(_EmissionMap_var.rgb, albedo.rgb * _EmissionMap_var.rgb, _EmissionTintByAlbedo);
+    #endif
 
     if (_ReceiveFog)
     {
