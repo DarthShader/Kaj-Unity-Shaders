@@ -1210,8 +1210,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
             if (_ReflectionsMode == 3) // Anisotropic reflections indirect specular
                 reflectionsSampleViewReflectDir = AngledAnisotropicModifiedNormal(normalDir, i.tangentWorld, i.bitangentWorld, viewDir, _ReflectionsAnisotropyAngle, _ReflectionsAnisotropy);
 
-            // This branch is throwing an error
-            //UNITY_BRANCH
+            UNITY_BRANCH
             if (_CubeMapMode == 0) // cubemap off
                 indirect_specular = UnityGI_IndirectSpecularModular(reflectionsSampleViewReflectDir, i.posWorld.xyz, perceptualRoughness);
             else if (_CubeMapMode == 1) // fallback only
@@ -1305,8 +1304,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (group_toggle_Diffuse)
     {
-        // Problem branch
-        //UNITY_BRANCH
+        UNITY_BRANCH
         if (_DiffuseMode == 0) // Lambert
         {
             // simplify math
@@ -1349,8 +1347,10 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                     flatLitLight = lerp(flatLitLight, 
                                     ShadeSH9(half4(UnityObjectToWorldNormal(i.posObject), 1)), 
                                     _SSSStylizedIndirect * (_SSSStylizedIndrectScaleByTranslucency ? translucency : 1));
-                half3 lightColorOccluded = lerp(lightColor, lightColor * occlusion, _OcclusionDirectDiffuse); // wonky solution?
-                color.rgb += diffColor * (lightColorOccluded + flatLitLight);
+                half3 lightColorOccluded = lerp(lightColor, lightColor * occlusion, _OcclusionDirectDiffuse); // wonky occlusion solution?
+                half3 lightMax = max(lightColorOccluded, flatLitLight); // wonky solution so lit dosn't get blown out
+                //color.rgb += diffColor * (lightColorOccluded + flatLitLight);
+                color.rgb += diffColor * lightMax;
             #endif
         }
     }
@@ -1360,8 +1360,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (group_toggle_Specular)
     {
-        // problem branch
-        //UNITY_BRANCH
+        UNITY_BRANCH
         if (_SpecularMode == 0) // Phong
         {
             half power = _PhongSpecularPower;
@@ -1376,8 +1375,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
             float V = 0;
             float D = 0;
 
-            // problem branch
-            //UNITY_BRANCH
+            UNITY_BRANCH
             if (_SpecularMode == 2)
             {
                 // Two roughness params from a single anisotropy parameter
@@ -1435,8 +1433,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (group_toggle_Reflections)
     {
-        // problem branch
-        //UNITY_BRANCH
+        UNITY_BRANCH
         if (_ReflectionsMode == 1 || _ReflectionsMode == 3) // PBR
         {
             half surfaceReduction;
@@ -1618,7 +1615,7 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
 
         // Dithered shadows
         UNITY_BRANCH
-        if (_DitheredShadows)
+        if (_DitheredShadows && _Mode >= 2 && _Mode <= 3)
             clip(tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, opacity * 0.9375)).a - 0.01);
 
         // Cutoff clipping

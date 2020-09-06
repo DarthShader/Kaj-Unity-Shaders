@@ -6,6 +6,7 @@ using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Text;
+using System.Globalization;
 
 // v3
 
@@ -614,10 +615,13 @@ namespace Kaj
                         switch (constant.type)
                         {
                             case PropertyType.Float:
-                                sb.Append("float(" + constant.value.x + ")");
+                                sb.Append("float(" + constant.value.x.ToString(CultureInfo.InvariantCulture) + ")");
                                 break;
                             case PropertyType.Vector:
-                                sb.Append("float4("+constant.value.x+","+constant.value.y+","+constant.value.z+","+constant.value.w+")");
+                                sb.Append("float4("+constant.value.x.ToString(CultureInfo.InvariantCulture)+","
+                                                   +constant.value.y.ToString(CultureInfo.InvariantCulture)+","
+                                                   +constant.value.z.ToString(CultureInfo.InvariantCulture)+","
+                                                   +constant.value.w.ToString(CultureInfo.InvariantCulture)+")");
                                 break;
                         }
                         sb.Append(lines[i], constantIndex+constant.name.Length, lines[i].Length-constantIndex-constant.name.Length);

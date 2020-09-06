@@ -25,14 +25,14 @@ Shader "Kaj/PBR"
             [Enum(Kaj.UVMapping)]_MainTexUV ("UV Set", Int) = 0
         [UnIndent]
         [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo and Transparency", Int) = 1
-        _CoverageMap ("Coverage (Alpha) Map", 2D) = "white" {}
+        _CoverageMap ("Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_CoverageMapUV ("UV Set", Int) = 0
         [UnIndent]
         _Cutoff("Cutoff", Range(0,1)) = 0.5
         [Indent]
             [ToggleUI]_ForceOpaque("Force Opaque", Int) = 0
-            [ToggleUI]_AlphaToCoverage("Sharpen Alpha to Coverage", Int) = 0
+            [ToggleUI]_AlphaToCoverage("Sharpen Cutout (Requires A2C)", Int) = 0
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
         [UnIndent]
@@ -390,7 +390,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 27", Int) = 27
+        [KajLabel]_Version("Shader Version: 28", Int) = 28
     }
 
     CustomEditor "Kaj.ShaderEditor"
