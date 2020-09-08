@@ -2,7 +2,6 @@
 {
 	Properties
 	{
-		[HideInInspector] _Mode ("__mode", Int) = 0
         [HideInInspector] _LightModes ("__lightmodes", Int) = 0
         [HideInInspector] _DisableBatching ("__disableBatching", Int) = 0
         [HideInInspector] _IgnoreProjector ("__ignoreProjector", Int) = 0
@@ -48,7 +47,7 @@
 			
 			fixed4 frag (v2f i) : SV_Target
 			{
-				return fixed4(1,0,1,1); // You shouldn't see pink if you have lightmode Always disabled
+				return fixed4(1,0,0,1); // You shouldn't see red if you have lightmode Always disabled
 			}
 			ENDCG
 		}

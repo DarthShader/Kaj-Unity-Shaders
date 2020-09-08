@@ -61,17 +61,17 @@ namespace Kaj
     // Lightmodes so passes can be disabled
     public enum LightMode
     {
-        Always,
-        ForwardBase,
-        ForwardAdd,
-        Deferred,
-        ShadowCaster,
-        MotionVectors,
-        PrepassBase,
-        PrepassFinal,
-        Vertex,
-        VertexLMRGBM,
-        VertexLM
+        Always=1,
+        ForwardBase=2,
+        ForwardAdd=4,
+        Deferred=8,
+        ShadowCaster=16,
+        MotionVectors=32,
+        PrepassBase=64,
+        PrepassFinal=128,
+        Vertex=256,
+        VertexLMRGBM=512,
+        VertexLM=1024
     }
 
     // Reusable enum for texture UV modes, technically shader specific but
@@ -496,13 +496,14 @@ namespace Kaj
 
             if (m_FirstTimeApply)
             {
+                // Cache and initialize some stuff.  This could be done in the constructor
+                // but the constructor doesn't get called again at domain reload afaik
                 foldoutStyle = new GUIStyle("ShurikenModuleTitle");
                 foldoutStyle.font = new GUIStyle(EditorStyles.label).font;
                 foldoutStyle.border = new RectOffset(15, 7, 4, 4);
                 foldoutStyle.fixedHeight = 22;
                 foldoutStyle.contentOffset = new Vector2(20f, -2f);
 
-                // Cache the names of each mode preset
                 if (blendMode != null)
                 {
                     int modeCount = 0;
@@ -537,38 +538,6 @@ namespace Kaj
                     SetPreviewTypeFlags(materialEditor, (PreviewType)previewType.floatValue);
 
                 m_FirstTimeApply = false;
-            }
-
-            // Blend Mode
-            if (blendMode != null)
-            {
-                EditorGUI.showMixedValue = blendMode.hasMixedValue;
-                var mode = blendMode.floatValue;
-                EditorGUI.BeginChangeCheck();
-                mode = EditorGUILayout.Popup("Rendering Mode", (int)mode, modeNames);
-                if (EditorGUI.EndChangeCheck())
-                {
-                    // Idk if these Undo registrations are even still necessary since changing a material property registers one,
-                    // but the Standard shader GUI does this so I will too
-                    materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
-                    blendMode.floatValue = mode;
-                    // Apply Rendering Mode preset
-                    // Rendering modes provide a simple way to preset blending options/render queue
-                    string[] renderModeSettings = Array.Find(props, x => x.name == "_Mode" + (int)mode).displayName.Split(';');
-                    for (int i=1; i<renderModeSettings.Length; i++)
-                    {
-                        // [0] is name and [1] is value
-                        string[] renderModeSetting = renderModeSettings[i].Split('=');
-                        if (renderModeSetting[0] == "RenderQueue")
-                            foreach (Material m in materialEditor.targets)
-                                m.renderQueue = Int32.Parse(renderModeSetting[1]);
-                        else if (renderModeSetting[0] == "RenderType")
-                            foreach (Material m in materialEditor.targets)
-                                m.SetOverrideTag("RenderType", renderModeSetting[1]);
-                        else Array.Find(props, x => x.name == renderModeSetting[0]).floatValue = Single.Parse(renderModeSetting[1]);
-                    }
-                    EditorUtility.SetDirty(material);
-                }
             }
 
             // GI flags
@@ -750,6 +719,45 @@ namespace Kaj
                 }
             }
 
+            // Rendering Mode (Shader Presets) now considered part of individual shader logic
+            if (blendMode != null)
+            {
+                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                    EditorGUI.BeginDisabledGroup(true);
+
+                EditorGUI.showMixedValue = blendMode.hasMixedValue;
+                var mode = blendMode.floatValue;
+                EditorGUI.BeginChangeCheck();
+                mode = EditorGUILayout.Popup("Rendering Mode", (int)mode, modeNames);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    // Idk if these Undo registrations are even still necessary since changing a material property registers one,
+                    // but the Standard shader GUI does this so I will too
+                    materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
+                    blendMode.floatValue = mode;
+                    // Apply Rendering Mode preset
+                    // Rendering modes provide a simple way to preset blending options/render queue
+                    string[] renderModeSettings = Array.Find(props, x => x.name == "_Mode" + (int)mode).displayName.Split(';');
+                    for (int i=1; i<renderModeSettings.Length; i++)
+                    {
+                        // [0] is name and [1] is value
+                        string[] renderModeSetting = renderModeSettings[i].Split('=');
+                        if (renderModeSetting[0] == "RenderQueue")
+                            foreach (Material m in materialEditor.targets)
+                                m.renderQueue = Int32.Parse(renderModeSetting[1]);
+                        else if (renderModeSetting[0] == "RenderType")
+                            foreach (Material m in materialEditor.targets)
+                                m.SetOverrideTag("RenderType", renderModeSetting[1]);
+                        else Array.Find(props, x => x.name == renderModeSetting[0]).floatValue = Single.Parse(renderModeSetting[1]);
+                    }
+                    EditorUtility.SetDirty(material);
+                }
+
+                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                        EditorGUI.EndDisabledGroup();
+            }
+
+
             // Actual shader properties
             materialEditor.SetDefaultGUIWidths();
             DrawPropertiesGUIRecursive(materialEditor, props);
@@ -928,48 +936,39 @@ namespace Kaj
 
         private void SetMaterialsLightMode(MaterialEditor materialEditor, int lightModesMask)
         {
-            if (lightModesMask == -1)
-                foreach (string name in Enum.GetNames(typeof(LightMode)))
-                    SetMaterialsLightModeEnabled(materialEditor.targets, name, false);
-            else if (lightModesMask == 0)
-                foreach (string name in Enum.GetNames(typeof(LightMode)))
-                    SetMaterialsLightModeEnabled(materialEditor.targets, name, true);
-            else
-            {
-                if (lightModesMask % 1 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Always", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "Always", true);
-                if (lightModesMask % 2 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", true);
-                if (lightModesMask % 4 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", true);
-                if (lightModesMask % 8 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", true);
-                if (lightModesMask % 16 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", true);
-                if (lightModesMask % 32 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", true);
-                if (lightModesMask % 64 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", true);
-                if (lightModesMask % 128 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", true);
-                if (lightModesMask % 256 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", true);
-                if (lightModesMask % 512 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", true);
-                if (lightModesMask % 1024 == 0)
-                    SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
-                else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
-            }
+            if ((lightModesMask & (int)LightMode.Always) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "Always", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "Always", true);
+            if ((lightModesMask & (int)LightMode.ForwardBase) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardBase", true);
+            if ((lightModesMask & (int)LightMode.ForwardAdd) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "ForwardAdd", true);
+            if ((lightModesMask & (int)LightMode.Deferred) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "Deferred", true);
+            if ((lightModesMask & (int)LightMode.ShadowCaster) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "ShadowCaster", true);
+            if ((lightModesMask & (int)LightMode.MotionVectors) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "MotionVectors", true);
+            if ((lightModesMask & (int)LightMode.PrepassBase) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassBase", true);
+            if ((lightModesMask & (int)LightMode.PrepassFinal) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "PrepassFinal", true);
+            if ((lightModesMask & (int)LightMode.Vertex) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "Vertex", true);
+            if ((lightModesMask & (int)LightMode.VertexLMRGBM) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLMRGBM", true);
+            if ((lightModesMask & (int)LightMode.VertexLM) != 0)
+                SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
+            else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
         }
 
     }

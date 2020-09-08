@@ -2,12 +2,6 @@ Shader "Kaj/PBR"
 {
     Properties
     {
-        [HideInInspector] _Mode ("__mode", Int) = 0
-        [HideInInspector] _Mode0 ("Opaque;RenderQueue=-1;RenderType=;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=0;_ZWrite=1;_ZTest=4", Int) = 0
-        [HideInInspector] _Mode1 ("Cutout;RenderQueue=2450;RenderType=TransparentCutout;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=1;_ZWrite=1;_ZTest=4", Int) = 0
-        [HideInInspector] _Mode2 ("Fade;RenderQueue=3000;RenderType=Transparent;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=5;_DstBlend=10;_SrcBlendAlpha=5;_DstBlendAlpha=10;_AlphaToMask=0;_ZWrite=0;_ZTest=4", Int) = 0
-        [HideInInspector] _Mode3 ("Transparent;RenderQueue=3000;RenderType=Transparent;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=10;_SrcBlendAlpha=1;_DstBlendAlpha=10;_AlphaToMask=0;_ZWrite=0;_ZTest=4", Int) = 0
-
         [HideInInspector] _LightModes ("__lightmodes", Int) = 0
         [HideInInspector] _DisableBatching ("__disableBatching", Int) = 0
         [HideInInspector] _IgnoreProjector ("__ignoreProjector", Int) = 0
@@ -18,12 +12,19 @@ Shader "Kaj/PBR"
 
         [HideInInspector] _ShaderOptimizerEnabled ("__shaderOptimizerEnabled", Int) = 0
 
+        [HideInInspector] _Mode ("__mode", Int) = 0
+        [HideInInspector] _Mode0 ("Opaque;RenderQueue=-1;RenderType=;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=0;_ZWrite=1;_ZTest=4", Int) = 0
+        [HideInInspector] _Mode1 ("Cutout;RenderQueue=2450;RenderType=TransparentCutout;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=0;_SrcBlendAlpha=1;_DstBlendAlpha=0;_AlphaToMask=1;_ZWrite=1;_ZTest=4", Int) = 0
+        [HideInInspector] _Mode2 ("Fade;RenderQueue=3000;RenderType=Transparent;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=5;_DstBlend=10;_SrcBlendAlpha=5;_DstBlendAlpha=10;_AlphaToMask=0;_ZWrite=0;_ZTest=4", Int) = 0
+        [HideInInspector] _Mode3 ("Transparent;RenderQueue=3000;RenderType=Transparent;_BlendOp=0;_BlendOpAlpha=0;_SrcBlend=1;_DstBlend=10;_SrcBlendAlpha=1;_DstBlendAlpha=10;_AlphaToMask=0;_ZWrite=0;_ZTest=4", Int) = 0
+
         [HideInInspector]group_Main("Main Settings", Int) = 0
         [MainColor]_Color("Color", Color) = (1,1,1,1)
         [MainTexture]_MainTex ("Albedo", 2D) = "white" { }
         [Indent]
             [Enum(Kaj.UVMapping)]_MainTexUV ("UV Set", Int) = 0
         [UnIndent]
+        [ToggleUI]_AlbedoTransparencyEnabled("Albedo Alpha is Transparency", Int) = 1
         [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo and Transparency", Int) = 1
         _CoverageMap ("Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
@@ -31,7 +32,6 @@ Shader "Kaj/PBR"
         [UnIndent]
         _Cutoff("Cutoff", Range(0,1)) = 0.5
         [Indent]
-            [ToggleUI]_ForceOpaque("Force Opaque", Int) = 0
             [ToggleUI]_AlphaToCoverage("Sharpen Cutout (Requires A2C)", Int) = 0
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
@@ -91,6 +91,20 @@ Shader "Kaj/PBR"
 
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
         [ToggleUI]_HDREnabled("HDR Enabled", Int) = 1
+        // Lights go here
+        _DirectLightIntensity("Direct Light Intensity", Range(0,1)) = 1
+        [Indent]
+            _DirectionalLightIntensity("Directional Lights", Range(0,1)) = 1
+            _PointLightIntensity("Point Lights", Range(0,1)) = 1
+            _SpotLightIntensity("Spot Lights", Range(0,1)) = 1
+        [UnIndent]
+        _IndirectLightIntensity("Indirect Light Intensity", Range(0,1)) = 1
+        [Indent]
+            _VertexLightIntensity("Vertex Lights", Range(0,1)) = 1
+            _LightProbeIntensity("Light Probes", Range(0,1)) = 1
+            _LightmapIntensity("Lightmap", Range(0,1)) = 1
+            _RealtimeLightmapIntensity("Realtime Lightmap", Range(0,1)) = 1
+        [UnIndent]
         _ReceiveShadows("Receive Shadows", Range(0,1)) = 1
         [Indent]
             _ShadowsSmooth("Shadows Smooth", Range(0,1)) = 0
@@ -102,8 +116,11 @@ Shader "Kaj/PBR"
             _FakeLightColor("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_FakeLightIntensity("Intensity", Float) = 1.0
         [UnIndent]
-        [ToggleUI]_ReceiveFog("Receive Fog", Int) = 1
-        [ToggleUI]_GlossyReflections("Glossy Reflections", Int) = 1
+        _ReceiveFog("Fog Intensity", Range(0,1)) = 1
+        [ToggleUI]_GlossyReflections("Cubemap Reflections", Int) = 1
+        [Indent]
+            _ReflectionsIntensity("Intensity", Range(0,1)) = 1
+        [UnIndent]
         [NoScaleOffset]_CubeMap ("Fallback Cubemap", Cube) = "" { }
         [WideEnum(Off,0, Fallback Only,1, Always Use CubeMap,2)]_CubeMapMode("Fallback Cubemap Mode", Int) = 0
         [HideInInspector]end_Lighting("", Int) = 0
@@ -112,9 +129,8 @@ Shader "Kaj/PBR"
         [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3)]_DiffuseMode("Mode", Int) = 1
         _OcclusionDirectDiffuse("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_Lambert("Lambert", Int) = 0
-        [ToggleUI]_DiffuseWrapIntensity("Diffuse Wrap", Int) = 0
-        _DiffuseWrap("Wrap Factor", Range(0,1)) = 0.5
-        [ToggleUI]_DiffuseWrapConserveEnergy("Conserve Energy", Int) = 0
+        _DiffuseWrap("Wrap Factor", Range(0,1)) = 0
+        [ToggleUI]_DiffuseWrapConserveEnergy("Wrap Conserves Energy", Int) = 0
         [HideInInspector]end_Lambert("", Int) = 0
         [HideInInspector]group_SkinDiffuse("Skin", Int) = 0
         [NoScaleOffset]_PreIntSkinTex("Scattering Lookup Texture", 2D) = "white" {} // hard lniked to BRDF lookup tex
@@ -247,6 +263,7 @@ Shader "Kaj/PBR"
         [HideInInspector]group_OptimizerSettings("Optimizer Settings", Int) = 0
         [HelpBox]_AnimatedPropsTooltip("Any material properties that need to be changed at runtime should be selected here so the Optimizer does not bake them into the optimized shader.", Int) = 0
         [Header(Animated Properties)]
+        [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
         [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
         [ToggleUILeft]_AOColorBleedAnimated("  _AOColorBleed", Int) = 0
         [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
@@ -295,7 +312,8 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_DiffuseModeAnimated("  _DiffuseMode", Int) = 0
         [ToggleUILeft]_DiffuseWrapAnimated("  _DiffuseWrap", Int) = 0
         [ToggleUILeft]_DiffuseWrapConserveEnergyAnimated("  _DiffuseWrapConserveEnergy", Int) = 0
-        [ToggleUILeft]_DiffuseWrapIntensityAnimated("  _DiffuseWrapIntensity", Int) = 0
+        [ToggleUILeft]_DirectionalLightIntensityAnimated("  _DirectionalLightIntensityAnimated", Int) = 0
+        [ToggleUILeft]_DirectLightIntensityAnimated("  _DirectLightIntensityAnimated", Int) = 0
         [ToggleUILeft]_DitheredShadowsAnimated("  _DitheredShadows", Int) = 0
         [ToggleUILeft]_DitheringEnabledAnimated("  _DitheringEnabled", Int) = 0
         [ToggleUILeft]_EmissionColorAnimated("  _EmissionColor", Int) = 0
@@ -307,13 +325,15 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_FakeLightDirectionAnimated("  _FakeLightDirection", Int) = 0
         [ToggleUILeft]_FakeLightIntensityAnimated("  _FakeLightIntensity", Int) = 0
         [ToggleUILeft]_FakeLightToggleAnimated("  _FakeLightToggle", Int) = 0
-        [ToggleUILeft]_ForceOpaqueAnimated("  _ForceOpaque", Int) = 0
         [ToggleUILeft]_GlossinessAnimated("  _Glossiness", Int) = 0
         [ToggleUILeft]_GlossinessMinAnimated("  _GlossinessMin", Int) = 0
         [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
         [ToggleUILeft]_GlossinessSourceAnimated("  _GlossinessSource", Int) = 0
         [ToggleUILeft]_GlossyReflectionsAnimated("  _GlossyReflections", Int) = 0
         [ToggleUILeft]_HDREnabledAnimated("  _HDREnabled", Int) = 0
+        [ToggleUILeft]_IndirectLightIntensityAnimated("  _IndirectLightIntensityAnimated", Int) = 0
+        [ToggleUILeft]_LightmapIntensityAnimated("  _LightmapIntensityAnimated", Int) = 0
+        [ToggleUILeft]_LightProbeIntensityAnimated("  _LightProbeIntensityAnimated", Int) = 0
         [ToggleUILeft]_MainTex_STAnimated("  _MainTex_ST", Int) = 0
         [ToggleUILeft]_MainTex_TexelSizeAnimated("  _MainTex_TexelSize", Int) = 0
         [ToggleUILeft]_MainTexUVAnimated("  _MainTexUV", Int) = 0
@@ -342,12 +362,15 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_PhongSpecularIntensityAnimated("  _PhongSpecularIntensity", Int) = 0
         [ToggleUILeft]_PhongSpecularPowerAnimated("  _PhongSpecularPower", Int) = 0
         [ToggleUILeft]_PhongSpecularUseRoughnessAnimated("  _PhongSpecularUseRoughness", Int) = 0
+        [ToggleUILeft]_PointLightIntensityAnimated("  _PointLightIntensityAnimated", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_STAnimated("  _PreIntSkinTex_ST", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("  _PreIntSkinTex_TexelSize", Int) = 0
+        [ToggleUILeft]_RealtimeLightmapIntensityAnimated("  _RealtimeLightmapIntensityAnimated", Int) = 0
         [ToggleUILeft]_ReceiveFogAnimated("  _ReceiveFog", Int) = 0
         [ToggleUILeft]_ReceiveShadowsAnimated("  _ReceiveShadows", Int) = 0
         [ToggleUILeft]_ReflectionsAnisotropyAngleAnimated("  _ReflectionsAnisotropyAngle", Int) = 0
         [ToggleUILeft]_ReflectionsAnisotropyAnimated("  _ReflectionsAnisotropy", Int) = 0
+        [ToggleUILeft]_ReflectionsIntensityAnimated("  _ReflectionsIntensityAnimated", Int) = 0
         [ToggleUILeft]_ReflectionsModeAnimated("  _ReflectionsMode", Int) = 0
         [ToggleUILeft]_ShadowsSharpAnimated("  _ShadowsSharp", Int) = 0
         [ToggleUILeft]_ShadowsSmoothAnimated("  _ShadowsSmooth", Int) = 0
@@ -365,6 +388,7 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_SpecularMaxAnimated("  _SpecularMax", Int) = 0
         [ToggleUILeft]_SpecularMinAnimated("  _SpecularMin", Int) = 0
         [ToggleUILeft]_SpecularModeAnimated("  _SpecularMode", Int) = 0
+        [ToggleUILeft]_SpotLightIntensityAnimated("  _SpotLightIntensityAnimated", Int) = 0
         [ToggleUILeft]_SSSStylizedIndirectAnimated("  _SSSStylizedIndirect", Int) = 0
         [ToggleUILeft]_SSSStylizedIndrectScaleByTranslucencyAnimated("  _SSSStylizedIndrectScaleByTranslucency", Int) = 0
         [ToggleUILeft]_SSSTranslucencyMaxAnimated("  _SSSTranslucencyMax", Int) = 0
@@ -382,6 +406,7 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_TriplanarUseVertexColorsAnimated("  _TriplanarUseVertexColors", Int) = 0
         [ToggleUILeft]_UVSecAnimated("  _UVSec", Int) = 0
         [ToggleUILeft]_VertexColorsEnabledAnimated("  _VertexColorsEnabled", Int) = 0
+        [ToggleUILeft]_VertexLightIntensityAnimated("  _VertexLightIntensityAnimated", Int) = 0
         [ToggleUILeft]_WorkflowModeAnimated("  _WorkflowMode", Int) = 0
         [HideInInspector]end_OptimizerSettings("", Int) = 0
 
@@ -390,7 +415,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 28", Int) = 28
+        [KajLabel]_Version("Shader Version: 29", Int) = 29
     }
 
     CustomEditor "Kaj.ShaderEditor"

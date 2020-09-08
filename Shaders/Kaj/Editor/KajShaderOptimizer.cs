@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Globalization;
 
-// v3
+// v4
 
 namespace Kaj
 {
@@ -33,6 +33,13 @@ namespace Kaj
         // Material property suffix that controls whether the property of the same name gets baked into the optimized shader
         // i.e. if _Color exists and _ColorAnimated = 1, _Color will not be baked in
         public static readonly string AnimatedPropertySuffix = "Animated";
+
+        // Currently, Material.SetShaderPassEnabled doesn't work on "ShadowCaster" lightmodes,
+        // and doesn't let "ForwardAdd" lights get turned into vertex lights if "ForwardAdd" is simply disabled
+        // vs. if the pases didn't exist at all in the shader.  (Allowing up to 8 vertex lights in the base pass)
+        // The Optimizer will take a mask property by this name and attempt to correct these issues
+        // by hard-removing the shadowcaster and fwdadd passes from the shader being optimized.
+        public static readonly string DisabledLightModesPropertyName = "_LightModes";
 
         // Properties can be assigned to preprocessor defined keywords via the optimizer (//KSOPropertyKeyword)
         // This is mainly targeted at culling interpolators and lines that rely on that input.
@@ -241,6 +248,18 @@ namespace Kaj
                         break;
                 }
             }
+
+            // Get list of lightmode passes to delete
+            List<string> disabledLightModes = new List<string>();
+            var disabledLightModesProperty = Array.Find(props, x => x.name == DisabledLightModesPropertyName);
+            if (disabledLightModesProperty != null)
+            {
+                int lightModesMask = (int)disabledLightModesProperty.floatValue;
+                if ((lightModesMask & (int)LightMode.ForwardAdd) != 0)
+                    disabledLightModes.Add("ForwardAdd");
+                if ((lightModesMask & (int)LightMode.ShadowCaster) != 0)
+                    disabledLightModes.Add("ShadowCaster");
+            }
                 
             // Parse shader and cginc files, also gets preprocessor macros
             List<ParsedShaderFile> shaderFiles = new List<ParsedShaderFile>();
@@ -299,6 +318,39 @@ namespace Kaj
                                     ReplaceShaderValuesNew(psf.lines, i+1, j, props, constantProps, macros);
                                     break;
                                 }
+                        }
+                        // Lightmode based pass removal, requires strict formatting
+                        else if (trimmedLine.StartsWith("Tags"))
+                        {
+                            string lineFullyTrimmed = trimmedLine.Replace(" ", "").Replace("\t", "");
+                            // expects lightmode tag to be on the same line like: Tags { "LightMode" = "ForwardAdd" }
+                            if (lineFullyTrimmed.Contains("\"LightMode\"=\""))
+                            {
+                                string lightModeName = lineFullyTrimmed.Split('\"')[3];
+                                if (disabledLightModes.Contains(lightModeName))
+                                {
+                                    // Loop up from psf.lines[i] until standalone "Pass" line is found, delete it
+                                    int j=i-1;
+                                    for (;j>=0;j--)
+                                        if (psf.lines[j].Replace(" ", "").Replace("\t", "") == "Pass")
+                                            break;
+                                    // then delete each line until a standalone ENDCG line is found
+                                    for (;j<psf.lines.Length;j++)
+                                    {
+                                        if (psf.lines[j].Replace(" ", "").Replace("\t", "") == "ENDCG")
+                                            break;
+                                        psf.lines[j] = "";
+                                    }
+                                    // then delete each line until a standalone '}' line is found
+                                    for (;j<psf.lines.Length;j++)
+                                    {
+                                        string temp = psf.lines[j];
+                                        psf.lines[j] = "";
+                                        if (temp.Replace(" ", "").Replace("\t", "") == "}")
+                                            break;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
