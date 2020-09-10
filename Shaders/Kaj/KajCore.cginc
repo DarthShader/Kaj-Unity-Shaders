@@ -18,7 +18,7 @@ sampler3D _DitherMaskLOD;                               // Built-in dither tex
 //sampler2D _DitherMaskLOD2D;                           // Built-in dither tex, defined in UNITY_APPLY_DITHER_CROSSFADE
 // Standard
 uniform half4 _Color;                                   // Standard shader color param, used by Enlighten during lightmapping too
-UNITY_DECLARE_TEX2D(_MainTex);                          // Standard main texture
+UNITY_DECLARE_TEX2D(_MainTex);                // Standard main texture
     uniform float4 _MainTex_ST;
     uniform float4 _MainTex_TexelSize;
 uniform half _Cutoff;                                   // Standard cutoff
@@ -396,7 +396,7 @@ SamplerState sampler_trilinear_mirroronce;
 
 // PBR shader specific branching and sampling, expects convention texture variables and specific triplanar variable names
 // Checks the convention UV set for the texture.  Either UVs 0-3 are used and transformed using Tiling/Offset or 
-// shader triplanar variables are used with custom Tiling/Offset setup
+// shader triplanar/planar/screenspace variables are used with custom Tiling/Offset setup
 //KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS(var,tex,samplertex) \
     UNITY_BRANCH \
@@ -405,12 +405,30 @@ SamplerState sampler_trilinear_mirroronce;
     else if (tex##UV == 1) \
         var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv1.xy * tex##_ST.xy + tex##_ST.zw)); \
     else if (tex##UV == 2) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv2.xy * tex##_ST.xy + tex##_ST.zw)); \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv2and3.xy * tex##_ST.xy + tex##_ST.zw)); \
     else if (tex##UV == 3) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv3.xy * tex##_ST.xy + tex##_ST.zw)); \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv2and3.zw * tex##_ST.xy + tex##_ST.zw)); \
     else if (tex##UV == 4) \
         var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor); \
-    else var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor);
+    else if (tex##UV == 5) \
+        var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor); \
+    else if (tex##UV == 6) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posWorld.xy * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 7) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posWorld.yz * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 8) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posWorld.zx * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 9) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posObject.xy * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 10) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posObject.yz * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 11) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posObject.zx * tex##_ST.xy + tex##_ST.zw)); \
+    else if (tex##UV == 12) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (stereoCorrectScreenUV01(i.grabPos) * tex##_ST.xy + tex##_ST.zw)); \
+    else \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (panoUV * tex##_ST.xy + tex##_ST.zw));
+
 // KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS_BIAS(var,tex,samplertex,bias) \
     UNITY_BRANCH \
@@ -419,12 +437,29 @@ SamplerState sampler_trilinear_mirroronce;
     else if (tex##UV == 1) \
         var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv1.xy * tex##_ST.xy + tex##_ST.zw), bias); \
     else if (tex##UV == 2) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv2.xy * tex##_ST.xy + tex##_ST.zw), bias); \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv2and3.xy * tex##_ST.xy + tex##_ST.zw), bias); \
     else if (tex##UV == 3) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv3.xy * tex##_ST.xy + tex##_ST.zw), bias); \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv2and3.zw * tex##_ST.xy + tex##_ST.zw), bias); \
     else if (tex##UV == 4) \
         var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor, bias); \
-    else var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor, bias);
+    else if (tex##UV == 5) \
+        var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor, bias); \
+    else if (tex##UV == 6) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posWorld.xy * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 7) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posWorld.yz * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 8) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posWorld.zx * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 9) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posObject.xy * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 10) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posObject.yz * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 11) \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posObject.zx * tex##_ST.xy + tex##_ST.zw), bias); \
+    else if (tex##UV == 12)\
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (stereoCorrectScreenUV01(i.grabPos) * tex##_ST.xy + tex##_ST.zw), bias); \
+    else \
+        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (panoUV * tex##_ST.xy + tex##_ST.zw), bias);
 
 
 // VRChat mirror utility
@@ -675,6 +710,24 @@ half2 stereoCorrectScreenUV(half4 screenPos)
     return uv;
 }
 
+half2 stereoCorrectScreenUV01(half4 screenPos)
+{
+    half2 uv = screenPos / (screenPos.w + 0.0000000001); //0.0x1 Stops division by 0 warning in console.
+    #if UNITY_SINGLE_PASS_STEREO
+        uv.x += 0.6 * unity_StereoEyeIndex; // Works on oculus lol
+    #endif
+    return uv;
+}
+
+float2 PanosphereProjection(float3 worldPos, float3 cameraPos)
+{
+    float3 normalizedCoords = normalize(cameraPos - worldPos) * -1;
+    float latitude = acos(normalizedCoords.y);
+    float longitude = atan2(normalizedCoords.z, normalizedCoords.x);
+    float2 sphereCoords = 1.0 - float2(longitude, latitude) * UNITY_INV_PI;
+    return sphereCoords + float2(0, 1 - unity_StereoEyeIndex);
+}
+
 // https://openproblems.realtimerendering.com/s2017/02-PhysicallyBasedMaterialWhereAreWe.pdf
 // HDRP also uses this implementation
 float GGXTerm_Aniso(float TdotH, float BdotH, float roughnessT, float roughnessB, float NdotH)
@@ -746,21 +799,20 @@ struct v2f_full
 	float4 pos : SV_POSITION;
 	float4 uv : TEXCOORD0;
     float4 uv1 : TEXCOORD1;
-    float2 uv2 : TEXCOORD2;
-    float2 uv3 : TEXCOORD3;
-	float4 color : TEXCOORD4;
-    float4 posWorld : TEXCOORD5;    
-    float4 posObject : TEXCOORD6;
-    float3 normalObject : TEXCOORD7;
-	float3 normalWorld : TEXCOORD8;
-	float3 tangentWorld : TEXCOORD9;
-	float3 bitangentWorld : TEXCOORD10;
-    float4 grabPos: TEXCOORD11;
-    float4 screenPos: TEXCOORD12;
-    float3 tangentViewDir : TEXCOORD13;
-	UNITY_FOG_COORDS(14)
+    float4 uv2and3 : TEXCOORD2;
+	float4 color : TEXCOORD3;
+    float4 posWorld : TEXCOORD4;    
+    float4 posObject : TEXCOORD5;
+    float3 normalObject : TEXCOORD6;
+	float3 normalWorld : TEXCOORD7;
+	float3 tangentWorld : TEXCOORD8;
+	float3 bitangentWorld : TEXCOORD9;
+    float4 grabPos: TEXCOORD10;
+    float4 screenPos: TEXCOORD11;
+    float3 tangentViewDir : TEXCOORD12;
+	UNITY_FOG_COORDS(13)
 #ifndef UNITY_PASS_SHADOWCASTER
-	SHADOW_COORDS(15)
+	SHADOW_COORDS(14)
 #endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
@@ -792,8 +844,8 @@ v2f_full vert_full (appdata_full_pbr v)
 	o.bitangentWorld = normalize(cross(o.normalWorld, o.tangentWorld) * v.tangent.w);
 	o.uv = v.texcoord;
     o.uv1 = v.texcoord1;
-    o.uv2 = v.texcoord2;
-    o.uv3 = v.texcoord3;
+    o.uv2and3.xy = v.texcoord2;
+    o.uv2and3.zw = v.texcoord3;
 	o.color = v.color;
     o.screenPos = ComputeScreenPos(o.pos);
     o.grabPos = ComputeGrabScreenPos(o.pos);
@@ -810,7 +862,7 @@ v2f_full vert_full (appdata_full_pbr v)
 
 fixed4 frag_unlitSimple (v2f_full i) : SV_Target
 {
-	return UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv, _MainTex)) * _Color * i.color;
+	return UNITY_SAMPLE_TEX2D_SAMPLER(_MainTex, _linear_repeat, TRANSFORM_TEX(i.uv, _MainTex)) * _Color * i.color;
 }
 
 
@@ -847,6 +899,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     float2 tpWorldY = i.posWorld.zx;
     float2 tpWorldZ = i.posWorld.xy;
 
+    // Panosphere UVs
+    float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
+
     // Parallax
     fixed3 viewDir = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
     UNITY_BRANCH
@@ -854,7 +909,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed4 _ParallaxMap_var = 1;
         if (_ParallaxMap_TexelSize.x != 1)
-            // KSOInlineSamplerState   ( _sampler_MainTex,  _ParallaxMap )
+            // KSOInlineSamplerState   ( _MainTex,  _ParallaxMap )
             PBR_SAMPLE_TEX2DS(_ParallaxMap_var, _ParallaxMap, _MainTex);
         i.tangentViewDir = normalize(i.tangentViewDir);
         i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
@@ -864,9 +919,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         if (_ParallaxUV1)
 		    i.uv1.xy += parallaxOffset;
         if (_ParallaxUV2)
-		    i.uv2.xy += parallaxOffset;
+		    i.uv2and3.xy += parallaxOffset;
         if (_ParallaxUV3)
-		    i.uv3.xy += parallaxOffset;
+		    i.uv2and3.zw += parallaxOffset;
 
         // Triplanar parallax goes here
     }
@@ -874,20 +929,20 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     // Base opacity
     fixed4 _MainTex_var = 1;
     if (_MainTex_TexelSize.x != 1)
-        // Default behaviour is to have all textures sampled by Albedo until you lock in
-        // KSOInlineSamplerState   ( _sampler_MainTex,  _MainTex )
+        // Default behaviour is to have all textures sampled by Albedo until you lock in with inline samplers
+        // However, albedo will ALWAYS be sampled by its own sampler
         PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
     half3 albedo = _MainTex_var.rgb * _Color.rgb;
     if (_VertexColorsEnabled)
         albedo *= i.color.rgb;
     half opacity = 1;
     if (_AlbedoTransparencyEnabled)
-        opacity = _MainTex_var.a; // detail abledo doesn't affect transparency
+        opacity = _MainTex_var.a; // detail abledos don't affect transparency
     UNITY_BRANCH
     if (_CoverageMap_TexelSize.x != 1)  // Texel size is used to determine if a texture is being used
     {
         fixed4 _CoverageMap_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _CoverageMap)
+        //KSOInlineSamplerState(_MainTex, _CoverageMap)
         PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
         opacity = _CoverageMap_var.r;
     }
@@ -935,27 +990,27 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     fixed4 _CombinedMap_var = 1;
     UNITY_BRANCH
     if (_CombinedMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_sampler_MainTex, _CombinedMap)
+        //KSOInlineSamplerState(_MainTex, _CombinedMap)
         PBR_SAMPLE_TEX2DS(_CombinedMap_var, _CombinedMap, _MainTex);
     fixed4 _MetallicGlossMap_var = 1;
     UNITY_BRANCH
     if (_MetallicGlossMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_sampler_MainTex, _MetallicGlossMap)
+        //KSOInlineSamplerState(_MainTex, _MetallicGlossMap)
         PBR_SAMPLE_TEX2DS(_MetallicGlossMap_var, _MetallicGlossMap, _MainTex);
     fixed4 _SpecGlossMap_var = 1;
     UNITY_BRANCH
     if (_SpecGlossMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_sampler_MainTex, _SpecGlossMap)
+        //KSOInlineSamplerState(_MainTex, _SpecGlossMap)
         PBR_SAMPLE_TEX2DS(_SpecGlossMap_var, _SpecGlossMap, _MainTex);
     fixed4 _OcclusionMap_var = 1;
     UNITY_BRANCH
     if (_OcclusionMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_sampler_MainTex, _OcclusionMap)
+        //KSOInlineSamplerState(_MainTex, _OcclusionMap)
         PBR_SAMPLE_TEX2DS(_OcclusionMap_var, _OcclusionMap, _MainTex);
     fixed4 _SpecularMap_var = 1;
     UNITY_BRANCH
     if (_SpecularMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_sampler_MainTex, _SpecularMap)
+        //KSOInlineSamplerState(_MainTex, _SpecularMap)
         PBR_SAMPLE_TEX2DS(_SpecularMap_var, _SpecularMap, _MainTex);
     
     // Map textures to PBR variables
@@ -1001,7 +1056,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     UNITY_BRANCH
     if (_DetailMask_TexelSize.x != 1)
     {
-        //KSOInlineSamplerState(_sampler_MainTex, _DetailMask)
+        //KSOInlineSamplerState(_MainTex, _DetailMask)
         PBR_SAMPLE_TEX2DS(_DetailMask_var, _DetailMask, _MainTex);
         // Detail colors only applied if a mask is applied
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorR.rgb, _DetailMask_var.r);
@@ -1015,16 +1070,16 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     else if (_UVSec == 1)
         detailUV = i.uv1;
     else if (_UVSec == 2)
-        detailUV = i.uv2;
+        detailUV = i.uv2and3.xy;
     else if (_UVSec == 3)
-        detailUV = i.uv3;
+        detailUV = i.uv2and3.zw;
 
     UNITY_BRANCH
     if (_DetailAlbedoMap_TexelSize.x != 1)
     {
         fixed _DetailAlbedoMapUV = _UVSec; // Temporary defines so the macro works, could change macro to switch UVselection just for these details
         fixed4 _DetailAlbedoMap_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _DetailAlbedoMap)
+        //KSOInlineSamplerState(_MainTex, _DetailAlbedoMap)
         PBR_SAMPLE_TEX2DS(_DetailAlbedoMap_var, _DetailAlbedoMap, _MainTex);
         albedo = switchDetailAlbedo(_DetailAlbedoMap_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.r);
     }
@@ -1033,7 +1088,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailAlbedoMapGreenUV = _UVSec;
         fixed4 _DetailAlbedoMapGreen_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _DetailAlbedoMapGreen)
+        //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapGreen)
         PBR_SAMPLE_TEX2DS(_DetailAlbedoMapGreen_var, _DetailAlbedoMapGreen, _MainTex);
         albedo = switchDetailAlbedo(_DetailAlbedoMapGreen_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.g);
     }
@@ -1042,7 +1097,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailAlbedoMapBlueUV = _UVSec;
         fixed4 _DetailAlbedoMapBlue_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _DetailAlbedoMapBlue)
+        //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
         PBR_SAMPLE_TEX2DS(_DetailAlbedoMapBlue_var, _DetailAlbedoMapBlue, _MainTex);
         albedo = switchDetailAlbedo(_DetailAlbedoMapBlue_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.b);
     }
@@ -1052,7 +1107,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_BumpMap_TexelSize.x != 1)
     {
         half4 _BumpMap_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _BumpMap)
+        //KSOInlineSamplerState(_MainTex, _BumpMap)
         PBR_SAMPLE_TEX2DS(_BumpMap_var, _BumpMap, _MainTex);
         blendedNormal = UnpackScaleNormal(_BumpMap_var, _BumpScale);
     }
@@ -1061,7 +1116,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailNormalMapUV = _UVSec;
         fixed4 _DetailNormalMap_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _DetailNormalMap)
+        //KSOInlineSamplerState(_MainTex, _DetailNormalMap)
         PBR_SAMPLE_TEX2DS(_DetailNormalMap_var, _DetailNormalMap, _MainTex);
         _DetailNormalMap_var.xyz = UnpackScaleNormal(_DetailNormalMap_var, _DetailNormalMapScale);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMap_var.xyz), _DetailMask_var.r);
@@ -1071,7 +1126,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailNormalMapGreenUV = _UVSec;
         fixed4 _DetailNormalMapGreen_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _DetailNormalMapGreen)
+        //KSOInlineSamplerState(_MainTex, _DetailNormalMapGreen)
         PBR_SAMPLE_TEX2DS(_DetailNormalMapGreen_var, _DetailNormalMapGreen, _MainTex);
         _DetailNormalMapGreen_var.xyz = UnpackScaleNormal(_DetailNormalMapGreen_var, _DetailNormalMapScaleGreen);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapGreen_var.xyz), _DetailMask_var.g);
@@ -1081,7 +1136,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         fixed _DetailNormalMapBlueUV = _UVSec;
         fixed4 _DetailNormalMapBlue_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _DetailNormalMapBlue)
+        //KSOInlineSamplerState(_MainTex, _DetailNormalMapBlue)
         PBR_SAMPLE_TEX2DS(_DetailNormalMapBlue_var, _DetailNormalMapBlue, _MainTex);
         _DetailNormalMapBlue_var.xyz = UnpackScaleNormal(_DetailNormalMapBlue_var, _DetailNormalMapScaleBlue);
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, _DetailNormalMapBlue_var.xyz), _DetailMask_var.b);
@@ -1095,14 +1150,14 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (group_toggle_SSSTransmission)
     {
         fixed4 _TranslucencyMap_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _TranslucencyMap)
+        //KSOInlineSamplerState(_MainTex, _TranslucencyMap)
         PBR_SAMPLE_TEX2DS(_TranslucencyMap_var, _TranslucencyMap, _MainTex);
         translucency = _SSSTranslucencyMin + _TranslucencyMap_var.r * (_SSSTranslucencyMax - _SSSTranslucencyMin);
     }
 
     // Common vars
     float2 lightmapUV = i.uv1 * unity_LightmapST.xy + unity_LightmapST.zw;
-    float2 dynamicLightmapUV = i.uv2 * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
+    float2 dynamicLightmapUV = i.uv2and3.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
     fixed3 lightDir = getLightDirection(i.posWorld.xyz, lightmapUV); 
     #ifdef UNITY_PASS_FORWARDBASE
         if (_FakeLightToggle)
@@ -1277,7 +1332,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     {
         // Blur main normal map via tex2Dbias
         fixed4 blurredWorldNormal_var = 0;
-        //KSOInlineSamplerState(_sampler_MainTex, _BumpMap)
+        //KSOInlineSamplerState(_MainTex, _BumpMap)
         PBR_SAMPLE_TEX2DS_BIAS(blurredWorldNormal_var, _BumpMap, _MainTex, _BumpBlurBias);
         blurredWorldNormal = UnpackScaleNormal(blurredWorldNormal_var, _BumpScale);
         // Lerp blurred normal against combined normal by blur strength
@@ -1392,7 +1447,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
                 if (_SpecularAnisotropyTangentMap_TexelSize.x != 1)
                 {
                     fixed4 _SpecularAnisotropyTangentMap_var = 1;
-                    ////KSOInlineSamplerState(_sampler_MainTex, _SpecularAnisotropyTangentMap)
+                    ////KSOInlineSamplerState(_MainTex, _SpecularAnisotropyTangentMap)
                     PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
                     _SpecularAnisotropyTangentMap_var.xyz = UnpackNormal(_SpecularAnisotropyTangentMap_var);
                     // blend with unmultiplied tangent space normal (from normal map?)
@@ -1489,7 +1544,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     #ifdef UNITY_PASS_FORWARDBASE
         fixed4 _EmissionMap_var = 1;
         if (_EmissionMap_TexelSize.x != 1)
-            //KSOInlineSamplerState(_sampler_MainTex, _EmissionMap)
+            //KSOInlineSamplerState(_MainTex, _EmissionMap)
             PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
         color.rgb += _EmissionColor.rgb * lerp(_EmissionMap_var.rgb, albedo.rgb * _EmissionMap_var.rgb, _EmissionTintByAlbedo);
     #endif
@@ -1516,13 +1571,13 @@ struct v2f_shadow_full
     V2F_SHADOW_CASTER;
     float4 uv : TEXCOORD0;
     float4 uv1 : TEXCOORD1;
-    float2 uv2 : TEXCOORD2;
-    float2 uv3 : TEXCOORD3;
-    float4 color : TEXCOORD4;
-    float4 posWorld : TEXCOORD5;
-    float4 posObject : TEXCOORD6;
-    float3 normalObject : TEXCOORD7;
-	float3 normalWorld : TEXCOORD8;
+    float4 uv2and3 : TEXCOORD2;
+    float4 color : TEXCOORD3;
+    float4 posWorld : TEXCOORD4;
+    float4 posObject : TEXCOORD5;
+    float3 normalObject : TEXCOORD6;
+	float3 normalWorld : TEXCOORD7;
+    float4 grabPos: TEXCOORD8;
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -1531,14 +1586,15 @@ v2f_shadow_full vert_shadow_full (appdata_full v)
     v2f_shadow_full o;
     o.uv = v.texcoord;
     o.uv1 = v.texcoord1;
-    o.uv2 = v.texcoord2;
-    o.uv3 = v.texcoord3;
+    o.uv2and3.xy = v.texcoord2;
+    o.uv2and3.zw = v.texcoord3;
     o.color = v.color;
     o.posWorld = mul(unity_ObjectToWorld, v.vertex);
     o.posObject = v.vertex;
 	o.normalWorld = normalize(UnityObjectToWorldNormal(v.normal));
     o.normalObject = v.normal;
     TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+    o.grabPos = ComputeGrabScreenPos(o.pos);
     return o;
 }
 // Separate vpos struct for frag input instead of V2F_SHADOW_CASTER because you can't have both SV_Position and VPOS
@@ -1548,13 +1604,15 @@ struct v2f_shadow_full_vpos
     UNITY_VPOS_TYPE vpos : VPOS;
     float4 uv : TEXCOORD0;
     float4 uv1 : TEXCOORD1;
-    float2 uv2 : TEXCOORD2;
-    float2 uv3 : TEXCOORD3;
-    float4 color : TEXCOORD4;
-    float4 posWorld : TEXCOORD5;
-    float4 posObject : TEXCOORD6;
-    float3 normalObject : TEXCOORD7;
-	float3 normalWorld : TEXCOORD8;
+    float4 uv2and3 : TEXCOORD2;
+    float4 color : TEXCOORD3;
+    float4 posWorld : TEXCOORD4;
+    float4 posObject : TEXCOORD5;
+    float3 normalObject : TEXCOORD6;
+	float3 normalWorld : TEXCOORD7;
+    float4 grabPos: TEXCOORD8;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+    UNITY_VERTEX_OUTPUT_STEREO
 };
 fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
 {
@@ -1596,20 +1654,22 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         float2 tpWorldY = i.posWorld.zx;
         float2 tpWorldZ = i.posWorld.xy;
 
+        // Panosphere UVs
+        float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
+
         // Base Opacity
         fixed opacity = 1;
         UNITY_BRANCH
         if (_CoverageMap_TexelSize.x != 1)
         {
             fixed4 _CoverageMap_var = 0;
-            //KSOInlineSamplerState(_sampler_MainTex, _CoverageMap)
+            //KSOInlineSamplerState(_MainTex, _CoverageMap)
             PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
             opacity = _CoverageMap_var.r;
         }
         else if (_AlbedoTransparencyEnabled && _MainTex_TexelSize.x != 1)
         {
             fixed4 _MainTex_var = 1;
-            //KSOInlineSamplerState(_sampler_MainTex, _MainTex)
             PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
             opacity = _MainTex_var.a;
         }
@@ -1636,13 +1696,13 @@ struct v2f_meta_full
     float4 pos : SV_POSITION;
 	float4 uv : TEXCOORD0;
     float4 uv1 : TEXCOORD1;
-    float2 uv2 : TEXCOORD2;
-    float2 uv3 : TEXCOORD3;
-    float4 color : TEXCOORD4;
-    float4 posWorld : TEXCOORD5;
-    float4 posObject : TEXCOORD6;
-    float3 normalObject : TEXCOORD7;
-	float3 normalWorld : TEXCOORD8;
+    float4 uv2and3 : TEXCOORD2;
+    float4 color : TEXCOORD3;
+    float4 posWorld : TEXCOORD4;
+    float4 posObject : TEXCOORD5;
+    float3 normalObject : TEXCOORD6;
+	float3 normalWorld : TEXCOORD7;
+    float4 grabPos: TEXCOORD8;
 #ifdef EDITOR_VISUALIZATION
     float2 vizUV        : TEXCOORD9;
     float4 lightCoord   : TEXCOORD10;
@@ -1654,13 +1714,14 @@ v2f_meta_full vert_meta_full(appdata_full v)
     o.pos = UnityMetaVertexPosition(v.vertex, v.texcoord1.xy, v.texcoord2.xy, unity_LightmapST, unity_DynamicLightmapST);
     o.uv = v.texcoord;
     o.uv1 = v.texcoord1;
-    o.uv2 = v.texcoord2;
-    o.uv3 = v.texcoord3;
+    o.uv2and3.xy = v.texcoord2;
+    o.uv2and3.zw = v.texcoord3;
     o.color = v.color;
     o.posWorld = mul(unity_ObjectToWorld, v.vertex);
     o.posObject = v.vertex;
 	o.normalWorld = normalize(UnityObjectToWorldNormal(v.normal));
     o.normalObject = v.normal;
+    o.grabPos = ComputeGrabScreenPos(o.pos);
 #ifdef EDITOR_VISUALIZATION
     o.vizUV = 0;
     o.lightCoord = 0;
@@ -1703,9 +1764,11 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
     float2 tpWorldY = i.posWorld.zx;
     float2 tpWorldZ = i.posWorld.xy;
 
+    // Panosphere UVs
+    float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
+
     fixed4 _MainTex_var = 1;
     if (_MainTex_TexelSize.x != 1)
-        //KSOInlineSamplerState(_sampler_MainTex, _MainTex)
         PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
 
 
@@ -1719,7 +1782,7 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
         if (_CoverageMap_TexelSize.x != 1)
         {
             fixed4 _CoverageMap_var = 0;
-            //KSOInlineSamplerState(_sampler_MainTex, _CoverageMap)
+            //KSOInlineSamplerState(_MainTex, _CoverageMap)
             PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
             opacity = _CoverageMap_var.r;
         }
@@ -1731,7 +1794,7 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
 
     fixed4 _EmissionMap_var = 1;
     if (_EmissionMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_sampler_MainTex, _EmissionMap)
+        //KSOInlineSamplerState(_MainTex, _EmissionMap)
         PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
 
     UnityMetaInput o;

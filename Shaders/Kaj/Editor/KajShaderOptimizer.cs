@@ -41,6 +41,12 @@ namespace Kaj
         // by hard-removing the shadowcaster and fwdadd passes from the shader being optimized.
         public static readonly string DisabledLightModesPropertyName = "_LightModes";
 
+        // Property that determines whether or not to evaluate KSOInlineSamplerState comments.
+        // Inline samplers can be used to get a wider variety of wrap/filter combinations at the cost
+        // of only having 1x anisotropic filtering on all textures
+        public static readonly string UseInlineSamplerStatesPropertyName = "_InlineSamplerStates";
+        private static bool UseInlineSamplerStates = true;
+
         // Properties can be assigned to preprocessor defined keywords via the optimizer (//KSOPropertyKeyword)
         // This is mainly targeted at culling interpolators and lines that rely on that input.
         // (The compiler is not smart enough to cull VS output that isn't used anywhere in the PS)
@@ -176,6 +182,9 @@ namespace Kaj
                 if (prop == null) continue;
                 // Properties ending with convention suffix will be skipped!
                 if (prop.name.EndsWith(AnimatedPropertySuffix)) continue;
+
+                if (prop.name == UseInlineSamplerStatesPropertyName)
+                    UseInlineSamplerStates = (prop.floatValue == 1);
 
                 // Check for the convention 'Animated' Property to be true otherwise assume all properties are constant
                 MaterialProperty animatedProp = Array.Find(props, x => x.name == prop.name + AnimatedPropertySuffix);
@@ -471,7 +480,7 @@ namespace Kaj
                     }
                 }
                 // Specifically requires no whitespace between // and KSOEvaluateMacro
-                else if (lineParsed == "//KSOEvaluateMacro")
+                else if (UseInlineSamplerStates && lineParsed == "//KSOEvaluateMacro")
                 {
                     string macro = "";
                     string lineTrimmed = null;

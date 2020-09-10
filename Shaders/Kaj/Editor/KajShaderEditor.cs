@@ -90,7 +90,8 @@ namespace Kaj
         XYObjectPlanar,
         YZObjectPlanar,
         ZXObjectPlanar,
-        Screenspace
+        Screenspace,
+        Panosphere
     }
 
     // Simple indent and unindent decorators

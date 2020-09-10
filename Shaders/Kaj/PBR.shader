@@ -229,7 +229,7 @@ Shader "Kaj/PBR"
             [ToggleUI]_SSSStylizedIndrectScaleByTranslucency("Scale by Translucency", Int) = 0
         [HideInInspector]end_SSSTransmission("", Int) = 0
 
-        [HideInInspector]group_Triplanar("Triplanar Mapping", Int) = 0
+        [HideInInspector]group_Triplanar("Triplanar/Planar Mapping", Int) = 0
         [HelpBox]_TriplanarTooltip("Object and World Triplanar sampled textures are scaled using each texture's Tiling X parameter.  Offset X/Y offset the X/Y axes and Tiling Y offsets the Z axis.", Int) = 0
         [ToggleUI]_TriplanarUseVertexColors("Vertex Colors are Object Space Position", Int) = 0
         [HideInInspector]end_Triplanar("", Int) = 0
@@ -261,6 +261,8 @@ Shader "Kaj/PBR"
         [HideInInspector]end_Stencil("", Int) = 0
 
         [HideInInspector]group_OptimizerSettings("Optimizer Settings", Int) = 0
+        [HelpBox]_InlineSamplerStatesTooltip("Inline sampler states can be used so all textures' unique filter/wrap settings work at the cost of 1x anisotropic filtering on all textures.", Int) = 0
+        [ToggleUI]_InlineSamplerStates("Use Inline Sampler States", Int) = 1
         [HelpBox]_AnimatedPropsTooltip("Any material properties that need to be changed at runtime should be selected here so the Optimizer does not bake them into the optimized shader.", Int) = 0
         [Header(Animated Properties)]
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
@@ -415,7 +417,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 29", Int) = 29
+        [KajLabel]_Version("Shader Version: 30", Int) = 30
     }
 
     CustomEditor "Kaj.ShaderEditor"
