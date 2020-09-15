@@ -29,6 +29,7 @@ Shader "Kaj/PBR"
         _CoverageMap ("Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_CoverageMapUV ("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_CoverageMapChannel("Channel to Sample", Int) = 0
         [UnIndent]
         _Cutoff("Cutoff", Range(0,1)) = 0.5
         [Indent]
@@ -45,53 +46,45 @@ Shader "Kaj/PBR"
         _EmissionMap("Emission Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_EmissionMapUV ("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_EmissionMapChannel("Channel(s) to Sample", Int) = 4
             _EmissionTintByAlbedo("Tint by Albedo", Range(0,1)) = 0
         [HideInInspector]end_Main("", Int) = 1
 
         [HideInInspector]group_StandardSettings("Standard Settings", Int) = 0
         [WideEnum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow", Int) = 0
-        [RangeMax]_Metallic("Metallic Max", Range(0.0, 1.0)) = 0.0
-        [RangeMin]_MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
-        [WideEnum(Glossiness Map,0, Combined Map,1, Metallic Alpha,2, Specular Alpha,3, Albedo Alpha,4)]_GlossinessSource("Glossiness Source", Int) = 0
-        [WideEnum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 1
-        [RangeMax]_Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
-        [RangeMin]_GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
-        _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
-        _SpecColor("Specular Color", Color) = (1,1,1,1)
-        [RangeMax]_SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
-        [RangeMin]_SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
-        [HideInInspector]group_StandardTextures("Textures", Int) = 0
         _MetallicGlossMap("Metallic Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_MetallicGlossMapUV ("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_MetallicGlossMapChannel("Channel to Sample", Int) = 0
+            [RangeMax]_Metallic("Metallic Max", Range(0.0, 1.0)) = 0.0
+            [RangeMin]_MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
         [UnIndent]
+        [WideEnum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 1
         _SpecGlossMap("Glossiness Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_SpecGlossMapUV ("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMapChannel("Channel to Sample", Int) = 0
+            [RangeMax]_Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
+            [RangeMin]_GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
         [UnIndent]
-        _OcclusionMap("Occlusion Map (RGB)", 2D) = "white" {}
+        _OcclusionMap("Occlusion Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_OcclusionMapUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_OcclusionMapChannel("Channel(s) to Sample", Int) = 4
+            _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
         [UnIndent]
-        _SpecularMap("Specular Map (RGB)", 2D) = "white" {}
+        _SpecColor("Specular Color", Color) = (1,1,1,1)
+        _SpecularMap("Specular Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_SpecularMapUV("UV Set", Int) = 0
-        [HideInInspector]end_StandardTextures("", Int) = 1
-        [HideInInspector]group_CombinedMap("Combined Texture", Int) = 0
-        [HelpBox]_CombinedMapTooltip("Regular Metallic, Occlusion, and Specular textures will override the Combined texture's values if they exist.", Int) = 0
-        _CombinedMap("Combined Map (RGBA)", 2D) = "white" {}
-        [Indent]
-            [Enum(Kaj.UVMapping)]_CombinedMapUV("UV Set", Int) = 0
-            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_MetallicGlossMapCombinedMapChannel("Metallic Channel", Int) = 0
-            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMapCombinedMapChannel("Glossiness Channel", Int) = 1
-            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_OcclusionMapCombinedMapChannel("Occlusion Channel", Int) = 2
-            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecularMapCombinedMapChannel("Specular Channel", Int) = 3
-        [HideInInspector]end_CombinedMap("", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_SpecularMapChannel("Channel(s) to Sample", Int) = 4
+            [RangeMax]_SpecularMax("Specular Max", Range(0.0, 1.0)) = 1.0
+            [RangeMin]_SpecularMin("Specular Min", Range(0.0, 1.0)) = 0.0
+        [UnIndent]
         [HideInInspector]end_StandardSettings("", Int) = 1
 
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
         [ToggleUI]_HDREnabled("HDR Enabled", Int) = 1
-        // Lights go here
         _DirectLightIntensity("Direct Light Intensity", Range(0,1)) = 1
         [Indent]
             _DirectionalLightIntensity("Directional Lights", Range(0,1)) = 1
@@ -105,6 +98,7 @@ Shader "Kaj/PBR"
             _LightmapIntensity("Lightmap", Range(0,1)) = 1
             _RealtimeLightmapIntensity("Realtime Lightmap", Range(0,1)) = 1
         [UnIndent]
+        _RealtimeGIIntensity("Realtime GI Intensity", Range(0,1)) = 1
         _ReceiveShadows("Receive Shadows", Range(0,1)) = 1
         [Indent]
             _ShadowsSmooth("Shadows Smooth", Range(0,1)) = 0
@@ -168,40 +162,24 @@ Shader "Kaj/PBR"
         [HideInInspector]end_PBRAnisotropicReflections("", Int) = 0
         [HideInInspector]end_Reflections("", Int) = 0
 
-        [HideInInspector]group_Details("Detail Settings", Int) = 0
-        _DetailMask("Detail Mask (RGB)", 2D) = "white" {}
+        [HideInInspector][ToggleUI]group_toggle_Clearcoat("Clearcoat", Int) = 0
+        _ClearcoatMask("Clearcoat Mask", 2D) = "white" {}
         [Indent]
-            [Enum(Kaj.UVMapping)]_DetailMaskUV("UV Set", Int) = 0
+            [Enum(Kaj.UVMapping)]_ClearcoatMaskUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_ClearcoatMaskChannel("Channel to Sample", Int) = 0
         [UnIndent]
-        _DetailColorR("Detail Color (Red)", Color) = (1,1,1,1)
-        _DetailColorG("Detail Color (Green)", Color) = (1,1,1,1)
-        _DetailColorB("Detail Color (Blue)", Color) = (1,1,1,1)
-        [Space(10)]
-        _DetailAlbedoMap("Detail Albedo (Red)", 2D) = "grey" {}
-        _DetailAlbedoMapGreen("Detail Albedo (Green)", 2D) = "grey" {}
-        _DetailAlbedoMapBlue("Detail Albedo (Blue)", 2D) = "grey" {}
-        [Space(10)]
-        [Normal]_DetailNormalMap("Detail Normal Map (Red)", 2D) = "bump" {}
-        [Indent]
-            _DetailNormalMapScale("Detail Normals (Red) Scale", Float) = 1.0
-        [UnIndent]
-        [Normal]_DetailNormalMapGreen("Detail Normal Map (Green)", 2D) = "bump" {}
-        [Indent]
-            _DetailNormalMapScaleGreen("Detail Normals (Green) Scale", Float) = 1.0
-        [UnIndent]
-        [Normal]_DetailNormalMapBlue("Detail Normal Map (Blue)", 2D) = "bump" {}
-        [Indent]
-            _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
-        [UnIndent]
-        [Space(10)]
-        [Enum(Kaj.UVMapping)]_UVSec ("Detail Textures UV Set", Int) = 0
-        [WideEnum(Multiply x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Albedo Combine Mode", Int) = 0
-        [HideInInspector]end_Details("", Int) = 0
-
+        [RangeMax]_ClearcoatMaskMax("Mask Max", Range(0,1)) = 1
+        [RangeMin]_ClearcoatMaskMin("Mask Min", Range(0,1)) = 0
+        [ToggleUI]_ClearcoatRefract("Refract", Int) = 1
+        _ClearcoatFresnelInfluence("Fresnel Influence", Range(0,1)) = 1
+        _ClearcoatRoughnessInfluence("Roughness Influence", Range(0,1)) = 1
+        [HideInInspector]end_Clearcoat("", Int) = 0
+        
         [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax", Int) = 0
         _ParallaxMap ("Parallax (Height) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_ParallaxMapUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_ParallaxMapChannel("Channel to Sample", Int) = 0
         [UnIndent]
         _Parallax ("Parallax Scale", Range (0, 0.08)) = 0.02
         _ParallaxBias ("Parallax Bias", Float) = 0.42
@@ -218,6 +196,7 @@ Shader "Kaj/PBR"
         _TranslucencyMap("Translucency (Thickness) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_TranslucencyMapUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_TranslucencyMapChannel("Channel to Sample", Int) = 0
         [UnIndent]
         [RangeMax]_SSSTranslucencyMax("Translucency Max", Range(0,1)) = 0
         [RangeMin]_SSSTranslucencyMin("Translucency Min", Range(0,1)) = 0
@@ -229,9 +208,45 @@ Shader "Kaj/PBR"
             [ToggleUI]_SSSStylizedIndrectScaleByTranslucency("Scale by Translucency", Int) = 0
         [HideInInspector]end_SSSTransmission("", Int) = 0
 
+        [HideInInspector]group_Details("Detail Settings", Int) = 0
+        _DetailMask("Detail Mask (RGBA)", 2D) = "white" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_DetailMaskUV("UV Set", Int) = 0
+        [UnIndent]
+        _DetailColorR("Detail Color (Red)", Color) = (1,1,1,1)
+        _DetailColorG("Detail Color (Green)", Color) = (1,1,1,1)
+        _DetailColorB("Detail Color (Blue)", Color) = (1,1,1,1)
+        _DetailColorA("Detail Color (Alpha)", Color) = (1,1,1,1)
+        [Space(10)]
+        _DetailAlbedoMap("Detail Albedo (Red)", 2D) = "grey" {}
+        _DetailAlbedoMapGreen("Detail Albedo (Green)", 2D) = "grey" {}
+        _DetailAlbedoMapBlue("Detail Albedo (Blue)", 2D) = "grey" {}
+        _DetailAlbedoMapAlpha("Detail Albedo (Alpha)", 2D) = "grey" {}
+        [Space(10)]
+        [Normal]_DetailNormalMap("Detail Normal Map (Red)", 2D) = "bump" {}
+        [Indent]
+            _DetailNormalMapScale("Detail Normals (Red) Scale", Float) = 1.0
+        [UnIndent]
+        [Normal]_DetailNormalMapGreen("Detail Normal Map (Green)", 2D) = "bump" {}
+        [Indent]
+            _DetailNormalMapScaleGreen("Detail Normals (Green) Scale", Float) = 1.0
+        [UnIndent]
+        [Normal]_DetailNormalMapBlue("Detail Normal Map (Blue)", 2D) = "bump" {}
+        [Indent]
+            _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
+        [UnIndent]
+        [Normal]_DetailNormalMapAlpha("Detail Normal Map (Alpha)", 2D) = "bump" {}
+        [Indent]
+            _DetailNormalMapScaleAlpha("Detail Normals (Alpha) Scale", Float) = 1.0
+        [UnIndent]
+        [Space(10)]
+        [Enum(Kaj.UVMapping)]_UVSec ("Detail Textures UV Set", Int) = 0
+        [WideEnum(Multiply x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Albedo Combine Mode", Int) = 0
+        [HideInInspector]end_Details("", Int) = 0
+
         [HideInInspector]group_Triplanar("Triplanar/Planar Mapping", Int) = 0
-        [HelpBox]_TriplanarTooltip("Object and World Triplanar sampled textures are scaled using each texture's Tiling X parameter.  Offset X/Y offset the X/Y axes and Tiling Y offsets the Z axis.", Int) = 0
-        [ToggleUI]_TriplanarUseVertexColors("Vertex Colors are Object Space Position", Int) = 0
+        [HelpBox]_TriplanarTooltip("Object and World Triplanar sampling is scaled using each texture's Tiling X parameter.  Offset X/Y offsets the X/Y axes and Tiling Y offsets the Z axis.", Int) = 0
+        [ToggleUI]_TriplanarUseVertexColors("Vertex Colors are Object Space Position - WIP", Int) = 0
         [HideInInspector]end_Triplanar("", Int) = 0
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
@@ -261,7 +276,7 @@ Shader "Kaj/PBR"
         [HideInInspector]end_Stencil("", Int) = 0
 
         [HideInInspector]group_OptimizerSettings("Optimizer Settings", Int) = 0
-        [HelpBox]_InlineSamplerStatesTooltip("Inline sampler states can be used so all textures' unique filter/wrap settings work at the cost of 1x anisotropic filtering on all textures.", Int) = 0
+        [HelpBox]_InlineSamplerStatesTooltip("Inline sampler states make all textures' unique filter/wrap settings work at the cost of only 1x anisotropic filtering on all textures.  Albedo wrap/filter/aniso is used on all textures if this is off.", Int) = 0
         [ToggleUI]_InlineSamplerStates("Use Inline Sampler States", Int) = 1
         [HelpBox]_AnimatedPropsTooltip("Any material properties that need to be changed at runtime should be selected here so the Optimizer does not bake them into the optimized shader.", Int) = 0
         [Header(Animated Properties)]
@@ -274,12 +289,18 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_BumpMap_TexelSizeAnimated("  _BumpMap_TexelSize", Int) = 0
         [ToggleUILeft]_BumpMapUVAnimated("  _BumpMapUV", Int) = 0
         [ToggleUILeft]_BumpScaleAnimated("  _BumpScale", Int) = 0
+        [ToggleUILeft]_ClearcoatFresnelInfluenceAnimated("  _ClearcoatFresnelInfluence", Int) = 0
+        [ToggleUILeft]_ClearcoatMask_STAnimated("  _ClearcoatMask_ST", Int) = 0
+        [ToggleUILeft]_ClearcoatMask_TexelSizeAnimated("  _ClearcoatMask_TexelSize", Int) = 0
+        [ToggleUILeft]_ClearcoatMaskChannelAnimated("  _ClearcoatMaskChannel", Int) = 0
+        [ToggleUILeft]_ClearcoatMaskMaxAnimated("  _ClearcoatMaskMax", Int) = 0
+        [ToggleUILeft]_ClearcoatMaskMinAnimated("  _ClearcoatMaskMin", Int) = 0
+        [ToggleUILeft]_ClearcoatRefractAnimated("  _ClearcoatRefract", Int) = 0
+        [ToggleUILeft]_ClearcoatRoughnessInfluenceAnimated("  _ClearcoatRoughnessInfluence", Int) = 0
         [ToggleUILeft]_ColorAnimated("  _Color", Int) = 0
-        [ToggleUILeft]_CombinedMap_STAnimated("  _CombinedMap_ST", Int) = 0
-        [ToggleUILeft]_CombinedMap_TexelSizeAnimated("  _CombinedMap_TexelSize", Int) = 0
-        [ToggleUILeft]_CombinedMapUVAnimated("  _CombinedMapUV", Int) = 0
         [ToggleUILeft]_CoverageMap_STAnimated("  _CoverageMap_ST", Int) = 0
         [ToggleUILeft]_CoverageMap_TexelSizeAnimated("  _CoverageMap_TexelSize", Int) = 0
+        [ToggleUILeft]_CoverageMapChannelAnimated("  _CoverageMapChannel", Int) = 0
         [ToggleUILeft]_CoverageMapUVAnimated("  _CoverageMapUV", Int) = 0
         [ToggleUILeft]_CubeMapAnimated("  _CubeMap", Int) = 0
         [ToggleUILeft]_CubeMapModeAnimated("  _CubeMapMode", Int) = 0
@@ -292,10 +313,13 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_DetailAlbedoCombineModeAnimated("  _DetailAlbedoCombineMode", Int) = 0
         [ToggleUILeft]_DetailAlbedoMap_STAnimated("  _DetailAlbedoMap_ST", Int) = 0
         [ToggleUILeft]_DetailAlbedoMap_TexelSizeAnimated("  _DetailAlbedoMap_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapAlpha_STAnimated("  _DetailAlbedoMapAlpha_ST", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapAlpha_TexelSizeAnimated("  _DetailAlbedoMapAlpha_TexelSize", Int) = 0
         [ToggleUILeft]_DetailAlbedoMapBlue_STAnimated("  _DetailAlbedoMapBlue_ST", Int) = 0
         [ToggleUILeft]_DetailAlbedoMapBlue_TexelSizeAnimated("  _DetailAlbedoMapBlue_TexelSize", Int) = 0
         [ToggleUILeft]_DetailAlbedoMapGreen_STAnimated("  _DetailAlbedoMapGreen_ST", Int) = 0
         [ToggleUILeft]_DetailAlbedoMapGreen_TexelSizeAnimated("  _DetailAlbedoMapGreen_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailColorAAnimated("  _DetailColorA", Int) = 0
         [ToggleUILeft]_DetailColorBAnimated("  _DetailColorB", Int) = 0
         [ToggleUILeft]_DetailColorGAnimated("  _DetailColorG", Int) = 0
         [ToggleUILeft]_DetailColorRAnimated("  _DetailColorR", Int) = 0
@@ -304,10 +328,13 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_DetailMaskUVAnimated("  _DetailMaskUV", Int) = 0
         [ToggleUILeft]_DetailNormalMap_STAnimated("  _DetailNormalMap_ST", Int) = 0
         [ToggleUILeft]_DetailNormalMap_TexelSizeAnimated("  _DetailNormalMap_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMapAlpha_STAnimated("  _DetailNormalMapAlpha_ST", Int) = 0
+        [ToggleUILeft]_DetailNormalMapAlpha_TexelSizeAnimated("  _DetailNormalMapAlpha_TexelSize", Int) = 0
         [ToggleUILeft]_DetailNormalMapBlue_STAnimated("  _DetailNormalMapBlue_ST", Int) = 0
         [ToggleUILeft]_DetailNormalMapBlue_TexelSizeAnimated("  _DetailNormalMapBlue_TexelSize", Int) = 0
         [ToggleUILeft]_DetailNormalMapGreen_STAnimated("  _DetailNormalMapGreen_ST", Int) = 0
         [ToggleUILeft]_DetailNormalMapGreen_TexelSizeAnimated("  _DetailNormalMapGreen_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMapScaleAlphaAnimated("  _DetailNormalMapScaleAlpha", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleAnimated("  _DetailNormalMapScale", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleBlueAnimated("  _DetailNormalMapScaleBlue", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleGreenAnimated("  _DetailNormalMapScaleGreen", Int) = 0
@@ -321,6 +348,7 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_EmissionColorAnimated("  _EmissionColor", Int) = 0
         [ToggleUILeft]_EmissionMap_STAnimated("  _EmissionMap_ST", Int) = 0
         [ToggleUILeft]_EmissionMap_TexelSizeAnimated("  _EmissionMap_TexelSize", Int) = 0
+        [ToggleUILeft]_EmissionMapChannelAnimated("  _EmissionMapChannel", Int) = 0
         [ToggleUILeft]_EmissionMapUVAnimated("  _EmissionMapUV", Int) = 0
         [ToggleUILeft]_EmissionTintByAlbedoAnimated("  _EmissionTintByAlbedo", Int) = 0
         [ToggleUILeft]_FakeLightColorAnimated("  _FakeLightColor", Int) = 0
@@ -330,7 +358,6 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_GlossinessAnimated("  _Glossiness", Int) = 0
         [ToggleUILeft]_GlossinessMinAnimated("  _GlossinessMin", Int) = 0
         [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
-        [ToggleUILeft]_GlossinessSourceAnimated("  _GlossinessSource", Int) = 0
         [ToggleUILeft]_GlossyReflectionsAnimated("  _GlossyReflections", Int) = 0
         [ToggleUILeft]_HDREnabledAnimated("  _HDREnabled", Int) = 0
         [ToggleUILeft]_IndirectLightIntensityAnimated("  _IndirectLightIntensityAnimated", Int) = 0
@@ -342,20 +369,21 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_MetallicAnimated("  _Metallic", Int) = 0
         [ToggleUILeft]_MetallicGlossMap_STAnimated("  _MetallicGlossMap_ST", Int) = 0
         [ToggleUILeft]_MetallicGlossMap_TexelSizeAnimated("  _MetallicGlossMap_TexelSize", Int) = 0
-        [ToggleUILeft]_MetallicGlossMapCombinedMapChannelAnimated("  _MetallicGlossMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_MetallicGlossMapChannelAnimated("  _MetallicGlossMapChannel", Int) = 0
         [ToggleUILeft]_MetallicGlossMapUVAnimated("  _MetallicGlossMapUV", Int) = 0
         [ToggleUILeft]_MetallicMinAnimated("  _MetallicMin", Int) = 0
         [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
         [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
         [ToggleUILeft]_OcclusionMap_STAnimated("  _OcclusionMap_ST", Int) = 0
         [ToggleUILeft]_OcclusionMap_TexelSizeAnimated("  _OcclusionMap_TexelSize", Int) = 0
-        [ToggleUILeft]_OcclusionMapCombinedMapChannelAnimated("  _OcclusionMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_OcclusionMapChannelAnimated("  _OcclusionMapChannel", Int) = 0
         [ToggleUILeft]_OcclusionMapUVAnimated("  _OcclusionMapUV", Int) = 0
         [ToggleUILeft]_OcclusionStrengthAnimated("  _OcclusionStrength", Int) = 0
         [ToggleUILeft]_ParallaxAnimated("  _Parallax", Int) = 0
         [ToggleUILeft]_ParallaxBiasAnimated("  _ParallaxBias", Int) = 0
         [ToggleUILeft]_ParallaxMap_STAnimated("  _ParallaxMap_ST", Int) = 0
         [ToggleUILeft]_ParallaxMap_TexelSizeAnimated("  _ParallaxMap_TexelSize", Int) = 0
+        [ToggleUILeft]_ParallaxMapChannelAnimated("  _ParallaxMapChannel", Int) = 0
         [ToggleUILeft]_ParallaxMapUVAnimated("  _ParallaxMapUV", Int) = 0
         [ToggleUILeft]_ParallaxUV0Animated("  _ParallaxUV0", Int) = 0
         [ToggleUILeft]_ParallaxUV1Animated("  _ParallaxUV1", Int) = 0
@@ -367,6 +395,7 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_PointLightIntensityAnimated("  _PointLightIntensityAnimated", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_STAnimated("  _PreIntSkinTex_ST", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("  _PreIntSkinTex_TexelSize", Int) = 0
+        [ToggleUILeft]_RealtimeGIIntensityAnimated("  _RealtimeGIIntensity", Int) = 0
         [ToggleUILeft]_RealtimeLightmapIntensityAnimated("  _RealtimeLightmapIntensityAnimated", Int) = 0
         [ToggleUILeft]_ReceiveFogAnimated("  _ReceiveFog", Int) = 0
         [ToggleUILeft]_ReceiveShadowsAnimated("  _ReceiveShadows", Int) = 0
@@ -379,13 +408,13 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_SpecColorAnimated("  _SpecColor", Int) = 0
         [ToggleUILeft]_SpecGlossMap_STAnimated("  _SpecGlossMap_ST", Int) = 0
         [ToggleUILeft]_SpecGlossMap_TexelSizeAnimated("  _SpecGlossMap_TexelSize", Int) = 0
-        [ToggleUILeft]_SpecGlossMapCombinedMapChannelAnimated("  _SpecGlossMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_SpecGlossMapChannelAnimated("  _SpecGlossMapChannel", Int) = 0
         [ToggleUILeft]_SpecGlossMapUVAnimated("  _SpecGlossMapUV", Int) = 0
         [ToggleUILeft]_SpecularAnisotropyAngleAnimated("  _SpecularAnisotropyAngle", Int) = 0
         [ToggleUILeft]_SpecularAnisotropyAnimated("  _SpecularAnisotropy", Int) = 0
         [ToggleUILeft]_SpecularMap_STAnimated("  _SpecularMap_ST", Int) = 0
         [ToggleUILeft]_SpecularMap_TexelSizeAnimated("  _SpecularMap_TexelSize", Int) = 0
-        [ToggleUILeft]_SpecularMapCombinedMapChannelAnimated("  _SpecularMapCombinedMapChannel", Int) = 0
+        [ToggleUILeft]_SpecularMapChannelAnimated("  _SpecularMapChannel", Int) = 0
         [ToggleUILeft]_SpecularMapUVAnimated("  _SpecularMapUV", Int) = 0
         [ToggleUILeft]_SpecularMaxAnimated("  _SpecularMax", Int) = 0
         [ToggleUILeft]_SpecularMinAnimated("  _SpecularMin", Int) = 0
@@ -404,12 +433,19 @@ Shader "Kaj/PBR"
         [ToggleUILeft]_SubsurfaceColorAnimated("  _SubsurfaceColor", Int) = 0
         [ToggleUILeft]_TranslucencyMap_STAnimated("  _TranslucencyMap_ST", Int) = 0
         [ToggleUILeft]_TranslucencyMap_TexelSizeAnimated("  _TranslucencyMap_TexelSize", Int) = 0
+        [ToggleUILeft]_TranslucencyMapChannelAnimated("  _TranslucencyMapChannel", Int) = 0
         [ToggleUILeft]_TranslucencyMapUVAnimated("  _TranslucencyMapUV", Int) = 0
         [ToggleUILeft]_TriplanarUseVertexColorsAnimated("  _TriplanarUseVertexColors", Int) = 0
         [ToggleUILeft]_UVSecAnimated("  _UVSec", Int) = 0
         [ToggleUILeft]_VertexColorsEnabledAnimated("  _VertexColorsEnabled", Int) = 0
         [ToggleUILeft]_VertexLightIntensityAnimated("  _VertexLightIntensityAnimated", Int) = 0
         [ToggleUILeft]_WorkflowModeAnimated("  _WorkflowMode", Int) = 0
+        [ToggleUILeft]group_toggle_ClearcoatAnimated("  group_toggle_Clearcoat", Int) = 0
+        [ToggleUILeft]group_toggle_DiffuseAnimated("  group_toggle_Diffuse", Int) = 0
+        [ToggleUILeft]group_toggle_ParallaxAnimated("  group_toggle_Parallax", Int) = 0
+        [ToggleUILeft]group_toggle_ReflectionsAnimated("  group_toggle_Reflections", Int) = 0
+        [ToggleUILeft]group_toggle_SpecularAnimated("  group_toggle_Specular", Int) = 0
+        [ToggleUILeft]group_toggle_SSSTransmissionAnimated("  group_toggle_SSSTransmission", Int) = 0
         [HideInInspector]end_OptimizerSettings("", Int) = 0
 
         [HideInInspector]group_Debug("Debug", Int) = 0
@@ -417,7 +453,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 30", Int) = 30
+        [KajLabel]_Version("Shader Version: 31", Int) = 31
     }
 
     CustomEditor "Kaj.ShaderEditor"
