@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Globalization;
 
-// v4
+// v5
 
 namespace Kaj
 {
@@ -23,7 +23,7 @@ namespace Kaj
 
         // LOD Crossfade Dithing doesn't have multi_compile keyword correctly toggled at build time (its always included) so
         // this hard-coded material property will uncomment //#pragma multi_compile _ LOD_FADE_CROSSFADE in optimized .shader files
-        public static readonly string LODCrossFadePropertyName = "_DitheredLODCrossfade";
+        public static readonly string LODCrossFadePropertyName = "_LODCrossfade";
 
         // IgnoreProjector and ForceNoShadowCasting don't work as override tags, so material properties by these names
         // will determine whether or not //"IgnoreProjector"="True" etc. will be uncommented in optimized .shader files
@@ -36,7 +36,7 @@ namespace Kaj
 
         // Currently, Material.SetShaderPassEnabled doesn't work on "ShadowCaster" lightmodes,
         // and doesn't let "ForwardAdd" lights get turned into vertex lights if "ForwardAdd" is simply disabled
-        // vs. if the pases didn't exist at all in the shader.  (Allowing up to 8 vertex lights in the base pass)
+        // vs. if the pases didn't exist at all in the shader.
         // The Optimizer will take a mask property by this name and attempt to correct these issues
         // by hard-removing the shadowcaster and fwdadd passes from the shader being optimized.
         public static readonly string DisabledLightModesPropertyName = "_LightModes";
@@ -120,7 +120,7 @@ namespace Kaj
             "UnityStandardUtils.cginc"
         };
 
-        public static readonly char[] ValidSeparators = new char[] {' ','\t','\n',';',',','.','(',')','[',']','{','}','>','<','=','!','&','|','^','+','-','*','/','#' };
+        public static readonly char[] ValidSeparators = new char[] {' ','\t','\r','\n',';',',','.','(',')','[',']','{','}','>','<','=','!','&','|','^','+','-','*','/','#' };
 
         public static readonly string[] ValidPropertyDataTypes = new string[]
         {
@@ -164,6 +164,67 @@ namespace Kaj
             public string[] lines;
         }
 
+        public class TextureProperty
+        {
+            public string name;
+            public Texture texture;
+            public int uv;
+            public Vector2 scale;
+            public Vector2 offset;
+        }
+
+        public static void LockButtonGUI(MaterialEditor materialEditor, MaterialProperty shaderOptimizer)
+        {
+            if (shaderOptimizer == null) return;
+
+            // Theoretically this shouldn't ever happen since locked in materials have different shaders.
+            // But in a case where the material property says its locked in but the material really isn't, this
+            // will display and allow users to fix the property/lock in
+            if (shaderOptimizer.hasMixedValue)
+            {
+                EditorGUI.BeginChangeCheck();
+                GUILayout.Button("Lock in Optimized Shaders (Beta) (" + materialEditor.targets.Length + " materials)");
+                if (EditorGUI.EndChangeCheck())
+                    foreach (Material m in materialEditor.targets)
+                    {
+                        m.SetFloat(shaderOptimizer.name, 1);
+                        MaterialProperty[] props = MaterialEditor.GetMaterialProperties(new UnityEngine.Object[] { m });
+                        if (!ShaderOptimizer.Lock(m, props)) // Error locking shader, revert property
+                            m.SetFloat(shaderOptimizer.name, 0);
+                    }
+            }
+            else
+            {
+                EditorGUI.BeginChangeCheck();
+                if (shaderOptimizer.floatValue == 0)
+                {
+                    if (materialEditor.targets.Length == 1)
+                        GUILayout.Button("Lock In Optimized Shader (Beta)");
+                    else GUILayout.Button("Lock in Optimized Shaders (Beta) (" + materialEditor.targets.Length + " materials)");
+                }
+                else GUILayout.Button("Unlock Shader");
+                if (EditorGUI.EndChangeCheck())
+                {
+                    shaderOptimizer.floatValue = shaderOptimizer.floatValue == 1 ? 0 : 1;
+                    if (shaderOptimizer.floatValue == 1)
+                    {
+                        foreach (Material m in materialEditor.targets)
+                        {
+                            MaterialProperty[] props = MaterialEditor.GetMaterialProperties(new UnityEngine.Object[] { m });
+                            if (!ShaderOptimizer.Lock(m, props))
+                                m.SetFloat(shaderOptimizer.name, 0);
+                        }
+                    }
+                    else
+                    {
+                        foreach (Material m in materialEditor.targets)
+                            if (!ShaderOptimizer.Unlock(m))
+                                m.SetFloat(shaderOptimizer.name, 1);
+                    }
+                }
+            }
+        }
+
         public static bool Lock(Material material, MaterialProperty[] props)
         {
             // File filepaths and names
@@ -172,10 +233,16 @@ namespace Kaj
             string materialFilePath = AssetDatabase.GetAssetPath(material);
             string materialFolder = Path.GetDirectoryName(materialFilePath);
             string smallguid = Guid.NewGuid().ToString().Split('-')[0];
-            string newShaderName = shader.name + ".Optimized/" + material.name + "-" + smallguid;
+            string newShaderName = "Hidden/" + shader.name + "/" + material.name + "-" + smallguid;
             string newShaderDirectory = materialFolder + "/OptimizedShaders/" + material.name + "-" + smallguid + "/";
 
             // Get collection of all properties to replace
+            // Simultaneously build a string of #defines for each CGPROGRAM
+            StringBuilder definesSB = new StringBuilder();
+            definesSB.Append(Environment.NewLine);
+            definesSB.Append("#define ");
+            definesSB.Append(OptimizerEnabledKeyword);
+            definesSB.Append(Environment.NewLine);
             List<PropertyData> constantProps = new List<PropertyData>();
             foreach (MaterialProperty prop in props)
             {
@@ -185,6 +252,23 @@ namespace Kaj
 
                 if (prop.name == UseInlineSamplerStatesPropertyName)
                     UseInlineSamplerStates = (prop.floatValue == 1);
+
+                switch(prop.type)
+                {
+                    case MaterialProperty.PropType.Float:
+                    case MaterialProperty.PropType.Range:
+                        definesSB.Append("#define PROP");
+                        definesSB.Append(prop.name.ToUpper());
+                        definesSB.Append(' ');
+                        definesSB.Append(prop.floatValue.ToString(CultureInfo.InvariantCulture));
+                        definesSB.Append(Environment.NewLine);
+                        break;
+                    case MaterialProperty.PropType.Texture:
+                        definesSB.Append("#define PROP");
+                        definesSB.Append(prop.name.ToUpper());
+                        definesSB.Append(Environment.NewLine);
+                        break;
+                }
 
                 // Check for the convention 'Animated' Property to be true otherwise assume all properties are constant
                 MaterialProperty animatedProp = Array.Find(props, x => x.name == prop.name + AnimatedPropertySuffix);
@@ -217,12 +301,6 @@ namespace Kaj
                         constantProps.Add(propData);
                         break;
                     case MaterialProperty.PropType.Float:
-                        propData = new PropertyData();
-                        propData.type = PropertyType.Float;
-                        propData.name = prop.name;
-                        propData.value = new Vector4(prop.floatValue, 0, 0, 0);
-                        constantProps.Add(propData);
-                        break;
                     case MaterialProperty.PropType.Range:
                         propData = new PropertyData();
                         propData.type = PropertyType.Float;
@@ -257,6 +335,7 @@ namespace Kaj
                         break;
                 }
             }
+            string optimizerDefines = definesSB.ToString();
 
             // Get list of lightmode passes to delete
             List<string> disabledLightModes = new List<string>();
@@ -273,7 +352,7 @@ namespace Kaj
             // Parse shader and cginc files, also gets preprocessor macros
             List<ParsedShaderFile> shaderFiles = new List<ParsedShaderFile>();
             List<Macro> macros = new List<Macro>();
-            if (!ParseShaderFilesRecursiveNew(shaderFiles, newShaderDirectory, shaderFilePath, macros))
+            if (!ParseShaderFilesRecursive(shaderFiles, newShaderDirectory, shaderFilePath, macros))
                 return false;
 
             
@@ -315,16 +394,17 @@ namespace Kaj
                             for (int j=i+1; j<psf.lines.Length;j++)
                                 if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
                                 {
-                                    ReplaceShaderValuesNew(psf.lines, i+1, j, props, constantProps, macros);
+                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros);
                                     break;
                                 }
                         }
                         else if (trimmedLine.StartsWith("CGPROGRAM"))
                         {
+                            psf.lines[i] += optimizerDefines;
                             for (int j=i+1; j<psf.lines.Length;j++)
                                 if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
                                 {
-                                    ReplaceShaderValuesNew(psf.lines, i+1, j, props, constantProps, macros);
+                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros);
                                     break;
                                 }
                         }
@@ -364,10 +444,10 @@ namespace Kaj
                     }
                 }
                 else // CGINC file
-                    ReplaceShaderValuesNew(psf.lines, 0, psf.lines.Length, props, constantProps, macros);
+                    ReplaceShaderValues(material, psf.lines, 0, psf.lines.Length, props, constantProps, macros);
 
                 // Recombine file lines into a single string
-                int totalLen = psf.lines.Length; // extra space for newline chars
+                int totalLen = psf.lines.Length*2; // extra space for newline chars
                 foreach (string line in psf.lines)
                     totalLen += line.Length;
                 StringBuilder sb = new StringBuilder(totalLen);
@@ -419,7 +499,7 @@ namespace Kaj
         // Preprocess each file for macros and includes
         // Save each file as string[], parse each macro with //KSOEvaluateMacro
         // Only editing done is replacing #include "X" filepaths where necessary
-        private static bool ParseShaderFilesRecursiveNew(List<ParsedShaderFile> filesParsed, string newTopLevelDirectory, string filePath, List<Macro> macros)
+        private static bool ParseShaderFilesRecursive(List<ParsedShaderFile> filesParsed, string newTopLevelDirectory, string filePath, List<Macro> macros)
         {
             // Infinite recursion check
             if (filesParsed.Exists(x => x.filePath == filePath)) return true;
@@ -467,7 +547,7 @@ namespace Kaj
                     // cginclude filepath is either absolute or relative
                     if (includeFilename.StartsWith("Assets/"))
                     {
-                        if (!ParseShaderFilesRecursiveNew(filesParsed, newTopLevelDirectory, includeFilename, macros))
+                        if (!ParseShaderFilesRecursive(filesParsed, newTopLevelDirectory, includeFilename, macros))
                             return false;
                         // Only absolute filepaths need to be renampped in-file
                         fileLines[i] = fileLines[i].Replace(includeFilename, newTopLevelDirectory + includeFilename);
@@ -475,7 +555,7 @@ namespace Kaj
                     else
                     {
                         string includeFullpath = GetFullPath(includeFilename, Path.GetDirectoryName(filePath));
-                        if (!ParseShaderFilesRecursiveNew(filesParsed, newTopLevelDirectory, includeFullpath, macros))
+                        if (!ParseShaderFilesRecursive(filesParsed, newTopLevelDirectory, includeFullpath, macros))
                             return false;
                     }
                 }
@@ -541,8 +621,10 @@ namespace Kaj
  
         // Replace properties! The meat of the shader optimization process
         // For each constantProp, pattern match and find each instance of the property that isn't a declaration
-        private static void ReplaceShaderValuesNew(string[] lines, int startLine, int endLine, MaterialProperty[] props, List<PropertyData> constants, List<Macro> macros)
+        private static void ReplaceShaderValues(Material material, string[] lines, int startLine, int endLine, MaterialProperty[] props, List<PropertyData> constants, List<Macro> macros)
         {
+            List <TextureProperty> uniqueSampledTextures = new List<TextureProperty>();
+
             // Outside loop is each line
             for (int i=startLine;i<endLine;i++)
             {
@@ -594,6 +676,68 @@ namespace Kaj
                         lines[i+1] = lines[i+1].Replace(args[0], InlineSamplerStateNames[inlineSamplerIndex]);
                     }
                 }
+                else if (lineTrimmed.StartsWith("//KSODuplicateTextureCheckStart"))
+                {
+                    // Since files are not fully parsed and instead loosely processed, each shader function needs to have
+                    // its sampled texture list reset somewhere before KSODuplicateTextureChecks are made.
+                    // As long as textures are sampled in-order inside a single function, this method will work.
+                    uniqueSampledTextures = new List<TextureProperty>();
+                }
+                else if (lineTrimmed.StartsWith("//KSODuplicateTextureCheck"))
+                {
+                    // Each KSODuplicateTextureCheck line gets evaluated when the shader is optimized
+                    // If the texture given has already been sampled as another texture (i.e. one texture is used in two slots)
+                    // AND has been sampled with the same UV mode - as indicated by a convention UV property,
+                    // AND has been sampled with the exact same Tiling/Offset values
+                    // AND has been logged by KSODuplicateTextureCheck, 
+                    // then the variable corresponding to the first instance of that texture being 
+                    // sampled will be assigned to the variable corresponding to the given texture.
+                    // The compiler will then skip the duplicate texture sample since its variable is overwritten before being used
+                    
+                    // Parse line for argument texture property name
+                    string lineParsed = lineTrimmed.Replace(" ", "").Replace("\t", "");
+                    int firstParenthesis = lineParsed.IndexOf('(');
+                    int lastParenthesis = lineParsed.IndexOf(')');
+                    string argName = lineParsed.Substring(firstParenthesis+1, lastParenthesis-firstParenthesis-1);
+                    // Check if texture property by argument name exists and has a texture assigned
+                    if (Array.Exists(props, x => x.name == argName))
+                    {
+                        MaterialProperty argProp = Array.Find(props, x => x.name == argName);
+                        if (argProp.textureValue != null)
+                        {
+                            // If no convention UV property exists, sampled UV is assumed to be UV0
+                            int UV = 0;
+                            if (Array.Exists(props, x => x.name == argName + "UV"))
+                                UV = (int)(Array.Find(props, x => x.name == argName + "UV").floatValue);
+
+                            Vector2 texScale = material.GetTextureScale(argName);
+                            Vector2 texOffset = material.GetTextureOffset(argName);
+
+                            // Check if this texture has already been sampled
+                            if (uniqueSampledTextures.Exists(x => (x.texture == argProp.textureValue) 
+                                                               && (x.uv == UV)
+                                                               && (x.scale == texScale)
+                                                               && x.offset == texOffset))
+                            {
+                                string texName = uniqueSampledTextures.Find(x => (x.texture == argProp.textureValue) && (x.uv == UV)).name;
+                                // convention _var variables requried. i.e. _MainTex_var and _CoverageMap_var
+                                lines[i] = argName + "_var = " + texName + "_var;";
+                            }
+                            else
+                            {
+                                // Texture/UV/ST combo hasn't been sampled yet, add it to the list
+                                TextureProperty tp = new TextureProperty();
+                                tp.name = argName;
+                                tp.texture = argProp.textureValue;
+                                tp.uv = UV;
+                                tp.scale = texScale;
+                                tp.offset = texOffset;
+                                uniqueSampledTextures.Add(tp);
+                            }
+                        }
+                    }
+                }
+
                 // then replace macros
                 foreach (Macro macro in macros)
                 {

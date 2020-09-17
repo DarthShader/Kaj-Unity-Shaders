@@ -468,7 +468,6 @@ namespace Kaj
         MaterialProperty forceNoShadowCasting = null; // Doesn't work, thanks Unity
         MaterialProperty canUseSpriteAtlas = null;
         MaterialProperty previewType = null;
-        MaterialProperty ditheredLODcrossfade = null; // Hard coded fix for Unity's inability to only include this keyword when necessary
 
         // Shader Optimizer
         MaterialProperty shaderOptimizer = null;
@@ -489,8 +488,6 @@ namespace Kaj
             if (canUseSpriteAtlas == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _CanUseSpriteAtlas not found");
             previewType = FindProperty("_PreviewType", props, false);
             if (previewType == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _PreviewType not found");
-            ditheredLODcrossfade = FindProperty("_DitheredLODCrossfade", props, false);
-            if (ditheredLODcrossfade == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _DitheredLODCrossfade not found");
             shaderOptimizer = FindProperty("_ShaderOptimizerEnabled", props, false);
             if (shaderOptimizer == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _ShaderOptimizerEnabled not found");
             Material material = materialEditor.target as Material;
@@ -665,60 +662,8 @@ namespace Kaj
                 EditorGUI.showMixedValue = false;
             }
 
-            // Dithered LOD Crossfade
-            if (ditheredLODcrossfade != null)
-            {
-                EditorGUI.showMixedValue = ditheredLODcrossfade.hasMixedValue;
-                var ditheredLODcrossfadeFlag = ditheredLODcrossfade.floatValue;
-                EditorGUI.BeginChangeCheck();
-                ditheredLODcrossfadeFlag = EditorGUILayout.Toggle("LOD Crossfade", ditheredLODcrossfadeFlag == 1) ? 1 : 0;
-                if (EditorGUI.EndChangeCheck())
-                    ditheredLODcrossfade.floatValue = ditheredLODcrossfadeFlag;
-                EditorGUI.showMixedValue = false;
-            }
-
             // Kaj Shader Optimizer
-            if (shaderOptimizer != null)
-            {
-                // Theoretically this shouldn't ever happen since locked in materials have different shaders.
-                // But in a case where the material property says its locked in but the material really isn't, this
-                // will display and allow users to fix the property/lock in
-                if (shaderOptimizer.hasMixedValue)
-                {
-                    EditorGUI.BeginChangeCheck();
-                    GUILayout.Button("Lock in Optimized Shaders (Beta) (" + materialEditor.targets.Length + " materials)");
-                    if (EditorGUI.EndChangeCheck())
-                        foreach (Material m in materialEditor.targets)
-                        {
-                            m.SetFloat("_ShaderOptimizerEnabled", 1);
-                            if (!ShaderOptimizer.Lock(m, props)) // Error locking shader, revert property
-                                m.SetFloat("_ShaderOptimizerEnabled", 0);
-                        }
-                }
-                else
-                {
-                    EditorGUI.BeginChangeCheck();
-                    if (shaderOptimizer.floatValue == 0)
-                        GUILayout.Button("Lock In Optimized Shader (Beta)");
-                    else GUILayout.Button("Unlock Shader");
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        shaderOptimizer.floatValue = shaderOptimizer.floatValue == 1 ? 0 : 1;
-                        if (shaderOptimizer.floatValue == 1)
-                        {
-                            foreach (Material m in materialEditor.targets)
-                                if (!ShaderOptimizer.Lock(m, props))
-                                    m.SetFloat("_ShaderOptimizerEnabled", 0);
-                        }
-                        else
-                        {
-                            foreach (Material m in materialEditor.targets)
-                                if (!ShaderOptimizer.Unlock(m))
-                                    m.SetFloat("_ShaderOptimizerEnabled", 1);
-                        }
-                    }
-                }
-            }
+            ShaderOptimizer.LockButtonGUI(materialEditor, shaderOptimizer);
 
             // Rendering Mode (Shader Presets) now considered part of individual shader logic
             if (blendMode != null)

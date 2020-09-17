@@ -399,7 +399,6 @@ SamplerState sampler_trilinear_mirroronce;
 // shader triplanar/planar/screenspace variables are used with custom Tiling/Offset setup
 //KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS(var,tex,samplertex) \
-    UNITY_BRANCH \
     if (tex##UV == 0) \
         var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv0and1.xy * tex##_ST.xy + tex##_ST.zw)); \
     else if (tex##UV == 1) \
@@ -431,7 +430,6 @@ SamplerState sampler_trilinear_mirroronce;
 
 // KSOEvaluateMacro
 #define PBR_SAMPLE_TEX2DS_BIAS(var,tex,samplertex,bias) \
-    UNITY_BRANCH \
     if (tex##UV == 0) \
         var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv0and1.xy * tex##_ST.xy + tex##_ST.zw), bias); \
     else if (tex##UV == 1) \
@@ -579,7 +577,10 @@ half3 VertexLightsDiffuse(half3 normalDir, float3 posWorld)
                 float squaredDistance = max(0.000001, dot(vertexToLightSource, vertexToLightSource));
                 vertexToLightSource *= rsqrt(squaredDistance);
                 float atten = 1.0 / (1.0 + squaredDistance * unity_4LightAtten0[i]);
-                float diff = max(0, dot(normalDir, vertexToLightSource));
+                float diff;
+                if (any(normalDir))
+                    diff = max(0, dot(normalDir, vertexToLightSource));
+                else diff = 1;
                 vertexDiffuse += unity_LightColor[i].rgb * (diff * atten);
             }
         #endif
@@ -844,25 +845,21 @@ UNITY_INSTANCING_BUFFER_START(Props)
     //UNITY_DEFINE_INSTANCED_PROP
 UNITY_INSTANCING_BUFFER_END(Props)
 
-struct appdata_full_pbr
-{
-    float4 vertex : POSITION;
-    half3 normal : NORMAL;
-    half4 tangent : TANGENT;
-    float2 texcoord : TEXCOORD0;
-    float2 texcoord1 : TEXCOORD1;
-    float2 texcoord2 : TEXCOORD2;
-    float2 texcoord3 : TEXCOORD3;
-    fixed4 color : COLOR;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-};
-// Full v2f, if you need fewer interpolators make a new vert/v2f
+#ifdef OPTIMIZER_ENABLED
+    #if (PROP_VERTEXCOLORSENABLED == 0 && PROP_TRIPLANARUSEVERTEXCOLORS == 0)
+        #define EXCLUDE_VERTEX_COLORS
+    #endif
+#endif
+
+// PBR v2f
 struct v2f_full
 {
 	float4 pos : SV_POSITION;
 	float4 uv0and1 : TEXCOORD0;
     float4 uv2and3 : TEXCOORD1;
+#ifndef EXCLUDE_VERTEX_COLORS
 	float4 color : TEXCOORD2;
+#endif
     float4 posWorld : TEXCOORD3;    
     float4 posObject : TEXCOORD4;
     float3 normalObject : TEXCOORD5;
@@ -878,7 +875,7 @@ struct v2f_full
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
-v2f_full vert_full (appdata_full_pbr v)
+v2f_full vert_full (appdata_full v)
 {
 	v2f_full o;
     UNITY_SETUP_INSTANCE_ID(v);
@@ -899,15 +896,17 @@ v2f_full vert_full (appdata_full_pbr v)
 	o.pos = UnityObjectToClipPos(v.vertex);
     o.posWorld = mul(unity_ObjectToWorld, v.vertex);
     o.posObject = v.vertex;
-	o.normalWorld = normalize(UnityObjectToWorldNormal(v.normal));
+	o.normalWorld = UnityObjectToWorldNormal(v.normal);
     o.normalObject = v.normal;
-	o.tangentWorld = normalize(mul(unity_ObjectToWorld, float4(v.tangent.xyz, 0.0)).xyz);
-	o.bitangentWorld = normalize(cross(o.normalWorld, o.tangentWorld) * v.tangent.w);
+	o.tangentWorld = float4(UnityObjectToWorldDir(v.tangent.xyz), v.tangent.w);
+	o.bitangentWorld = cross(o.normalWorld, o.tangentWorld) * v.tangent.w;
 	o.uv0and1.xy = v.texcoord;
     o.uv0and1.zw = v.texcoord1;
     o.uv2and3.xy = v.texcoord2;
     o.uv2and3.zw = v.texcoord3;
+#ifndef EXCLUDE_VERTEX_COLORS
 	o.color = v.color;
+#endif
     o.grabPos = ComputeGrabScreenPos(o.pos);
     float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal, v.tangent.xyz) * v.tangent.w, v.normal);
 	o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
@@ -918,18 +917,22 @@ v2f_full vert_full (appdata_full_pbr v)
 	return o;
 }
 
-
 fixed4 frag_unlitSimple (v2f_full i) : SV_Target
 {
+#ifndef EXCLUDE_VERTEX_COLORS
 	return UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv0and1.xy, _MainTex)) * _Color * i.color;
+#endif
 }
-
 
 half4 frag_full_pbr (v2f_full i) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(i);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
     UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
+
+    // Fragment normalizations and geometric specular antialiasing
+    i.normalWorld = normalize(i.normalWorld);
+    
 
     // Triplanar UVs
     float3 tpObjBlendFactor = normalize(abs(i.normalObject));
@@ -939,9 +942,11 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     float2 tpObjZ = 0;
     if (_TriplanarUseVertexColors)
     {
+#ifndef EXCLUDE_VERTEX_COLORS
         tpObjX = i.color.yz;
         tpObjY = i.color.zx;
         tpObjZ = i.color.xy;
+#endif
     }
     else
     {
@@ -1038,11 +1043,23 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
         PBR_SAMPLE_TEX2DS(_DetailAlbedoMapAlpha_var, _DetailAlbedoMapAlpha, _MainTex);
     
+    //KSODuplicateTextureCheckStart
+
+    // Early texture samples, _ParallaxMap must always be sampled independently because it affects other samples
+    //KSODuplicateTextureCheck(_MainTex)
+    //KSODuplicateTextureCheck(_CoverageMap)
+    //KSODuplicateTextureCheck(_DetailMask)
+    //KSODuplicateTextureCheck(_DetailAlbedoMap)
+    //KSODuplicateTextureCheck(_DetailAlbedoMapGreen)
+    //KSODuplicateTextureCheck(_DetailAlbedoMapBlue)
+    //KSODuplicateTextureCheck(_DetailAlbedoMapAlpha)
 
     // Base opacity
     half3 albedo = _MainTex_var.rgb * _Color.rgb;
+#ifndef EXCLUDE_VERTEX_COLORS
     if (_VertexColorsEnabled)
         albedo *= i.color.rgb;
+#endif
     half opacity = 1;
     if (_AlbedoTransparencyEnabled)
         opacity = _MainTex_var.a;
@@ -1066,8 +1083,10 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_DetailAlbedoMapAlpha_TexelSize.x != 1)
         opacity = lerp(opacity, opacity * _DetailAlbedoMapAlpha_var.a, _DetailMask_var.a);
     opacity *= _Color.a;
+#ifndef EXCLUDE_VERTEX_COLORS
     if (_VertexColorsEnabled)
         opacity *= i.color.a;
+#endif
     // A2C
     UNITY_BRANCH
     if (_Mode == 1) // _ALPHATEST_ON
@@ -1127,6 +1146,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     fixed _DetailNormalMapUV = _UVSec;
     fixed _DetailNormalMapGreenUV = _UVSec;
     fixed _DetailNormalMapBlueUV = _UVSec;
+    fixed _DetailNormalMapAlphaUV = _UVSec;
     half4 _BumpMap_var = 0;
     UNITY_BRANCH
     if (_BumpMap_TexelSize.x != 1)
@@ -1147,6 +1167,11 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_DetailNormalMapBlue_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailNormalMapBlue)
         PBR_SAMPLE_TEX2DS(_DetailNormalMapBlue_var, _DetailNormalMapBlue, _MainTex);
+    fixed4 _DetailNormalMapAlpha_var = 0;
+    UNITY_BRANCH
+    if (_DetailNormalMapAlpha_TexelSize.x != 1)
+        //KSOInlineSamplerState(_MainTex, _DetailNormalMapAlpha)
+        PBR_SAMPLE_TEX2DS(_DetailNormalMapAlpha_var, _DetailNormalMapAlpha, _MainTex);
     fixed4 _TranslucencyMap_var = 0;
     UNITY_BRANCH
     if (group_toggle_SSSTransmission && _TranslucencyMap_TexelSize.x != 1)
@@ -1158,17 +1183,29 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         //KSOInlineSamplerState(_MainTex, _BumpMap)
         PBR_SAMPLE_TEX2DS_BIAS(blurredWorldNormal_var, _BumpMap, _MainTex, _BumpBlurBias);
     fixed4 _SpecularAnisotropyTangentMap_var = 1;
-    UNITY_BRANCH
-    if (_SpecularMode == 2 && _SpecularAnisotropyTangentMap_TexelSize.x != 1)
+    //UNITY_BRANCH
+    //if (_SpecularMode == 2 && _SpecularAnisotropyTangentMap_TexelSize.x != 1)
         ////KSOInlineSamplerState(_MainTex, _SpecularAnisotropyTangentMap)
-        PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
+        //PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
     #ifdef UNITY_PASS_FORWARDBASE
         fixed4 _EmissionMap_var = 1;
         if (_EmissionMap_TexelSize.x != 1)
             //KSOInlineSamplerState(_MainTex, _EmissionMap)
             PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
     #endif
-    
+    // Duplicate texture checks, second bumpmap bias sample always done separately
+    //KSODuplicateTextureCheck(_MetallicGlossMap)
+    //KSODuplicateTextureCheck(_SpecGlossMap)
+    //KSODuplicateTextureCheck(_OcclusionMap)
+    //KSODuplicateTextureCheck(_SpecularMap)
+    //KSODuplicateTextureCheck(_BumpMap)
+    //KSODuplicateTextureCheck(_DetailNormalMap)
+    //KSODuplicateTextureCheck(_DetailNormalMapGreen)
+    //KSODuplicateTextureCheck(_DetailNormalMapBlue)
+    //KSODuplicateTextureCheck(_DetailNormalMapAlpha)
+    //KSODuplicateTextureCheck(_TranslucencyMap)
+    //KSODuplicateTextureCheck(_EmissionMap)
+
 
     // Assign shading variables
     // Map textures to PBR variables and filter them
@@ -1192,7 +1229,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_GlossinessMode == 1)
         perceptualRoughness = 1.0 - perceptualRoughness;
     perceptualRoughness = _GlossinessMin + perceptualRoughness * (_Glossiness - _GlossinessMin);
-    fixed3 specular;
+    fixed3 specular = 1;
     if (_SpecularMap_TexelSize.x != 1)
     {
         if (_SpecularMapChannel < 4)
@@ -1208,6 +1245,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorR.rgb, _DetailMask_var.r);
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorG.rgb, _DetailMask_var.g);
         albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorB.rgb, _DetailMask_var.b);
+        albedo.rgb = lerp(albedo.rgb, albedo.rgb * _DetailColorA.rgb, _DetailMask_var.a);
     }
     if (_DetailAlbedoMap_TexelSize.x != 1)
         albedo = switchDetailAlbedo(_DetailAlbedoMap_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.r);
@@ -1215,6 +1253,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         albedo = switchDetailAlbedo(_DetailAlbedoMapGreen_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.g);
     if (_DetailAlbedoMapBlue_TexelSize.x != 1)
         albedo = switchDetailAlbedo(_DetailAlbedoMapBlue_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.b);
+    if (_DetailAlbedoMapAlpha_TexelSize.x != 1)
+        albedo = switchDetailAlbedo(_DetailAlbedoMapAlpha_var, albedo, _DetailAlbedoCombineMode, _DetailMask_var.a);
     // Normals
     half3 blendedNormal = half3(0,0,1);
     if (_BumpMap_TexelSize.x != 1)
@@ -1225,6 +1265,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, UnpackScaleNormal(_DetailNormalMapGreen_var, _DetailNormalMapScaleGreen)), _DetailMask_var.g);
     if (_DetailNormalMapBlue_TexelSize.x != 1)
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, UnpackScaleNormal(_DetailNormalMapBlue_var, _DetailNormalMapScaleBlue)), _DetailMask_var.b);
+    if (_DetailNormalMapAlpha_TexelSize.x != 1)
+        blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, UnpackScaleNormal(_DetailNormalMapAlpha_var, _DetailNormalMapScaleAlpha)), _DetailMask_var.a);
     float3x3 tangentToWorld = float3x3(i.tangentWorld, i.bitangentWorld, i.normalWorld);
     fixed3 normalDir = normalize(mul(blendedNormal, tangentToWorld));
     fixed translucency = 0;
@@ -1367,15 +1409,15 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     #ifdef UNITY_PASS_FORWARDBASE
         #if defined(HANDLE_SHADOWS_BLENDING_IN_GI)
             half bakedAtten = UnitySampleBakedOcclusion(lightmapUV, i.posWorld.xyz);
-            float zDist = dot(_WorldSpaceCameraPos - posWorld, UNITY_MATRIX_V[2].xyz);
-            float fadeDist = UnityComputeShadowFadeDistance(posWorld, zDist);
+            float zDist = dot(_WorldSpaceCameraPos - i.posWorld.xyz, UNITY_MATRIX_V[2].xyz);
+            float fadeDist = UnityComputeShadowFadeDistance(i.posWorld.xyz, zDist);
             attenuation = UnityMixRealtimeAndBakedShadows(attenuation, bakedAtten, UnityComputeShadowFade(fadeDist));
         #endif
         #if UNITY_SHOULD_SAMPLE_SH
             half3 indirect_diffuse_normal = normalDir;
             if (_DiffuseMode == 3) // Flat lit light, vertex lights are sampled with regular normal
                 indirect_diffuse_normal = 0;
-            indirect_diffuse = VertexLightsDiffuse(normalDir, i.posWorld.xyz) * _VertexLightIntensity;
+            indirect_diffuse = VertexLightsDiffuse(indirect_diffuse_normal, i.posWorld.xyz) * _VertexLightIntensity;
             indirect_diffuse += ShadeSHPerPixelModular(indirect_diffuse_normal, i.posWorld.xyz) * _LightProbeIntensity;
             // Stylized indirect diffuse transmission
             if (group_toggle_SSSTransmission && _SSSStylizedIndirect > 0)
@@ -1697,7 +1739,7 @@ struct v2f_shadow_full
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
-v2f_shadow_full vert_shadow_full (appdata_full_pbr v)
+v2f_shadow_full vert_shadow_full (appdata_full v)
 {
     v2f_shadow_full o;
     o.uv0and1.xy = v.texcoord;
@@ -1772,22 +1814,21 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         // Panosphere UVs
         float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
 
+        // Texture samples
+        fixed4 _MainTex_var = 1;
+        UNITY_BRANCH
+        if (_AlbedoTransparencyEnabled && _MainTex_TexelSize.x != 1)
+            PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
+        fixed4 _CoverageMap_var = 0;
+        UNITY_BRANCH
+        if (_CoverageMap_TexelSize.x != 1)
+            //KSOInlineSamplerState(_MainTex, _CoverageMap)
+            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
         fixed4 _DetailMask_var = 1;
         UNITY_BRANCH
         if (_DetailMask_TexelSize.x != 1)
             //KSOInlineSamplerState(_MainTex, _DetailMask)
             PBR_SAMPLE_TEX2DS(_DetailMask_var, _DetailMask, _MainTex);
-        // Temporary defines so the macro works, could change macro to switch UVselection just for these details
-        /*
-        float2 detailUV;
-        if (_UVSec == 0)
-            detailUV = i.uv0and1.xy;
-        else if (_UVSec == 1)
-            detailUV = i.uv0and1.zw;
-        else if (_UVSec == 2)
-            detailUV = i.uv2and3.xy;
-        else if (_UVSec == 3)
-            detailUV = i.uv2and3.zw;*/
         fixed _DetailAlbedoMapUV = _UVSec;
         fixed _DetailAlbedoMapGreenUV = _UVSec;
         fixed _DetailAlbedoMapBlueUV = _UVSec;
@@ -1813,22 +1854,23 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
             //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
             PBR_SAMPLE_TEX2DS(_DetailAlbedoMapAlpha_var, _DetailAlbedoMapAlpha, _MainTex);
 
+        //KSODuplicateTextureCheckStart
+
+        //KSODuplicateTextureCheck(_MainTex)
+        //KSODuplicateTextureCheck(_CoverageMap)
+        //KSODuplicateTextureCheck(_DetailMask)
+        //KSODuplicateTextureCheck(_DetailAlbedoMap)
+        //KSODuplicateTextureCheck(_DetailAlbedoMapGreen)
+        //KSODuplicateTextureCheck(_DetailAlbedoMapBlue)
+        //KSODuplicateTextureCheck(_DetailAlbedoMapAlpha)
+
         // Base Opacity
         fixed opacity = 1;
         UNITY_BRANCH
         if (_CoverageMap_TexelSize.x != 1)
-        {
-            fixed4 _CoverageMap_var = 0;
-            //KSOInlineSamplerState(_MainTex, _CoverageMap)
-            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
             opacity = _CoverageMap_var[_CoverageMapChannel];
-        }
         else if (_AlbedoTransparencyEnabled && _MainTex_TexelSize.x != 1)
-        {
-            fixed4 _MainTex_var = 1;
-            PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
             opacity = _MainTex_var.a;
-        }
 
         // Details color and albedos affect transparency!
         if (_DetailMask_TexelSize.x != 1)
@@ -1855,8 +1897,7 @@ fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
         // Dithered shadows
         opacity += 0.01;
         UNITY_BRANCH
-        //if (_DitheredShadows && _Mode >= 2 && _Mode <= 3)
-        if (_DitheredShadows)
+        if (_DitheredShadows && _Mode >= 1 && _Mode <= 3)
             clip(tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, opacity * 0.9375)).a - 0.01);
 
         // Cutoff clipping
@@ -1883,7 +1924,7 @@ struct v2f_meta_full
     float4 lightCoord   : TEXCOORD10;
 #endif
 };
-v2f_meta_full vert_meta_full(appdata_full_pbr v)
+v2f_meta_full vert_meta_full(appdata_full v)
 {
     v2f_meta_full o;
     o.pos = UnityMetaVertexPosition(v.vertex, v.texcoord1.xy, v.texcoord2.xy, unity_LightmapST, unity_DynamicLightmapST);
@@ -1942,35 +1983,42 @@ float4 frag_meta_full (v2f_meta_full i) : SV_Target
     // Panosphere UVs
     float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
 
+    // Texture Samples
     fixed4 _MainTex_var = 1;
+    UNITY_BRANCH
     if (_MainTex_TexelSize.x != 1)
         PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
+    fixed4 _CoverageMap_var = 0;
+    UNITY_BRANCH
+    if (_Mode >= 1 && _Mode <= 3 && _CoverageMap_TexelSize.x != 1)
+        //KSOInlineSamplerState(_MainTex, _CoverageMap)
+        PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
+    fixed4 _EmissionMap_var = 1;
+    UNITY_BRANCH
+    if (_EmissionMap_TexelSize.x != 1)
+        //KSOInlineSamplerState(_MainTex, _EmissionMap)
+        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
 
+    //KSODuplicateTextureCheckStart
+
+    //KSODuplicateTextureCheck(_MainTex)
+    //KSODuplicateTextureCheck(_CoverageMap)
+    //KSODuplicateTextureCheck(_EmissionMap)
 
     UNITY_BRANCH
-    if (_Mode == 1) // _ALPHATEST_ON
+    if (_Mode >= 1 && _Mode <= 3) // cutout, fade, and transparent
     {
         fixed opacity = 1;
         if (_AlbedoTransparencyEnabled)
             opacity = _MainTex_var.a;
         UNITY_BRANCH
         if (_CoverageMap_TexelSize.x != 1)
-        {
-            fixed4 _CoverageMap_var = 0;
-            //KSOInlineSamplerState(_MainTex, _CoverageMap)
-            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
             opacity = _CoverageMap_var[_CoverageMapChannel];
-        }
         opacity *= _Color.a;
         if (_VertexColorsEnabled)
             opacity *= i.color.a;
         clip(opacity - _Cutoff);
     }
-
-    fixed4 _EmissionMap_var = 1;
-    if (_EmissionMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_MainTex, _EmissionMap)
-        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
 
     UnityMetaInput o;
     UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);

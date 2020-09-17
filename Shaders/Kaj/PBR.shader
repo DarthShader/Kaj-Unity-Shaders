@@ -8,7 +8,6 @@ Shader "Kaj/PBR"
         [HideInInspector] _ForceNoShadowCasting ("__forceNoShadowCasting", Int) = 0
         [HideInInspector] _CanUseSpriteAtlas ("__canUseSpriteAtlas", Int) = 1
         [HideInInspector] _PreviewType ("__previewType", Int) = 0
-        [HideInInspector] _DitheredLODCrossfade("__ditheredLODCrossfade", Int) = 0
 
         [HideInInspector] _ShaderOptimizerEnabled ("__shaderOptimizerEnabled", Int) = 0
 
@@ -48,6 +47,7 @@ Shader "Kaj/PBR"
             [Enum(Kaj.UVMapping)]_EmissionMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_EmissionMapChannel("Channel(s) to Sample", Int) = 4
             _EmissionTintByAlbedo("Tint by Albedo", Range(0,1)) = 0
+            _RealtimeGIIntensity("Realtime GI Intensity", Range(0,1)) = 1
         [HideInInspector]end_Main("", Int) = 1
 
         [HideInInspector]group_StandardSettings("Standard Settings", Int) = 0
@@ -98,7 +98,6 @@ Shader "Kaj/PBR"
             _LightmapIntensity("Lightmap", Range(0,1)) = 1
             _RealtimeLightmapIntensity("Realtime Lightmap", Range(0,1)) = 1
         [UnIndent]
-        _RealtimeGIIntensity("Realtime GI Intensity", Range(0,1)) = 1
         _ReceiveShadows("Receive Shadows", Range(0,1)) = 1
         [Indent]
             _ShadowsSmooth("Shadows Smooth", Range(0,1)) = 0
@@ -276,6 +275,7 @@ Shader "Kaj/PBR"
         [HideInInspector]end_Stencil("", Int) = 0
 
         [HideInInspector]group_OptimizerSettings("Optimizer Settings", Int) = 0
+        [ToggleUI]_LODCrossfade("LOD Crossfade", Int) = 0
         [HelpBox]_InlineSamplerStatesTooltip("Inline sampler states make all textures' unique filter/wrap settings work at the cost of only 1x anisotropic filtering on all textures.  Albedo wrap/filter/aniso is used on all textures if this is off.", Int) = 0
         [ToggleUI]_InlineSamplerStates("Use Inline Sampler States", Int) = 1
         [HelpBox]_AnimatedPropsTooltip("Any material properties that need to be changed at runtime should be selected here so the Optimizer does not bake them into the optimized shader.", Int) = 0
@@ -453,7 +453,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 31", Int) = 31
+        [KajLabel]_Version("Shader Version: 32", Int) = 32
     }
 
     CustomEditor "Kaj.ShaderEditor"
