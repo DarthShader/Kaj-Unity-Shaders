@@ -917,13 +917,6 @@ v2f_full vert_full (appdata_full v)
 	return o;
 }
 
-fixed4 frag_unlitSimple (v2f_full i) : SV_Target
-{
-#ifndef EXCLUDE_VERTEX_COLORS
-	return UNITY_SAMPLE_TEX2D(_MainTex, TRANSFORM_TEX(i.uv0and1.xy, _MainTex)) * _Color * i.color;
-#endif
-}
-
 half4 frag_full_pbr (v2f_full i) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(i);
@@ -932,7 +925,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 
     // Fragment normalizations and geometric specular antialiasing
     i.normalWorld = normalize(i.normalWorld);
-    
+
 
     // Triplanar UVs
     float3 tpObjBlendFactor = normalize(abs(i.normalObject));
@@ -1749,7 +1742,7 @@ v2f_shadow_full vert_shadow_full (appdata_full v)
     o.color = v.color;
     o.posWorld = mul(unity_ObjectToWorld, v.vertex);
     o.posObject = v.vertex;
-	o.normalWorld = normalize(UnityObjectToWorldNormal(v.normal));
+	o.normalWorld = UnityObjectToWorldNormal(v.normal);
     o.normalObject = v.normal;
     TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
     o.grabPos = ComputeGrabScreenPos(o.pos);
@@ -1935,7 +1928,7 @@ v2f_meta_full vert_meta_full(appdata_full v)
     o.color = v.color;
     o.posWorld = mul(unity_ObjectToWorld, v.vertex);
     o.posObject = v.vertex;
-	o.normalWorld = normalize(UnityObjectToWorldNormal(v.normal));
+	o.normalWorld = UnityObjectToWorldNormal(v.normal);
     o.normalObject = v.normal;
     o.grabPos = ComputeGrabScreenPos(o.pos);
 #ifdef EDITOR_VISUALIZATION

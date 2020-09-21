@@ -5,6 +5,8 @@ using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using System;
+using System.IO;
+using System.Text.RegularExpressions;
 
 // Material property drawers and a shader GUI because the base material inspector only needs slight improvement
 // Meant to serve as a functionally-complete foundation for the base shader GUI with no shader-specific logic
@@ -435,6 +437,8 @@ namespace Kaj
         }
     }
 
+
+
     // Minimalistic shader editor extension to edit the few things the base inspector can't access
     // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
     // Supports grouped foldouts and foldouts with toggles as labels, and helpbox based information
@@ -502,6 +506,7 @@ namespace Kaj
                 foldoutStyle.fixedHeight = 22;
                 foldoutStyle.contentOffset = new Vector2(20f, -2f);
 
+                // Cache blendmode presets
                 if (blendMode != null)
                 {
                     int modeCount = 0;
@@ -509,6 +514,86 @@ namespace Kaj
                     modeNames = new string[modeCount];
                     for (int i=0; i<modeCount;i++)
                         modeNames[i] = FindProperty("_Mode" + i, props, false).displayName.Split(';')[0];
+                }
+
+                // If a new shader has been switched to, search the .shader file for grabpasses and
+                // add grabpass information and current shader name to override tags
+                string currentShaderTag = material.GetTag("CurrentShader", false, "");
+                // Skip the grabpass file scan if the information has already been set. However,
+                // this will break if a shader changes its grabpass order over/default with an update
+                if (currentShaderTag == "" || currentShaderTag != material.shader.name)
+                {
+                    string shaderFilePath = AssetDatabase.GetAssetPath(material.shader);
+                    string fileContents = null;
+                    try
+                    {
+                        StreamReader sr = new StreamReader(shaderFilePath);
+                        fileContents = sr.ReadToEnd();
+                        sr.Close();
+                    }
+                    catch (IOException e)
+                    {
+                        Debug.LogError("[Kaj Shader Editor] Error reading shader file.  " + e.ToString());
+                    }
+
+                    // Quick scan, log all grabpasses
+                    // Strict formatting requiresments to make the scan fast: GrabPass { "_GrabTexture2000" }
+                    int grabpassCount = 0;
+                    int grabpassIndex = 0;
+                    while ((grabpassIndex = fileContents.IndexOf("GrabPass {", grabpassIndex)+1) != 0)
+                    {
+                        int firstBraceIndex = fileContents.IndexOf("{", grabpassIndex);
+                        int lastBraceIndex = fileContents.IndexOf("}", grabpassIndex);
+                        string grabpassName = fileContents.Substring(firstBraceIndex, lastBraceIndex-firstBraceIndex);
+                        string[] grabpassNameSplit = grabpassName.Split('\"');
+                        if (grabpassNameSplit.Length > 1)
+                        {
+                            // Named grabpass, only non-empty tags get saved
+                            grabpassName = grabpassNameSplit[1];
+                            foreach (Material m in materialEditor.targets)
+                            {
+                                m.SetOverrideTag("GrabPass" + grabpassCount, grabpassName);
+                                m.SetOverrideTag("GrabPassDefault" + grabpassCount, grabpassName);
+                            }
+                        }
+                        grabpassCount++;
+                    }
+
+                    // Save current shader name
+                    foreach (Material m in materialEditor.targets)
+                    {
+                        m.SetOverrideTag("GrabPassCount", grabpassCount.ToString());
+                        m.SetOverrideTag("CurrentShader", material.shader.name);
+                    }
+                }
+
+                // Dynamically check for float and texture properties with shader keywords corresponding to
+                // the texture being used or the float value being 1.  
+                // Keywords are stored in the displayname with starting and ending semicolons like ";ALBEDO_USED;Albedo"
+                // Keywords used this way are meant to make mega shaders more performant before being locked in and having
+                // all keywords removed.  This also requires property drawers to enable these keywords.
+                // Properties with ;KEYWORD; displaynames have the keyword and semicolons ignored when
+                // they are drawn with this editor
+                foreach (Material m in materialEditor.targets)
+                {
+                    foreach (MaterialProperty p in props)
+                    {
+                        // Dynamic keyword properties need to have their displayname start with ;
+                        if (!p.displayName.StartsWith(";")) continue;
+
+                        switch (p.type)
+                        {
+                            case MaterialProperty.PropType.Float:
+                            case MaterialProperty.PropType.Range:
+                                if (m.GetFloat(p.name) == 1)
+                                    m.EnableKeyword(p.displayName.Split(';')[1]);
+                                break;
+                            case MaterialProperty.PropType.Texture:
+                                if (m.GetTexture(p.name) != null)
+                                    m.EnableKeyword(p.displayName.Split(';')[1]);
+                                break;
+                        }
+                    }
                 }
 
                 // Materials could have their existing tags/override tags assigned to the convention named
@@ -694,14 +779,55 @@ namespace Kaj
                         else if (renderModeSetting[0] == "RenderType")
                             foreach (Material m in materialEditor.targets)
                                 m.SetOverrideTag("RenderType", renderModeSetting[1]);
+                        else if (renderModeSetting[0].StartsWith("GrabPass"))
+                            foreach (Material m in materialEditor.targets)
+                                m.SetOverrideTag(renderModeSetting[0], renderModeSetting[1]);
                         else Array.Find(props, x => x.name == renderModeSetting[0]).floatValue = Single.Parse(renderModeSetting[1]);
                     }
                     EditorUtility.SetDirty(material);
                 }
 
                 if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                        EditorGUI.EndDisabledGroup();
+                    EditorGUI.EndDisabledGroup();
             }
+
+            // Grab pass renaming
+            if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                EditorGUI.BeginDisabledGroup(true);
+            int gbCount = Int32.Parse(material.GetTag("GrabPassCount", false, "0"));
+            for (int i=0; i<gbCount; i++)
+            {
+                bool gbMixedValue = false;
+                string grabpassName = material.GetTag("GrabPass" + i, false, "");
+                foreach (Material m in materialEditor.targets)
+                    if (m.GetTag("GrabPass" + i, false, "") != grabpassName)
+                    {
+                        gbMixedValue = true;
+                        break;
+                    }
+                EditorGUI.showMixedValue = gbMixedValue;
+                EditorGUI.BeginChangeCheck();
+                string newName = EditorGUILayout.DelayedTextField("GrabPass" + i + " Name:", grabpassName);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    newName = Regex.Replace(newName, "[^A-Za-z0-9_]", "");
+
+                    if (newName == "") // No name means reset to default
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("GrabPass" + i, material.GetTag("GrabPassDefault" + i, false, ""));
+                    else
+                    {
+                        // force start custom names with an underscore
+                        if (!newName.StartsWith("_"))
+                            newName = "_" + newName;
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("GrabPass" + i, newName);
+                    }
+                }
+                EditorGUI.showMixedValue = false;
+            }
+            if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
+                EditorGUI.EndDisabledGroup();
 
 
             // Actual shader properties
@@ -782,7 +908,9 @@ namespace Kaj
                         EditorGUIUtility.labelWidth = 0;
                         if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
                             EditorGUI.BeginDisabledGroup(true);
-                        materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
+                        if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
+                            materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName.Split(';')[2]);
+                        else materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
                         if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
                             EditorGUI.EndDisabledGroup();
                         EditorGUIUtility.labelWidth = labelWidth;
@@ -829,7 +957,9 @@ namespace Kaj
                 Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);
                 if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
                     EditorGUI.BeginDisabledGroup(true);
-                materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something is throwing a warning here
+                if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
+                    materialEditor.ShaderProperty(r, props[i], props[i].displayName.Split(';')[2]);
+                else materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something throwing a warning here
                 if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
                     EditorGUI.EndDisabledGroup();
             }

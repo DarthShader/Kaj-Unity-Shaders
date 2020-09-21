@@ -9,6 +9,8 @@ Shader "Kaj/PBR"
         [HideInInspector] _CanUseSpriteAtlas ("__canUseSpriteAtlas", Int) = 1
         [HideInInspector] _PreviewType ("__previewType", Int) = 0
 
+        // Keyword to remind users in the VRChat SDK that this material hasn't been locked.  Inelegant but it works.
+        [HideInInspector] _ForgotToLockMaterial(";YOU_FORGOT_TO_LOCK_THIS_MATERIAL;", Int) = 1
         [HideInInspector] _ShaderOptimizerEnabled ("__shaderOptimizerEnabled", Int) = 0
 
         [HideInInspector] _Mode ("__mode", Int) = 0
@@ -24,7 +26,7 @@ Shader "Kaj/PBR"
             [Enum(Kaj.UVMapping)]_MainTexUV ("UV Set", Int) = 0
         [UnIndent]
         [ToggleUI]_AlbedoTransparencyEnabled("Albedo Alpha is Transparency", Int) = 1
-        [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo and Transparency", Int) = 1
+        [ToggleUI]_VertexColorsEnabled(";VERTEX_COLORS;Vertex Color Albedo and Transparency", Int) = 0
         _CoverageMap ("Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_CoverageMapUV ("UV Set", Int) = 0
@@ -453,7 +455,7 @@ Shader "Kaj/PBR"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 32", Int) = 32
+        [KajLabel]_Version("Shader Version: 33", Int) = 33
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -506,7 +508,7 @@ Shader "Kaj/PBR"
             #include "KajCore.cginc"
             ENDCG
         }
-
+        
         Pass
         {
             Name "FORWARD_DELTA"

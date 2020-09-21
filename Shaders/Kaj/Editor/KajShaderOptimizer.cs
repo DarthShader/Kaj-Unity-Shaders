@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Globalization;
 
-// v5
+// v6
 
 namespace Kaj
 {
@@ -47,12 +47,11 @@ namespace Kaj
         public static readonly string UseInlineSamplerStatesPropertyName = "_InlineSamplerStates";
         private static bool UseInlineSamplerStates = true;
 
-        // Properties can be assigned to preprocessor defined keywords via the optimizer (//KSOPropertyKeyword)
-        // This is mainly targeted at culling interpolators and lines that rely on that input.
+        // Material properties are put into each CGPROGRAM as preprocessor defines when the optimizer is run.
+        // This is mainly targeted at culling interpolators and lines that rely on those interpolators.
         // (The compiler is not smart enough to cull VS output that isn't used anywhere in the PS)
         // Additionally, simply enabling the optimizer can define a keyword, whose name is stored here.
         // This keyword is added to the beginning of all passes, right after CGPROGRAM
-        // NOT IMPLEMENTED YET
         public static readonly string OptimizerEnabledKeyword = "OPTIMIZER_ENABLED";
 
         // In-order list of inline sampler state names that will be replaced by InlineSamplerState() lines
@@ -171,6 +170,12 @@ namespace Kaj
             public int uv;
             public Vector2 scale;
             public Vector2 offset;
+        }
+
+        public class GrabPassReplacement
+        {
+            public string originalName;
+            public string newName;
         }
 
         public static void LockButtonGUI(MaterialEditor materialEditor, MaterialProperty shaderOptimizer)
@@ -354,8 +359,9 @@ namespace Kaj
             List<Macro> macros = new List<Macro>();
             if (!ParseShaderFilesRecursive(shaderFiles, newShaderDirectory, shaderFilePath, macros))
                 return false;
-
             
+
+            List<GrabPassReplacement> grabPassVariables = new List<GrabPassReplacement>();
             // Loop back through and do macros, props, and all other things line by line as to save string ops
             // Will still be a massive n2 operation from each line * each property
             foreach (ParsedShaderFile psf in shaderFiles)
@@ -389,12 +395,24 @@ namespace Kaj
                             if (forceNoShadowsProp != null && forceNoShadowsProp.floatValue == 1)
                                 psf.lines[i] = psf.lines[i].Replace("//\"ForceNoShadowCasting", "\"ForceNoShadowCasting");
                         }
+                        else if (trimmedLine.StartsWith("GrabPass {"))
+                        {
+                            GrabPassReplacement gpr = new GrabPassReplacement();
+                            string[] splitLine = trimmedLine.Split('\"');
+                            if (splitLine.Length == 1)
+                                gpr.originalName = "_GrabTexture";
+                            else
+                                gpr.originalName = splitLine[1];
+                            gpr.newName = material.GetTag("GrabPass" + grabPassVariables.Count, false, "_GrabTexture");
+                            psf.lines[i] = "GrabPass { \"" + gpr.newName + "\" }";
+                            grabPassVariables.Add(gpr);
+                        }
                         else if (trimmedLine.StartsWith("CGINCLUDE"))
                         {
                             for (int j=i+1; j<psf.lines.Length;j++)
                                 if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
                                 {
-                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros);
+                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros, grabPassVariables);
                                     break;
                                 }
                         }
@@ -404,7 +422,7 @@ namespace Kaj
                             for (int j=i+1; j<psf.lines.Length;j++)
                                 if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
                                 {
-                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros);
+                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros, grabPassVariables);
                                     break;
                                 }
                         }
@@ -444,7 +462,7 @@ namespace Kaj
                     }
                 }
                 else // CGINC file
-                    ReplaceShaderValues(material, psf.lines, 0, psf.lines.Length, props, constantProps, macros);
+                    ReplaceShaderValues(material, psf.lines, 0, psf.lines.Length, props, constantProps, macros, grabPassVariables);
 
                 // Recombine file lines into a single string
                 int totalLen = psf.lines.Length*2; // extra space for newline chars
@@ -476,6 +494,10 @@ namespace Kaj
             material.SetOverrideTag("OriginalShader", shader.name);
             // Write the new shader folder name in an override tag so it will be deleted 
             material.SetOverrideTag("OptimizedShaderFolder", material.name + "-" + smallguid);
+
+            // Remove ALL keywords
+            foreach (string keyword in material.shaderKeywords)
+                material.DisableKeyword(keyword);
 
             // For some reason when shaders are swapped on a material the RenderType override tag gets completely deleted and render queue set back to -1
             // So these are saved as temp values and reassigned after switching shaders
@@ -621,7 +643,8 @@ namespace Kaj
  
         // Replace properties! The meat of the shader optimization process
         // For each constantProp, pattern match and find each instance of the property that isn't a declaration
-        private static void ReplaceShaderValues(Material material, string[] lines, int startLine, int endLine, MaterialProperty[] props, List<PropertyData> constants, List<Macro> macros)
+        private static void ReplaceShaderValues(Material material, string[] lines, int startLine, int endLine, 
+        MaterialProperty[] props, List<PropertyData> constants, List<Macro> macros, List<GrabPassReplacement> grabPassVariables)
         {
             List <TextureProperty> uniqueSampledTextures = new List<TextureProperty>();
 
@@ -815,6 +838,7 @@ namespace Kaj
                         }
 
                         // Replace with constant!
+                        // This could technically be more efficient by being outside the IndexOf loop
                         StringBuilder sb = new StringBuilder(lines[i].Length * 2);
                         sb.Append(lines[i], 0, constantIndex);
                         switch (constant.type)
@@ -835,6 +859,32 @@ namespace Kaj
                         // Check for Unity branches on previous line here?
                     }
                 }
+
+                // Then replace grabpass variable names
+                foreach (GrabPassReplacement gpr in grabPassVariables)
+                {
+                    // find indexes of all instances of gpr.originalName that exist on this line
+                    int lastIndex = 0;
+                    int gbIndex;
+                    while ((gbIndex = lines[i].IndexOf(gpr.originalName, lastIndex)) != -1)
+                    {
+                        lastIndex = gbIndex+1;
+                        char charLeft = lines[i][gbIndex-1];
+                        char charRight = lines[i][gbIndex + gpr.originalName.Length];
+                        // Skip invalid matches (probably a subname of another symbol)
+                        if (!(Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight)))
+                            continue;
+                        
+                        // Replace with new variable name
+                        // This could technically be more efficient by being outside the IndexOf loop
+                        StringBuilder sb = new StringBuilder(lines[i].Length * 2);
+                        sb.Append(lines[i], 0, gbIndex);
+                        sb.Append(gpr.newName);
+                        sb.Append(lines[i], gbIndex+gpr.originalName.Length, lines[i].Length-gbIndex-gpr.originalName.Length);
+                        lines[i] = sb.ToString();
+                    }
+                }
+
                 // Then remove Unity branches
                 if (RemoveUnityBranches)
                     lines[i] = lines[i].Replace("UNITY_BRANCH", "").Replace("[branch]", "");
