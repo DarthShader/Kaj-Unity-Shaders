@@ -10,8 +10,8 @@ Procedural inspector that serves as a functionally complete foundation for all s
 ## Kaj Shader Optimizer
 Preprocessor that generates a new shader for a specific material, assuming most/all of its properties are constant.  Mega shaders can now be made efficient without having to use `shader_feature` and `multi_compile` keywords.
 
-## PBR Shader
-Modular Physically Based Rendering mega shader that aims to provide the features Unity's HDRP Lit shader provides (and beyond), but on the standard rendering pipeline.  Forward/Shader Model 5.0 only.
+## Omega Shader
+(Previously named PBR) Modular Physically Based Rendering mega shader that aims to provide the features Unity's HDRP Lit shader provides (and beyond), but on the standard rendering pipeline.  Forward Rendering/Shader Model 5.0 only.
 
 ## Nothing Shader
 A small utility shader/material with no passes, thanks to disabled LightModes.  Perfect for material swapping on meshes without adding draw calls.
