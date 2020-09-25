@@ -60,22 +60,6 @@ namespace Kaj
         LogicalOrInverted
     }
 
-    // Lightmodes so passes can be disabled
-    public enum LightMode
-    {
-        Always=1,
-        ForwardBase=2,
-        ForwardAdd=4,
-        Deferred=8,
-        ShadowCaster=16,
-        MotionVectors=32,
-        PrepassBase=64,
-        PrepassFinal=128,
-        Vertex=256,
-        VertexLMRGBM=512,
-        VertexLM=1024
-    }
-
     // Reusable enum for texture UV modes, technically shader specific but
     // it's either add this or remake the regular width Enum drawer
     public enum UVMapping
@@ -437,577 +421,93 @@ namespace Kaj
         }
     }
 
-
-
-    // Minimalistic shader editor extension to edit the few things the base inspector can't access
-    // AND what doesn't quite fit the use case of MaterialPropertyDrawers, even if it could be done by them
-    // Supports grouped foldouts and foldouts with toggles as labels, and helpbox based information
-    public class ShaderEditor : ShaderGUI
+    // Regular texture slot that enables a keyword when used
+    public class KeywordTexDrawer : MaterialPropertyDrawer
     {
-        const string groupPrefix = "group_";
-        const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
-        const string endPrefix = "end_";
-        GUIStyle foldoutStyle;
-        bool m_FirstTimeApply = true;
-        string[] modeNames;
+        private readonly string keyword;
 
-        public enum DisableBatchingFlags
+        public KeywordTexDrawer(string keyword)
         {
-            False,
-            True,
-            LODFading
+            this.keyword = keyword;
         }
 
-        public enum PreviewType
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
         {
-            Sphere, // Actually called 'Mesh' internally, but regular users recognize the sphere/don't use other meshes
-            Plane,
-            Skybox
-        }
-
-        MaterialProperty blendMode = null;
-        MaterialProperty lightModes = null;
-        MaterialProperty disableBatching = null;
-        MaterialProperty ignoreProjector = null; // Doesn't work, thanks Unity
-        MaterialProperty forceNoShadowCasting = null; // Doesn't work, thanks Unity
-        MaterialProperty canUseSpriteAtlas = null;
-        MaterialProperty previewType = null;
-
-        // Shader Optimizer
-        MaterialProperty shaderOptimizer = null;
-
-        public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
-        {
-            blendMode = FindProperty("_Mode", props, false);
-            if (blendMode == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _Mode not found");
-            lightModes = FindProperty("_LightModes", props, false);
-            if (lightModes == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _LightModes not found");
-            disableBatching = FindProperty("_DisableBatching", props, false);
-            if (disableBatching == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _DisableBatching not found");
-            ignoreProjector = FindProperty("_IgnoreProjector", props, false);
-            if (ignoreProjector == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _IgnoreProjector not found");
-            forceNoShadowCasting = FindProperty("_ForceNoShadowCasting", props, false);
-            if (forceNoShadowCasting == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _ForceNoShadowCasting not found");
-            canUseSpriteAtlas = FindProperty("_CanUseSpriteAtlas", props, false);
-            if (canUseSpriteAtlas == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _CanUseSpriteAtlas not found");
-            previewType = FindProperty("_PreviewType", props, false);
-            if (previewType == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _PreviewType not found");
-            shaderOptimizer = FindProperty("_ShaderOptimizerEnabled", props, false);
-            if (shaderOptimizer == null) Debug.LogWarning("[Kaj Shader Editor] Shader Property _ShaderOptimizerEnabled not found");
-            Material material = materialEditor.target as Material;
-
-            if (m_FirstTimeApply)
-            {
-                // Cache and initialize some stuff.  This could be done in the constructor
-                // but the constructor doesn't get called again at domain reload afaik
-                foldoutStyle = new GUIStyle("ShurikenModuleTitle");
-                foldoutStyle.font = new GUIStyle(EditorStyles.label).font;
-                foldoutStyle.border = new RectOffset(15, 7, 4, 4);
-                foldoutStyle.fixedHeight = 22;
-                foldoutStyle.contentOffset = new Vector2(20f, -2f);
-
-                // Cache blendmode presets
-                if (blendMode != null)
-                {
-                    int modeCount = 0;
-                    while (FindProperty("_Mode" + modeCount, props, false) != null) modeCount++;
-                    modeNames = new string[modeCount];
-                    for (int i=0; i<modeCount;i++)
-                        modeNames[i] = FindProperty("_Mode" + i, props, false).displayName.Split(';')[0];
-                }
-
-                // If a new shader has been switched to, search the .shader file for grabpasses and
-                // add grabpass information and current shader name to override tags
-                string currentShaderTag = material.GetTag("CurrentShader", false, "");
-                // Skip the grabpass file scan if the information has already been set. However,
-                // this will break if a shader changes its grabpass order over/default with an update
-                if (currentShaderTag == "" || currentShaderTag != material.shader.name)
-                {
-                    string shaderFilePath = AssetDatabase.GetAssetPath(material.shader);
-                    string fileContents = null;
-                    try
-                    {
-                        StreamReader sr = new StreamReader(shaderFilePath);
-                        fileContents = sr.ReadToEnd();
-                        sr.Close();
-                    }
-                    catch (IOException e)
-                    {
-                        Debug.LogError("[Kaj Shader Editor] Error reading shader file.  " + e.ToString());
-                    }
-
-                    // Quick scan, log all grabpasses
-                    // Strict formatting requiresments to make the scan fast: GrabPass { "_GrabTexture2000" }
-                    int grabpassCount = 0;
-                    int grabpassIndex = 0;
-                    while ((grabpassIndex = fileContents.IndexOf("GrabPass {", grabpassIndex)+1) != 0)
-                    {
-                        int firstBraceIndex = fileContents.IndexOf("{", grabpassIndex);
-                        int lastBraceIndex = fileContents.IndexOf("}", grabpassIndex);
-                        string grabpassName = fileContents.Substring(firstBraceIndex, lastBraceIndex-firstBraceIndex);
-                        string[] grabpassNameSplit = grabpassName.Split('\"');
-                        if (grabpassNameSplit.Length > 1)
-                        {
-                            // Named grabpass, only non-empty tags get saved
-                            grabpassName = grabpassNameSplit[1];
-                            foreach (Material m in materialEditor.targets)
-                            {
-                                m.SetOverrideTag("GrabPass" + grabpassCount, grabpassName);
-                                m.SetOverrideTag("GrabPassDefault" + grabpassCount, grabpassName);
-                            }
-                        }
-                        grabpassCount++;
-                    }
-
-                    // Save current shader name
-                    foreach (Material m in materialEditor.targets)
-                    {
-                        m.SetOverrideTag("GrabPassCount", grabpassCount.ToString());
-                        m.SetOverrideTag("CurrentShader", material.shader.name);
-                    }
-                }
-
-                // Dynamically check for float and texture properties with shader keywords corresponding to
-                // the texture being used or the float value being 1.  
-                // Keywords are stored in the displayname with starting and ending semicolons like ";ALBEDO_USED;Albedo"
-                // Keywords used this way are meant to make mega shaders more performant before being locked in and having
-                // all keywords removed.  This also requires property drawers to enable these keywords.
-                // Properties with ;KEYWORD; displaynames have the keyword and semicolons ignored when
-                // they are drawn with this editor
-                foreach (Material m in materialEditor.targets)
-                {
-                    foreach (MaterialProperty p in props)
-                    {
-                        // Dynamic keyword properties need to have their displayname start with ;
-                        if (!p.displayName.StartsWith(";")) continue;
-
-                        switch (p.type)
-                        {
-                            case MaterialProperty.PropType.Float:
-                            case MaterialProperty.PropType.Range:
-                                if (m.GetFloat(p.name) == 1)
-                                    m.EnableKeyword(p.displayName.Split(';')[1]);
-                                break;
-                            case MaterialProperty.PropType.Texture:
-                                if (m.GetTexture(p.name) != null)
-                                    m.EnableKeyword(p.displayName.Split(';')[1]);
-                                break;
-                        }
-                    }
-                }
-
-                // Materials could have their existing tags/override tags assigned to the convention named
-                // properties for them, but those tags might not be consistent across multiple materials, and also might not exist.
-                // Conversely, properties also shouldn't be auto-applied to override tags if they have mixed values.
-                // But properties (and hard coded defaults for them) could be inconsistent with override tags, 
-                // so this part applys them where it makes sense to.
-                if (lightModes != null && !lightModes.hasMixedValue)
-                    SetMaterialsLightMode(materialEditor, (int)lightModes.floatValue);
-                if (disableBatching != null && !disableBatching.hasMixedValue)
-                    SetDisableBatchingFlags(materialEditor, (DisableBatchingFlags)disableBatching.floatValue);
-                if (ignoreProjector != null && !ignoreProjector.hasMixedValue)
-                    if (ignoreProjector.floatValue == 1)
-                        SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "True");
-                    else SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "False");
-                if (forceNoShadowCasting != null && !forceNoShadowCasting.hasMixedValue)
-                    if (forceNoShadowCasting.floatValue == 1)
-                        SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "True");
-                    else SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "False");
-                if (canUseSpriteAtlas != null && !canUseSpriteAtlas.hasMixedValue)
-                    if (canUseSpriteAtlas.floatValue == 1)
-                        SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "True");
-                    else SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "False");
-                if (previewType != null && !previewType.hasMixedValue)
-                    SetPreviewTypeFlags(materialEditor, (PreviewType)previewType.floatValue);
-
-                m_FirstTimeApply = false;
-            }
-
-            // GI flags
-            EditorGUI.showMixedValue = false;
-            var firstGIflag = (MaterialGlobalIlluminationFlags)material.globalIlluminationFlags;
-            foreach (Material m in materialEditor.targets)
-            {
-                if ((MaterialGlobalIlluminationFlags)m.globalIlluminationFlags != firstGIflag)
-                {
-                    EditorGUI.showMixedValue = true;
-                    break;
-                }
-            }
-            var giFlags = (MaterialGlobalIlluminationFlags)material.globalIlluminationFlags;
             EditorGUI.BeginChangeCheck();
-            giFlags = (MaterialGlobalIlluminationFlags)EditorGUILayout.Popup("Global Illumination", (int)giFlags, Enum.GetNames(typeof(MaterialGlobalIlluminationFlags)));
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            Texture t = editor.TextureProperty(position, prop, label, true);
+            EditorGUI.showMixedValue = false;
             if (EditorGUI.EndChangeCheck())
             {
-                materialEditor.RegisterPropertyChangeUndo("Global Illumination");
+                if (t != null)
+                    foreach (Material m in editor.targets)
+                        m.EnableKeyword(keyword);
+                else
+                    foreach (Material m in editor.targets)
+                        m.DisableKeyword(keyword);
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return base.GetPropertyHeight(prop, label, editor) + 54; // afaik this is the correct defualt texture height
+        }
+    }
+
+    // Realtime GI flags drawer
+    // Each of these "internal material settings" could be decorators, but saving them as material properties
+    // allows shaders to access the setting values, just in case 
+    public class GIFlagsDrawer : MaterialPropertyDrawer
+    {
+        readonly string[] enumNames;
+
+        public GIFlagsDrawer()
+        {
+            enumNames = Enum.GetNames(typeof(MaterialGlobalIlluminationFlags));
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            var giFlags = (MaterialGlobalIlluminationFlags)prop.floatValue;
+            EditorGUIUtility.labelWidth = 0f;
+            EditorGUI.BeginChangeCheck();
+            giFlags = (MaterialGlobalIlluminationFlags)EditorGUILayout.Popup(label, (int)giFlags, enumNames);
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = (float)giFlags;
                 foreach (Material m in materialEditor.targets)
                     m.globalIlluminationFlags = giFlags;
-                EditorUtility.SetDirty(material);
-            }
-
-            // LightModes
-            if (lightModes != null)
-            {
-                EditorGUI.showMixedValue = lightModes.hasMixedValue;
-                EditorGUI.BeginChangeCheck();
-                int lightModesMask = EditorGUILayout.MaskField("Disabled Lightmodes", (int)lightModes.floatValue, Enum.GetNames(typeof(LightMode)));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    materialEditor.RegisterPropertyChangeUndo("LightModes");
-                    lightModes.floatValue = lightModesMask;
-                    SetMaterialsLightMode(materialEditor, lightModesMask);
-                    EditorUtility.SetDirty(material);
-                }
-            }
-
-            // DisableBatching
-            if (disableBatching != null)
-            {
-                EditorGUI.showMixedValue = disableBatching.hasMixedValue;
-                var batchingFlag = (DisableBatchingFlags)disableBatching.floatValue;
-                EditorGUI.BeginChangeCheck();
-                batchingFlag = (DisableBatchingFlags)EditorGUILayout.Popup("Disable Batching", (int)batchingFlag, Enum.GetNames(typeof(DisableBatchingFlags)));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    materialEditor.RegisterPropertyChangeUndo("Disable Batching");
-                    disableBatching.floatValue = (float)batchingFlag;
-                    SetDisableBatchingFlags(materialEditor, batchingFlag);
-                    EditorUtility.SetDirty(material);
-                }
-            }
-
-            // PreviewType
-            if (previewType != null)
-            {
-                EditorGUI.showMixedValue = previewType.hasMixedValue;
-                var previewTypeFlag = (PreviewType)previewType.floatValue;
-                EditorGUI.BeginChangeCheck();
-                previewTypeFlag = (PreviewType)EditorGUILayout.Popup("Preview Type", (int)previewTypeFlag, Enum.GetNames(typeof(PreviewType)));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    materialEditor.RegisterPropertyChangeUndo("Preview Type");
-                    previewType.floatValue = (float)previewTypeFlag;
-                    SetPreviewTypeFlags(materialEditor, previewTypeFlag);
-                    EditorUtility.SetDirty(material);
-                }
-            }
-            
-            // IgnoreProjector
-            if (ignoreProjector != null)
-            {
-                EditorGUI.showMixedValue = ignoreProjector.hasMixedValue;
-                var projectorFlag = ignoreProjector.floatValue;
-                EditorGUI.BeginChangeCheck();
-                projectorFlag = EditorGUILayout.Toggle("Ignore Projector", projectorFlag == 1) ? 1 : 0;
-                if (EditorGUI.EndChangeCheck())
-                {
-                    materialEditor.RegisterPropertyChangeUndo("Ignore Projector");
-                    ignoreProjector.floatValue = projectorFlag;
-                    if (ignoreProjector.floatValue == 1)
-                        SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "True");
-                    else SetMaterialsTag(materialEditor.targets, "IgnoreProjector", "False");
-                    EditorUtility.SetDirty(material);
-                }
-            }
-
-            // ForceNoShadowCasting
-            if (forceNoShadowCasting != null)
-            {
-                EditorGUI.showMixedValue = forceNoShadowCasting.hasMixedValue;
-                var forceNoShadowCastingFlag = forceNoShadowCasting.floatValue;
-                EditorGUI.BeginChangeCheck();
-                forceNoShadowCastingFlag = EditorGUILayout.Toggle("ForceNoShadowCasting", forceNoShadowCastingFlag == 1) ? 1 : 0;
-                if (EditorGUI.EndChangeCheck())
-                {
-                    materialEditor.RegisterPropertyChangeUndo("ForceNoShadowCasting");
-                    forceNoShadowCasting.floatValue = forceNoShadowCastingFlag;
-                    if (forceNoShadowCasting.floatValue == 1)
-                        SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "True");
-                    else SetMaterialsTag(materialEditor.targets, "ForceNoShadowCasting", "False");
-                    EditorUtility.SetDirty(material);
-                }
-            }
-
-            // CanUseSpriteAtlas
-            if (canUseSpriteAtlas != null)
-            {
-                EditorGUI.showMixedValue = canUseSpriteAtlas.hasMixedValue;
-                var canUseSpriteAtlasFlag = canUseSpriteAtlas.floatValue;
-                EditorGUI.BeginChangeCheck();
-                canUseSpriteAtlasFlag = EditorGUILayout.Toggle("CanUseSpriteAtlas", canUseSpriteAtlasFlag == 1) ? 1 : 0;
-                if (EditorGUI.EndChangeCheck())
-                {
-                    materialEditor.RegisterPropertyChangeUndo("CanUseSpriteAtlas");
-                    canUseSpriteAtlas.floatValue = canUseSpriteAtlasFlag;
-                    if (canUseSpriteAtlas.floatValue == 1)
-                        SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "True");
-                    else SetMaterialsTag(materialEditor.targets, "CanUseSpriteAtlas", "False");
-                    EditorUtility.SetDirty(material);
-                }
-                EditorGUI.showMixedValue = false;
-            }
-
-            // Kaj Shader Optimizer
-            ShaderOptimizer.LockButtonGUI(materialEditor, shaderOptimizer);
-
-            // Rendering Mode (Shader Presets) now considered part of individual shader logic
-            if (blendMode != null)
-            {
-                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                    EditorGUI.BeginDisabledGroup(true);
-
-                EditorGUI.showMixedValue = blendMode.hasMixedValue;
-                var mode = blendMode.floatValue;
-                EditorGUI.BeginChangeCheck();
-                mode = EditorGUILayout.Popup("Rendering Mode", (int)mode, modeNames);
-                if (EditorGUI.EndChangeCheck())
-                {
-                    // Idk if these Undo registrations are even still necessary since changing a material property registers one,
-                    // but the Standard shader GUI does this so I will too
-                    materialEditor.RegisterPropertyChangeUndo("Rendering Mode");
-                    blendMode.floatValue = mode;
-                    // Apply Rendering Mode preset
-                    // Rendering modes provide a simple way to preset blending options/render queue
-                    string[] renderModeSettings = Array.Find(props, x => x.name == "_Mode" + (int)mode).displayName.Split(';');
-                    for (int i=1; i<renderModeSettings.Length; i++)
-                    {
-                        // [0] is name and [1] is value
-                        string[] renderModeSetting = renderModeSettings[i].Split('=');
-                        if (renderModeSetting[0] == "RenderQueue")
-                            foreach (Material m in materialEditor.targets)
-                                m.renderQueue = Int32.Parse(renderModeSetting[1]);
-                        else if (renderModeSetting[0] == "RenderType")
-                            foreach (Material m in materialEditor.targets)
-                                m.SetOverrideTag("RenderType", renderModeSetting[1]);
-                        else if (renderModeSetting[0].StartsWith("GrabPass"))
-                            foreach (Material m in materialEditor.targets)
-                                m.SetOverrideTag(renderModeSetting[0], renderModeSetting[1]);
-                        else Array.Find(props, x => x.name == renderModeSetting[0]).floatValue = Single.Parse(renderModeSetting[1]);
-                    }
-                    EditorUtility.SetDirty(material);
-                }
-
-                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                    EditorGUI.EndDisabledGroup();
-            }
-
-            // Grab pass renaming
-            if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                EditorGUI.BeginDisabledGroup(true);
-            int gbCount = Int32.Parse(material.GetTag("GrabPassCount", false, "0"));
-            for (int i=0; i<gbCount; i++)
-            {
-                bool gbMixedValue = false;
-                string grabpassName = material.GetTag("GrabPass" + i, false, "");
-                foreach (Material m in materialEditor.targets)
-                    if (m.GetTag("GrabPass" + i, false, "") != grabpassName)
-                    {
-                        gbMixedValue = true;
-                        break;
-                    }
-                EditorGUI.showMixedValue = gbMixedValue;
-                EditorGUI.BeginChangeCheck();
-                string newName = EditorGUILayout.DelayedTextField("GrabPass" + i + " Name:", grabpassName);
-                if (EditorGUI.EndChangeCheck())
-                {
-                    newName = Regex.Replace(newName, "[^A-Za-z0-9_]", "");
-
-                    if (newName == "") // No name means reset to default
-                        foreach (Material m in materialEditor.targets)
-                            m.SetOverrideTag("GrabPass" + i, material.GetTag("GrabPassDefault" + i, false, ""));
-                    else
-                    {
-                        // force start custom names with an underscore
-                        if (!newName.StartsWith("_"))
-                            newName = "_" + newName;
-                        foreach (Material m in materialEditor.targets)
-                            m.SetOverrideTag("GrabPass" + i, newName);
-                    }
-                }
-                EditorGUI.showMixedValue = false;
-            }
-            if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                EditorGUI.EndDisabledGroup();
-
-
-            // Actual shader properties
-            materialEditor.SetDefaultGUIWidths();
-            DrawPropertiesGUIRecursive(materialEditor, props);
-            materialEditor.RenderQueueField();
-            materialEditor.EnableInstancingField();
-            materialEditor.DoubleSidedGIField();
-        }
-
-        // Recursive to easily deal with foldouts
-        // the group header property can store a toggle value, and the end property stores whether or not the foldout is expanded
-        protected void DrawPropertiesGUIRecursive(MaterialEditor materialEditor, MaterialProperty[] props)
-        {
-            for (var i = 0; i < props.Length; i++)
-            {
-                // Check for groups and toggle groups
-                bool toggle = false;
-                if (props[i].name.StartsWith(groupPrefix) && // props[i] is group property
-                   ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
-                {
-                    if (props[i].name.StartsWith(groupPrefix + togglePrefix))
-                        toggle = true;
-                    
-                    // Find matching end tag
-                    string groupName;
-                    if (toggle)
-                        groupName = props[i].name.Substring(groupPrefix.Length +togglePrefix.Length);
-                    else
-                        groupName = props[i].name.Substring(groupPrefix.Length);
-                    string endName = endPrefix + groupName;
-                    int j = i+1;
-                    bool foundEnd = false;
-                    for (; j<props.Length; j++)
-                        if (props[j].name == endName && // props[j] is group end property
-                            ((props[j].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
-                            {
-                                foundEnd = true;
-                                break;
-                            }
-                    if (!foundEnd)
-                    {
-                        Debug.LogWarning("[Kaj Shader Editor] Group end for " + groupName + " not found! Skipping.");
-                        continue;
-                    }
-
-                    // Draw particle system styled header with indentation applied
-                    float indentPixels = EditorGUI.indentLevel * 13f;
-                    var rect = GUILayoutUtility.GetRect(0, 22f, foldoutStyle);
-                    rect.width -= indentPixels;
-                    rect.x += indentPixels;
-                    if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                        EditorGUI.BeginDisabledGroup(true);
-                    if (toggle)
-                        GUI.Box(rect, "", foldoutStyle);
-                    else
-                        GUI.Box(rect, props[i].displayName, foldoutStyle);
-                    if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                        EditorGUI.EndDisabledGroup();
-
-                    // Draw foldout arrow
-                    var toggleRect = new Rect(rect.x + 4f, rect.y + 2f, 13f, 13f);
-                    bool expanded = props[j].floatValue == 1;
-                    var e = Event.current;
-                    if (e.type == EventType.Repaint)
-                        EditorStyles.foldout.Draw(toggleRect, false, false, expanded, false);
-
-                    // Toggle property
-                    // Technically drawers besides Toggles work, but are VERY wonky and not resized properly
-                    if (toggle)
-                    {
-                        // Toggle alignment from Thry's
-                        Rect togglePropertyRect = new Rect(rect);
-                        // Add 18 to skip foldout arrow, shift by indents because the original box rect is being used
-                        togglePropertyRect.x += 18 - ((EditorGUI.indentLevel) * 13);
-                        togglePropertyRect.y += 1;
-                        float labelWidth = EditorGUIUtility.labelWidth;
-                        EditorGUIUtility.labelWidth = 0;
-                        if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                            EditorGUI.BeginDisabledGroup(true);
-                        if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
-                            materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName.Split(';')[2]);
-                        else materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
-                        if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                            EditorGUI.EndDisabledGroup();
-                        EditorGUIUtility.labelWidth = labelWidth;
-                    }
-
-                    // Activate foldout
-                    // Set the value individually in each material rather than through props[j]'s floatValue because that is recorded
-                    // in the animation clip editor.  Also doesn't make an undo set for it.
-                    if (e.type == EventType.MouseDown && rect.Contains(e.mousePosition))
-                    {
-                        if (props[j].floatValue == 1)
-                            foreach (Material mat in materialEditor.targets)
-                                mat.SetFloat(props[j].name, 0);
-                        else 
-                            foreach (Material mat in materialEditor.targets)
-                                mat.SetFloat(props[j].name, 1);
-                        e.Use();
-                    }
-
-                    // Recurse on props in this group
-                    if (expanded)
-                    {
-                        MaterialProperty[] subProps = new MaterialProperty[j-i-1];
-                        for (int k=i+1; k<j; k++)
-                            subProps[k-(i+1)] = props[k];
-
-                        int originalIndentLevel = EditorGUI.indentLevel;
-                        EditorGUI.indentLevel += 1;
-                        EditorGUILayout.Space();
-                        DrawPropertiesGUIRecursive(materialEditor, subProps);
-                        EditorGUILayout.Space();
-                        // Hard reset to original indent level because [UnIndent] decorators may need the hidden group end property, which isn't drawn
-                        EditorGUI.indentLevel = originalIndentLevel;
-                    }
-
-                    // Continue past subgroup props
-                    i += j-i; 
-                }
-
-                // Derived from MaterialEditor.PropertiesDefaultGUI https://github.com/Unity-Technologies/UnityCsReference/
-                if ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0) 
-                    continue;
-                float h = materialEditor.GetPropertyHeight(props[i], props[i].displayName);
-                Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);
-                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                    EditorGUI.BeginDisabledGroup(true);
-                if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
-                    materialEditor.ShaderProperty(r, props[i], props[i].displayName.Split(';')[2]);
-                else materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something throwing a warning here
-                if (shaderOptimizer != null && (shaderOptimizer.floatValue == 1 || shaderOptimizer.hasMixedValue))
-                    EditorGUI.EndDisabledGroup();
-            }
-
-        }
-
-        private void SetDisableBatchingFlags(MaterialEditor materialEditor, DisableBatchingFlags flag)
-        {
-            switch (flag)
-            {
-                case DisableBatchingFlags.False:
-                    SetMaterialsTag(materialEditor.targets, "DisableBatching", "False");
-                    break;
-                case DisableBatchingFlags.True:
-                    SetMaterialsTag(materialEditor.targets, "DisableBatching", "True");
-                    break;
-                case DisableBatchingFlags.LODFading:
-                    SetMaterialsTag(materialEditor.targets, "DisableBatching", "LODFading");
-                    break;
             }
         }
 
-        private void SetPreviewTypeFlags(MaterialEditor materialEditor, PreviewType previewTypeFlag)
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
-            switch (previewTypeFlag)
+            return -2;
+        }
+    }
+
+    // Disabled lightmodes mask drawer.
+    public class DisabledLightModesDrawer : MaterialPropertyDrawer
+    {
+        readonly string[] enumNames;
+
+        public DisabledLightModesDrawer()
+        {
+            enumNames = Enum.GetNames(typeof(LightMode));
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUIUtility.labelWidth = 0f;
+            EditorGUI.BeginChangeCheck();
+            int lightModesMask = EditorGUILayout.MaskField(label, (int)prop.floatValue, enumNames);
+            if (EditorGUI.EndChangeCheck())
             {
-                case PreviewType.Sphere:
-                    SetMaterialsTag(materialEditor.targets, "PreviewType", "");
-                    break;
-                case PreviewType.Plane:
-                    SetMaterialsTag(materialEditor.targets, "PreviewType", "Plane");
-                    break;
-                case PreviewType.Skybox:
-                    SetMaterialsTag(materialEditor.targets, "PreviewType", "Skybox");
-                    break;
+                prop.floatValue = lightModesMask;
+                SetMaterialsLightMode(materialEditor, lightModesMask);
             }
-        }
-
-        private void SetMaterialsTag(UnityEngine.Object[] mats, string key, string value)
-        {
-            foreach (Material m in mats)
-                m.SetOverrideTag(key, value);
-        }
-
-        private void SetMaterialsLightModeEnabled(UnityEngine.Object[] mats, string pass, bool enabled)
-        {
-            foreach (Material m in mats)
-                m.SetShaderPassEnabled(pass, enabled);
         }
 
         private void SetMaterialsLightMode(MaterialEditor materialEditor, int lightModesMask)
@@ -1046,6 +546,530 @@ namespace Kaj
                 SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", false);
             else SetMaterialsLightModeEnabled(materialEditor.targets, "VertexLM", true);
         }
+        
+        private void SetMaterialsLightModeEnabled(UnityEngine.Object[] mats, string pass, bool enabled)
+        {
+            foreach (Material m in mats)
+                m.SetShaderPassEnabled(pass, enabled);
+        }
 
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
+    // Disable Batching enum drawer
+    // Override tag drawers like DisableBatching, PreviewType, IgnoreProjector, and ForceNoShadowCasting COULD be one drawer type,
+    // but without intruding into property name or displayName parsing, the arguments for the drawer would need to be 6 and 9 strings long!
+    // Easier to hard code DisableBatching and PreviewType imo
+    public class DisableBatchingDrawer : MaterialPropertyDrawer
+    {
+        enum DisableBatchingFlags
+        {
+            False,
+            True,
+            LODFading
+        }
+
+        readonly string[] enumNames;
+
+        public DisableBatchingDrawer()
+        {
+            enumNames = Enum.GetNames(typeof(DisableBatchingFlags));
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            var batchingFlag = (DisableBatchingFlags)prop.floatValue;
+            EditorGUIUtility.labelWidth = 0f;
+            EditorGUI.BeginChangeCheck();
+            batchingFlag = (DisableBatchingFlags)EditorGUILayout.Popup(label, (int)batchingFlag, enumNames);
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = (float)batchingFlag;
+                switch (batchingFlag)
+                {
+                    case DisableBatchingFlags.False:
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("DisableBatching", "False");
+                        break;
+                    case DisableBatchingFlags.True:
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("DisableBatching", "True");
+                        break;
+                    case DisableBatchingFlags.LODFading:
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("DisableBatching", "LODFading");
+                        break;
+                }
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
+    public class PreviewTypeDrawer : MaterialPropertyDrawer
+    {
+        public enum PreviewType
+        {
+            Sphere, // Actually called 'Mesh' internally, but regular users recognize the sphere/don't use other meshes
+            Plane,
+            Skybox
+        }
+
+        readonly string[] enumNames;
+
+        public PreviewTypeDrawer()
+        {
+            enumNames = Enum.GetNames(typeof(PreviewType));
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            var previewTypeFlag = (PreviewType)prop.floatValue;
+            EditorGUIUtility.labelWidth = 0f;
+            EditorGUI.BeginChangeCheck();
+            previewTypeFlag = (PreviewType)EditorGUILayout.Popup(label, (int)previewTypeFlag, enumNames);
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = (float)previewTypeFlag;
+                switch (previewTypeFlag)
+                {
+                    case PreviewType.Sphere:
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("PreviewType", "");
+                        break;
+                    case PreviewType.Plane:
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("PreviewType", "Plane");
+                        break;
+                    case PreviewType.Skybox:
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("PreviewType", "Skybox");
+                        break;
+                }
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
+    // IgnoreProjector, ForceNoShadowCasting, and CanUseSpriteAtlas drawer
+    public class OverrideTagToggleDrawer : MaterialPropertyDrawer
+    {
+        readonly string tag;
+
+        public OverrideTagToggleDrawer(string tag)
+        {
+            this.tag = tag;
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            var flag = prop.floatValue;
+            EditorGUIUtility.labelWidth = 0f;
+            EditorGUI.BeginChangeCheck();
+            flag = EditorGUILayout.Toggle(label, flag == 1) ? 1 : 0;
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = flag;
+                if (flag == 1)
+                    foreach (Material m in materialEditor.targets)
+                        m.SetOverrideTag(tag, "True");
+                else 
+                    foreach (Material m in materialEditor.targets)
+                        m.SetOverrideTag(tag, "False");
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
+    // GrabPass drawer as decorator since its entirely tag based
+    public class GrabPassNamesDecorator : MaterialPropertyDrawer
+    {
+        bool m_FirstTimeApply = true;
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            Material material = (Material)materialEditor.target;
+            // Material-varying cacheing can't be done in the constructor because this will vary
+            if (m_FirstTimeApply)
+            {
+                // If a new shader has been switched to, search the .shader file for
+                // grabpass information and current shader name for override tags
+                string currentShaderTag = material.GetTag("CurrentShader", false, "");
+                // Skip the grabpass file scan if the information has already been set. However,
+                // this will break if a shader changes its grabpass count/names with an update
+                if (currentShaderTag == "" || currentShaderTag != material.shader.name)
+                {
+                    string shaderFilePath = AssetDatabase.GetAssetPath(material.shader);
+                    string fileContents = null;
+                    try
+                    {
+                        StreamReader sr = new StreamReader(shaderFilePath);
+                        fileContents = sr.ReadToEnd();
+                        sr.Close();
+                    }
+                    catch (IOException e)
+                    {
+                        Debug.LogError("[Kaj Shader Editor] Error reading shader file.  " + e.ToString());
+                    }
+
+                    // Quick scan, log all grabpasses
+                    // Strict formatting requirements to make the scan fast; example: GrabPass { "_GrabTexture2000" }
+                    int grabpassCount = 0;
+                    int grabpassIndex = 0;
+                    while ((grabpassIndex = fileContents.IndexOf("GrabPass {", grabpassIndex)+1) != 0)
+                    {
+                        int firstBraceIndex = fileContents.IndexOf("{", grabpassIndex);
+                        int lastBraceIndex = fileContents.IndexOf("}", grabpassIndex);
+                        string grabpassName = fileContents.Substring(firstBraceIndex, lastBraceIndex-firstBraceIndex);
+                        string[] grabpassNameSplit = grabpassName.Split('\"');
+                        if (grabpassNameSplit.Length > 1)
+                        {
+                            // Named grabpass, only non-empty tags get saved
+                            grabpassName = grabpassNameSplit[1];
+                            foreach (Material m in materialEditor.targets)
+                            {
+                                m.SetOverrideTag("GrabPass" + grabpassCount, grabpassName);
+                                m.SetOverrideTag("GrabPassDefault" + grabpassCount, grabpassName);
+                            }
+                        }
+                        grabpassCount++;
+                    }
+
+                    // Save current shader name
+                    foreach (Material m in materialEditor.targets)
+                    {
+                        m.SetOverrideTag("GrabPassCount", grabpassCount.ToString());
+                        m.SetOverrideTag("CurrentShader", material.shader.name);
+                    }
+                }
+                m_FirstTimeApply = false;
+            }
+
+            int gbCount = Int32.Parse(material.GetTag("GrabPassCount", false, "0"));
+            EditorGUIUtility.labelWidth = 0f;
+            for (int i=0; i<gbCount; i++)
+            {
+                bool gbMixedValue = false;
+                string grabpassName = material.GetTag("GrabPass" + i, false, "");
+                foreach (Material m in materialEditor.targets)
+                    if (m.GetTag("GrabPass" + i, false, "") != grabpassName)
+                    {
+                        gbMixedValue = true;
+                        break;
+                    }
+                EditorGUI.showMixedValue = gbMixedValue;
+                EditorGUI.BeginChangeCheck();
+                string newName = EditorGUILayout.DelayedTextField("GrabPass" + i + " Name:", grabpassName);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    newName = Regex.Replace(newName, "[^A-Za-z0-9_]", "");
+
+                    if (newName == "") // No name means reset to default
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("GrabPass" + i, material.GetTag("GrabPassDefault" + i, false, ""));
+                    else
+                    {
+                        // force start custom names with an underscore
+                        if (!newName.StartsWith("_"))
+                            newName = "_" + newName;
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("GrabPass" + i, newName);
+                    }
+                }
+                EditorGUI.showMixedValue = false;
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
+    // Presets drawer, assigns groups of material properties/settings interpreted from the property's displayName
+    // Primarily meant for Standard-style 'Rendering Mode' dropdown
+    public class PresetsEnumDrawer : MaterialPropertyDrawer
+    {
+        string[] modeNames;
+        string displayName;
+        bool m_FirstTimeApply = true;
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            if (m_FirstTimeApply)
+            {
+                // loop through displayname to parse actual displayname and enum option names
+                // First is the display name, then each preset separated by ;
+                // Individual preset values are separated by , with the preset name at the start
+                string[] split = prop.displayName.Split(';');
+                displayName = split[0];
+                modeNames = new string[split.Length-1];
+                for (int i=1;i<split.Length;i++)
+                    modeNames[i-1] = split[i].Split(',')[0];
+                m_FirstTimeApply = false;
+            }
+
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            var mode = prop.floatValue;
+            EditorGUIUtility.labelWidth = 0f;
+            EditorGUI.BeginChangeCheck();
+            mode = EditorGUILayout.Popup(displayName, (int)mode, modeNames);
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = mode;
+                string[] split = prop.displayName.Split(';');
+                string[] renderModeSettings = split[(int)mode+1].Split(',');
+                MaterialProperty[] props = MaterialEditor.GetMaterialProperties(materialEditor.targets);
+                for (int i=1; i<renderModeSettings.Length; i++)
+                {
+                    string[] renderModeSetting = renderModeSettings[i].Split('=');
+                    if (renderModeSetting[0] == "RenderQueue")
+                        foreach (Material m in materialEditor.targets)
+                            m.renderQueue = Int32.Parse(renderModeSetting[1]);
+                    else if (renderModeSetting[0] == "RenderType")
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag("RenderType", renderModeSetting[1]);
+                    else if (renderModeSetting[0].StartsWith("GrabPass"))
+                        foreach (Material m in materialEditor.targets)
+                            m.SetOverrideTag(renderModeSetting[0], renderModeSetting[1]);
+                    else Array.Find(props, x => x.name == renderModeSetting[0]).floatValue = Single.Parse(renderModeSetting[1]);
+                }
+            }
+
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
+    // Minimalistic shader editor aimed at extending the base inspector with grouped foldouts, toggle foldouts,
+    // and shader optimizer button+property disabling.  Also contains support for the above drawers if necessary.
+    public class ShaderEditor : ShaderGUI
+    {
+        const string shaderOptimizerPropertyName = "_ShaderOptimizerEnabled";
+        const string AnimatedPropertySuffix = "Animated";
+        const string groupPrefix = "group_";
+        const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
+        const string endPrefix = "end_";
+        GUIStyle foldoutStyle;
+        bool m_FirstTimeApply = true;
+        bool afterShaderOptimizerButton = false;
+        MaterialProperty shaderOptimizer;
+        bool[] propertyAnimated;
+
+        public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
+        {
+            shaderOptimizer = FindProperty(shaderOptimizerPropertyName, props, false);
+
+            if (m_FirstTimeApply)
+            {
+                // Cache and initialize some stuff.  This could be done in the constructor
+                // but the constructor doesn't get called again at domain reload afaik
+                // (Domain reload resets variables but doesn't call the constructor again)
+                foldoutStyle = new GUIStyle("ShurikenModuleTitle");
+                foldoutStyle.font = new GUIStyle(EditorStyles.label).font;
+                foldoutStyle.border = new RectOffset(15, 7, 4, 4);
+                foldoutStyle.fixedHeight = 22;
+                foldoutStyle.contentOffset = new Vector2(20f, -2f);
+
+                // Dynamically check for float and texture properties with shader keywords corresponding to
+                // the texture being used or the float value being 1.  
+                // Keywords are stored in the displayname with starting and ending semicolons like ";ALBEDO_USED;Albedo"
+                // Keywords used this way are meant to make mega shaders more performant before being locked in and having
+                // all keywords removed.  This also requires property drawers to enable these keywords.
+                // Properties with ;KEYWORD; displaynames have the keyword and semicolons ignored when
+                // they are drawn with this editor
+                // Keywords aren't assigned if the optimizer is enabled
+                if (shaderOptimizer!= null && shaderOptimizer.floatValue != 1)
+                    foreach (Material m in materialEditor.targets)
+                        foreach (MaterialProperty p in props)
+                        {
+                            // Dynamic keyword properties need to have their displayname start with ;
+                            if (!p.displayName.StartsWith(";")) continue;
+
+                            switch (p.type)
+                            {
+                                case MaterialProperty.PropType.Float:
+                                case MaterialProperty.PropType.Range:
+                                    if (m.GetFloat(p.name) == 1)
+                                        m.EnableKeyword(p.displayName.Split(';')[1]);
+                                    break;
+                                case MaterialProperty.PropType.Texture:
+                                    if (m.GetTexture(p.name) != null)
+                                        m.EnableKeyword(p.displayName.Split(';')[1]);
+                                    break;
+                            }
+                        }
+                
+                // Cache the animated state of each property to exclude them from being disabled when the material is locked
+                if (propertyAnimated == null)
+                    propertyAnimated = new bool[props.Length];
+                for (int i=0;i<props.Length;i++)
+                {
+                    propertyAnimated[i] = false;
+                    string animatedPropertyName = props[i].name + AnimatedPropertySuffix;
+                    MaterialProperty animProp = FindProperty(animatedPropertyName, props, false);
+                    if (animProp != null)
+                        propertyAnimated[i] = (animProp.floatValue == 1);
+                }
+
+                m_FirstTimeApply = false;
+            }
+
+            materialEditor.SetDefaultGUIWidths();
+            afterShaderOptimizerButton = false;
+            DrawPropertiesGUIRecursive(materialEditor, props, 0, props.Length);
+            materialEditor.RenderQueueField();
+            materialEditor.EnableInstancingField();
+            materialEditor.DoubleSidedGIField();
+        }
+
+        // Recursive to easily deal with foldouts
+        // the group header property can store a toggle value, and the end property stores whether or not the foldout is expanded
+        // Any properties listed after the convention shader optimizer button are disabled when the optimizer is enabled
+        protected void DrawPropertiesGUIRecursive(MaterialEditor materialEditor, MaterialProperty[] props, int startIndex, int propCount)
+        {
+            for (var i=startIndex; i<startIndex+propCount; i++)
+            {
+                // Check for groups and toggle groups
+                bool toggle = false;
+                if (props[i].name.StartsWith(groupPrefix) && // props[i] is group property
+                   ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
+                {
+                    if (props[i].name.StartsWith(groupPrefix + togglePrefix))
+                        toggle = true;
+                    
+                    // Find matching end tag
+                    string groupName;
+                    if (toggle)
+                        groupName = props[i].name.Substring(groupPrefix.Length+togglePrefix.Length);
+                    else
+                        groupName = props[i].name.Substring(groupPrefix.Length);
+                    string endName = endPrefix + groupName;
+                    int j = i+1;
+                    bool foundEnd = false;
+                    for (; j<startIndex+propCount; j++)
+                        if (props[j].name == endName && // props[j] is group end property
+                            ((props[j].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
+                            {
+                                foundEnd = true;
+                                break;
+                            }
+                    if (!foundEnd)
+                    {
+                        Debug.LogWarning("[Kaj Shader Editor] Group end for " + groupName + " not found! Skipping.");
+                        continue;
+                    }
+
+                    // Draw particle system styled header with indentation applied
+                    float indentPixels = EditorGUI.indentLevel * 13f;
+                    var rect = GUILayoutUtility.GetRect(0, 22f, foldoutStyle);
+                    rect.width -= indentPixels;
+                    rect.x += indentPixels;
+                    if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
+                        EditorGUI.BeginDisabledGroup(true);
+                    if (toggle)
+                        GUI.Box(rect, "", foldoutStyle);
+                    else
+                        GUI.Box(rect, props[i].displayName, foldoutStyle);
+                    if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
+                        EditorGUI.EndDisabledGroup();
+
+                    // Draw foldout arrow
+                    var toggleRect = new Rect(rect.x + 4f, rect.y + 2f, 13f, 13f);
+                    bool expanded = props[j].floatValue == 1;
+                    var e = Event.current;
+                    if (e.type == EventType.Repaint)
+                        EditorStyles.foldout.Draw(toggleRect, false, false, expanded, false);
+
+                    // Toggle property
+                    // Technically drawers besides Toggles work, but are VERY wonky and not resized properly
+                    if (toggle)
+                    {
+                        // Toggle alignment from Thry's
+                        Rect togglePropertyRect = new Rect(rect);
+                        // Add 18 to skip foldout arrow, shift by indents because the original box rect is being used
+                        togglePropertyRect.x += 18 - ((EditorGUI.indentLevel) * 13);
+                        togglePropertyRect.y += 1;
+                        float labelWidth = EditorGUIUtility.labelWidth;
+                        EditorGUIUtility.labelWidth = 0;
+                        if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
+                            EditorGUI.BeginDisabledGroup(true);
+                        if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
+                            materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName.Split(';')[2]);
+                        else materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
+                        if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
+                            EditorGUI.EndDisabledGroup();
+                        EditorGUIUtility.labelWidth = labelWidth;
+                    }
+
+                    // Activate foldout
+                    // Set the value individually in each material rather than through props[j]'s floatValue because that is recorded
+                    // in the animation clip editor.  Also doesn't make an undo set for it.
+                    if (e.type == EventType.MouseDown && rect.Contains(e.mousePosition))
+                    {
+                        if (props[j].floatValue == 1)
+                            foreach (Material mat in materialEditor.targets)
+                                mat.SetFloat(props[j].name, 0);
+                        else 
+                            foreach (Material mat in materialEditor.targets)
+                                mat.SetFloat(props[j].name, 1);
+                        e.Use();
+                    }
+
+                    // Recurse on props in this group
+                    if (expanded)
+                    {
+                        int originalIndentLevel = EditorGUI.indentLevel;
+                        EditorGUI.indentLevel += 1;
+                        EditorGUILayout.Space();
+                        DrawPropertiesGUIRecursive(materialEditor, props, i+1, j-i-1);
+                        EditorGUILayout.Space();
+                        // Hard reset to original indent level because [UnIndent] decorators may need the hidden group end property, which isn't drawn
+                        EditorGUI.indentLevel = originalIndentLevel;
+                    }
+
+                    // Continue past subgroup props
+                    i += j-i; 
+                }
+
+                // Derived from MaterialEditor.PropertiesDefaultGUI https://github.com/Unity-Technologies/UnityCsReference/
+                if ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0) 
+                    continue;
+                
+                float h = materialEditor.GetPropertyHeight(props[i], props[i].displayName);
+                Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);
+                if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
+                    EditorGUI.BeginDisabledGroup(true);
+                if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
+                    materialEditor.ShaderProperty(r, props[i], props[i].displayName.Split(';')[2]);
+                else materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something throwing a warning here
+                if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
+                    EditorGUI.EndDisabledGroup();
+                
+                if (props[i].name == shaderOptimizerPropertyName)
+                    afterShaderOptimizerButton = true;
+            }
+
+        }
     }
 }

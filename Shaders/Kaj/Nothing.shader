@@ -2,12 +2,13 @@
 {
 	Properties
 	{
-        [HideInInspector] _LightModes ("__lightmodes", Int) = 0
-        [HideInInspector] _DisableBatching ("__disableBatching", Int) = 0
-        [HideInInspector] _IgnoreProjector ("__ignoreProjector", Int) = 0
-        [HideInInspector] _ForceNoShadowCasting ("__forceNoShadowCasting", Int) = 0
-        [HideInInspector] _CanUseSpriteAtlas ("__canUseSpriteAtlas", Int) = 1
-        [HideInInspector] _PreviewType ("__previewType", Int) = 0
+        [GIFlags] _GIFlags ("Global Illumination", Int) = 4
+        [DisabledLightModes] _LightModes ("Disabled LightModes", Int) = 0
+        [DisableBatching] _DisableBatching ("Disable Batching", Int) = 0
+        [PreviewType] _PreviewType ("Preview Type", Int) = 0
+        [OverrideTagToggle(IgnoreProjector)] _IgnoreProjector ("IgnoreProjector", Int) = 0
+        [OverrideTagToggle(ForceNoShadowCasting)] _ForceNoShadowCasting ("ForceNoShadowCasting", Int) = 0
+        [OverrideTagToggle(CanUseSpriteAtlas)] _CanUseSpriteAtlas ("CanUseSpriteAtlas", Int) = 1
 	}
 	CustomEditor "Kaj.ShaderEditor"    
 	SubShader

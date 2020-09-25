@@ -8,10 +8,26 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Globalization;
 
-// v6
+// v7
 
 namespace Kaj
 {
+    
+    public enum LightMode
+    {
+        Always=1,
+        ForwardBase=2,
+        ForwardAdd=4,
+        Deferred=8,
+        ShadowCaster=16,
+        MotionVectors=32,
+        PrepassBase=64,
+        PrepassFinal=128,
+        Vertex=256,
+        VertexLMRGBM=512,
+        VertexLM=1024
+    }
+
     // Static methods to generate new shader files with in-place constants based on a material's properties
     // and link that new shader to the material automatically
     public class ShaderOptimizer
@@ -31,7 +47,7 @@ namespace Kaj
         public static readonly string ForceNoShadowCastingPropertyName = "_ForceNoShadowCasting";
 
         // Material property suffix that controls whether the property of the same name gets baked into the optimized shader
-        // i.e. if _Color exists and _ColorAnimated = 1, _Color will not be baked in
+        // e.g. if _Color exists and _ColorAnimated = 1, _Color will not be baked in
         public static readonly string AnimatedPropertySuffix = "Animated";
 
         // Currently, Material.SetShaderPassEnabled doesn't work on "ShadowCaster" lightmodes,
@@ -53,6 +69,26 @@ namespace Kaj
         // Additionally, simply enabling the optimizer can define a keyword, whose name is stored here.
         // This keyword is added to the beginning of all passes, right after CGPROGRAM
         public static readonly string OptimizerEnabledKeyword = "OPTIMIZER_ENABLED";
+
+        // Mega shaders are expected to have geometry and tesselation shaders enabled by default,
+        // but with the ability to be disabled by convention property names when the optimizer is run.
+        // Additionally, they can be removed per-lightmode by the given property name plus 
+        // the lightmode name as a suffix (e.g. group_toggle_GeometryShadowCaster)
+        // Geometry and Tesselation shaders are REMOVED by default, but if the main gorups
+        // are enabled certain pass types are assumed to be ENABLED
+        public static readonly string GeometryShaderEnabledPropertyName = "group_toggle_Geometry";
+        public static readonly string TesselationEnabledPropertyName = "group_toggle_Tesselation";
+        private static bool UseGeometry = false;
+        private static bool UseGeometryForwardBase = true;
+        private static bool UseGeometryForwardAdd = true;
+        private static bool UseGeometryShadowCaster = true;
+        private static bool UseGeometryMeta = true;
+        private static bool UseTesselation = false;
+        private static bool UseTesselationForwardBase = true;
+        private static bool UseTesselationForwardAdd = true;
+        private static bool UseTesselationShadowCaster = true;
+        private static bool UseTesselationMeta = false;
+        private static string CurrentLightmode = "";
 
         // In-order list of inline sampler state names that will be replaced by InlineSamplerState() lines
         public static readonly string[] InlineSamplerStateNames = new string[]
@@ -178,55 +214,61 @@ namespace Kaj
             public string newName;
         }
 
-        public static void LockButtonGUI(MaterialEditor materialEditor, MaterialProperty shaderOptimizer)
+        public class ShaderOptimizerLockButtonDrawer : MaterialPropertyDrawer
         {
-            if (shaderOptimizer == null) return;
-
-            // Theoretically this shouldn't ever happen since locked in materials have different shaders.
-            // But in a case where the material property says its locked in but the material really isn't, this
-            // will display and allow users to fix the property/lock in
-            if (shaderOptimizer.hasMixedValue)
+            public override void OnGUI(Rect position, MaterialProperty shaderOptimizer, string label, MaterialEditor materialEditor)
             {
-                EditorGUI.BeginChangeCheck();
-                GUILayout.Button("Lock in Optimized Shaders (Beta) (" + materialEditor.targets.Length + " materials)");
-                if (EditorGUI.EndChangeCheck())
-                    foreach (Material m in materialEditor.targets)
-                    {
-                        m.SetFloat(shaderOptimizer.name, 1);
-                        MaterialProperty[] props = MaterialEditor.GetMaterialProperties(new UnityEngine.Object[] { m });
-                        if (!ShaderOptimizer.Lock(m, props)) // Error locking shader, revert property
-                            m.SetFloat(shaderOptimizer.name, 0);
-                    }
-            }
-            else
-            {
-                EditorGUI.BeginChangeCheck();
-                if (shaderOptimizer.floatValue == 0)
+                // Theoretically this shouldn't ever happen since locked in materials have different shaders.
+                // But in a case where the material property says its locked in but the material really isn't, this
+                // will display and allow users to fix the property/lock in
+                if (shaderOptimizer.hasMixedValue)
                 {
-                    if (materialEditor.targets.Length == 1)
-                        GUILayout.Button("Lock In Optimized Shader (Beta)");
-                    else GUILayout.Button("Lock in Optimized Shaders (Beta) (" + materialEditor.targets.Length + " materials)");
-                }
-                else GUILayout.Button("Unlock Shader");
-                if (EditorGUI.EndChangeCheck())
-                {
-                    shaderOptimizer.floatValue = shaderOptimizer.floatValue == 1 ? 0 : 1;
-                    if (shaderOptimizer.floatValue == 1)
-                    {
+                    EditorGUI.BeginChangeCheck();
+                    GUILayout.Button("Lock in Optimized Shaders (" + materialEditor.targets.Length + " materials)");
+                    if (EditorGUI.EndChangeCheck())
                         foreach (Material m in materialEditor.targets)
                         {
+                            m.SetFloat(shaderOptimizer.name, 1);
                             MaterialProperty[] props = MaterialEditor.GetMaterialProperties(new UnityEngine.Object[] { m });
-                            if (!ShaderOptimizer.Lock(m, props))
+                            if (!ShaderOptimizer.Lock(m, props)) // Error locking shader, revert property
                                 m.SetFloat(shaderOptimizer.name, 0);
                         }
-                    }
-                    else
+                }
+                else
+                {
+                    EditorGUI.BeginChangeCheck();
+                    if (shaderOptimizer.floatValue == 0)
                     {
-                        foreach (Material m in materialEditor.targets)
-                            if (!ShaderOptimizer.Unlock(m))
-                                m.SetFloat(shaderOptimizer.name, 1);
+                        if (materialEditor.targets.Length == 1)
+                            GUILayout.Button("Lock In Optimized Shader");
+                        else GUILayout.Button("Lock in Optimized Shaders (" + materialEditor.targets.Length + " materials)");
+                    }
+                    else GUILayout.Button("Unlock Shader");
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        shaderOptimizer.floatValue = shaderOptimizer.floatValue == 1 ? 0 : 1;
+                        if (shaderOptimizer.floatValue == 1)
+                        {
+                            foreach (Material m in materialEditor.targets)
+                            {
+                                MaterialProperty[] props = MaterialEditor.GetMaterialProperties(new UnityEngine.Object[] { m });
+                                if (!ShaderOptimizer.Lock(m, props))
+                                    m.SetFloat(shaderOptimizer.name, 0);
+                            }
+                        }
+                        else
+                        {
+                            foreach (Material m in materialEditor.targets)
+                                if (!ShaderOptimizer.Unlock(m))
+                                    m.SetFloat(shaderOptimizer.name, 1);
+                        }
                     }
                 }
+            }
+
+            public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+            {
+                return -2;
             }
         }
 
@@ -244,19 +286,55 @@ namespace Kaj
             // Get collection of all properties to replace
             // Simultaneously build a string of #defines for each CGPROGRAM
             StringBuilder definesSB = new StringBuilder();
+            // Append convention OPTIMIZER_ENABLED keyword
             definesSB.Append(Environment.NewLine);
             definesSB.Append("#define ");
             definesSB.Append(OptimizerEnabledKeyword);
             definesSB.Append(Environment.NewLine);
+            // Append all keywords active on the material
+            foreach (string keyword in material.shaderKeywords)
+            {
+                definesSB.Append("#define ");
+                definesSB.Append(keyword);
+                definesSB.Append(Environment.NewLine);
+            }
+
             List<PropertyData> constantProps = new List<PropertyData>();
             foreach (MaterialProperty prop in props)
             {
                 if (prop == null) continue;
-                // Properties ending with convention suffix will be skipped!
-                if (prop.name.EndsWith(AnimatedPropertySuffix)) continue;
-
-                if (prop.name == UseInlineSamplerStatesPropertyName)
+                else if (prop.name.EndsWith(AnimatedPropertySuffix)) continue;
+                else if (prop.name == UseInlineSamplerStatesPropertyName)
+                {
                     UseInlineSamplerStates = (prop.floatValue == 1);
+                    continue;
+                }
+                else if (prop.name.StartsWith(GeometryShaderEnabledPropertyName))
+                {
+                    if (prop.name == GeometryShaderEnabledPropertyName)
+                        UseGeometry = (prop.floatValue == 1);
+                    else if (prop.name == GeometryShaderEnabledPropertyName + "ForwardBase")
+                        UseGeometryForwardBase = (prop.floatValue == 1);
+                    else if (prop.name == GeometryShaderEnabledPropertyName + "ForwardAdd")
+                        UseGeometryForwardAdd = (prop.floatValue == 1);
+                    else if (prop.name == GeometryShaderEnabledPropertyName + "ShadowCaster")
+                        UseGeometryShadowCaster = (prop.floatValue == 1);
+                    else if (prop.name == GeometryShaderEnabledPropertyName + "Meta")
+                        UseGeometryMeta = (prop.floatValue == 1);
+                }
+                else if (prop.name.StartsWith(TesselationEnabledPropertyName))
+                {
+                    if (prop.name == TesselationEnabledPropertyName)
+                        UseTesselation = (prop.floatValue == 1);
+                    else if (prop.name == TesselationEnabledPropertyName + "ForwardBase")
+                        UseTesselationForwardBase = (prop.floatValue == 1);
+                    else if (prop.name == TesselationEnabledPropertyName + "ForwardAdd")
+                        UseTesselationForwardAdd = (prop.floatValue == 1);
+                    else if (prop.name == TesselationEnabledPropertyName + "ShadowCaster")
+                        UseTesselationShadowCaster = (prop.floatValue == 1);
+                    else if (prop.name == TesselationEnabledPropertyName + "Meta")
+                        UseTesselationMeta = (prop.floatValue == 1);
+                }
 
                 switch(prop.type)
                 {
@@ -276,6 +354,7 @@ namespace Kaj
                 }
 
                 // Check for the convention 'Animated' Property to be true otherwise assume all properties are constant
+                // nlogn trash
                 MaterialProperty animatedProp = Array.Find(props, x => x.name == prop.name + AnimatedPropertySuffix);
                 if (animatedProp != null && animatedProp.floatValue == 1)
                     continue;
@@ -434,6 +513,8 @@ namespace Kaj
                             if (lineFullyTrimmed.Contains("\"LightMode\"=\""))
                             {
                                 string lightModeName = lineFullyTrimmed.Split('\"')[3];
+                                // Store current lightmode name in a static, useful for per-pass geometry and tesselation removal
+                                CurrentLightmode = lightModeName;
                                 if (disabledLightModes.Contains(lightModeName))
                                 {
                                     // Loop up from psf.lines[i] until standalone "Pass" line is found, delete it
@@ -521,6 +602,7 @@ namespace Kaj
         // Preprocess each file for macros and includes
         // Save each file as string[], parse each macro with //KSOEvaluateMacro
         // Only editing done is replacing #include "X" filepaths where necessary
+        // most of these args could be private static members of the class
         private static bool ParseShaderFilesRecursive(List<ParsedShaderFile> filesParsed, string newTopLevelDirectory, string filePath, List<Macro> macros)
         {
             // Infinite recursion check
@@ -643,6 +725,7 @@ namespace Kaj
  
         // Replace properties! The meat of the shader optimization process
         // For each constantProp, pattern match and find each instance of the property that isn't a declaration
+        // most of these args could be private static members of the class
         private static void ReplaceShaderValues(Material material, string[] lines, int startLine, int endLine, 
         MaterialProperty[] props, List<PropertyData> constants, List<Macro> macros, List<GrabPassReplacement> grabPassVariables)
         {
@@ -652,8 +735,65 @@ namespace Kaj
             for (int i=startLine;i<endLine;i++)
             {
                 string lineTrimmed = lines[i].TrimStart();
+                if (lineTrimmed.StartsWith("#pragma geometry"))
+                {
+                    if (!UseGeometry)
+                        lines[i] = "//" + lines[i];
+                    else
+                    {
+                        switch (CurrentLightmode)
+                        {
+                            case "ForwardBase":
+                                if (!UseGeometryForwardBase)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                            case "ForwardAdd":
+                                if (!UseGeometryForwardAdd)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                            case "ShadowCaster":
+                                if (!UseGeometryShadowCaster)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                            case "Meta":
+                                if (!UseGeometryMeta)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                        }
+                    }
+                }
+                else if (lineTrimmed.StartsWith("#pragma hull") || lineTrimmed.StartsWith("#pragma domain"))
+                {
+                    if (!UseTesselation)
+                        lines[i] = "//" + lines[i];
+                    else
+                    {
+                        switch (CurrentLightmode)
+                        {
+                            case "ForwardBase":
+                                if (!UseTesselationForwardBase)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                            case "ForwardAdd":
+                                if (!UseTesselationForwardAdd)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                            case "ShadowCaster":
+                                if (!UseTesselationShadowCaster)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                            case "Meta":
+                                if (!UseTesselationMeta)
+                                    lines[i] = "//" + lines[i];
+                                break;
+                        }
+                    }
+                }
+                // Remove all shader_feature directives
+                else if (lineTrimmed.StartsWith("#pragma shader_feature") || lineTrimmed.StartsWith("#pragma shader_feature_local"))
+                    lines[i] = "//" + lines[i];
                 // Replace inline smapler states
-                if (lineTrimmed.StartsWith("//KSOInlineSamplerState"))
+                else if (lineTrimmed.StartsWith("//KSOInlineSamplerState"))
                 {
                     string lineParsed = lineTrimmed.Replace(" ", "").Replace("\t", "");
                     // Remove all whitespace
@@ -728,7 +868,8 @@ namespace Kaj
                         MaterialProperty argProp = Array.Find(props, x => x.name == argName);
                         if (argProp.textureValue != null)
                         {
-                            // If no convention UV property exists, sampled UV is assumed to be UV0
+                            // If no convention UV property exists, sampled UV mode is assumed to be 0 
+                            // Any UV enum or mode indicator can be used for this
                             int UV = 0;
                             if (Array.Exists(props, x => x.name == argName + "UV"))
                                 UV = (int)(Array.Find(props, x => x.name == argName + "UV").floatValue);

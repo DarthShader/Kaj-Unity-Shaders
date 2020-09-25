@@ -321,6 +321,9 @@ uniform float _SpecularMapChannel;
 uniform float _ClearcoatMaskChannel;
 uniform float _ParallaxMapChannel;
 uniform float _TranslucencyMapChannel;
+uniform float _TesselationEdgeFactor;
+uniform float _TesselationInsideFactor;
+uniform float _DebugWireframe;
 
 // Reusable macros and functions
 
@@ -832,102 +835,365 @@ half VarianceToRoughness(half variance)
 {
     return sqrt(2.0 / (variance + 2.0));
 }
-
 half RoughnessToPerceptualSmoothness(half roughness)
 {
     return 1.0 - RoughnessToPerceptualRoughness(roughness);
 }
 
 
-// Reusable vert/frag/geoms
-
 UNITY_INSTANCING_BUFFER_START(Props)
     //UNITY_DEFINE_INSTANCED_PROP
 UNITY_INSTANCING_BUFFER_END(Props)
 
+// PBR/Omega Shader interpolator culling preprocessor variable definitions + tesselation disabled variable definitions
+// Temporarily disabled while re-writing combined vert/frag/geom shaders
 #ifdef OPTIMIZER_ENABLED
-    #if (PROP_VERTEXCOLORSENABLED == 0 && PROP_TRIPLANARUSEVERTEXCOLORS == 0)
+    #if PROP_VERTEXCOLORSENABLED == 0 && PROP_TRIPLANARUSEVERTEXCOLORS == 0 && PROP_DEBUGWIREFRAME == 0
         #define EXCLUDE_VERTEX_COLORS
+    #endif
+    #if PROPGROUP_TOGGLE_TESSELATION == 1
+        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_TESSELATIONFORWARDBASE == 0
+            #define TESSELATION_DISABLED
+        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_TESSELATIONFORWARDADD == 0
+            #define TESSELATION_DISABLED
+        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_TESSELATIONSHADOWCASTER == 0
+            #define TESSELATION_DISABLED
+        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_TESSELATIONMETA == 0
+            #define TESSELATION_DISABLED
+        #endif
+    #else
+        #define TESSELATION_DISABLED
+    #endif
+    #if PROPGROUP_TOGGLE_GEOMETRY == 1
+        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_GEOMETRYFORWARDBASE == 0
+            #define GEOMETRY_DISABLED
+        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_GEOMETRYFORWARDADD == 0
+            #define GEOMETRY_DISABLED
+        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_GEOMETRYSHADOWCASTER == 0
+            #define GEOMETRY_DISABLED
+        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_GEOMETRYMETA == 0
+            #define GEOMETRY_DISABLED
+        #endif
+    #else
+        #define GEOMETRY_DISABLED
     #endif
 #endif
 
-// PBR v2f
-struct v2f_full
+
+// vert_omega has different output depending on pass type/optimizer's interpolator culling keywords
+struct vertex_output_omega
 {
-	float4 pos : SV_POSITION;
-	float4 uv0and1 : TEXCOORD0;
+    #ifdef UNITY_PASS_SHADOWCASTER
+        V2F_SHADOW_CASTER;
+    #else
+        float4 pos : SV_POSITION;
+    #endif
+        float4 uv0and1 : TEXCOORD0;
+        float4 uv2and3 : TEXCOORD1;
+    #ifndef EXCLUDE_VERTEX_COLORS
+        float4 color : TEXCOORD2;
+    #endif
+        float4 posWorld : TEXCOORD3;
+        float4 posObject : TEXCOORD4;
+        float3 normalObject : TEXCOORD5;
+        float3 normalWorld : TEXCOORD6;
+        float3 tangentWorld : TEXCOORD7;
+        float3 bitangentWorld : TEXCOORD8;
+        float4 grabPos: TEXCOORD9;
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        float3 tangentViewDir : TEXCOORD10;
+        UNITY_FOG_COORDS(11)
+        SHADOW_COORDS(12)
+    #endif
+    #ifdef UNITY_PASS_META
+        #ifdef EDITOR_VISUALIZATION
+            float2 vizUV        : TEXCOORD13;
+            float4 lightCoord   : TEXCOORD14;
+        #endif
+    #else
+        UNITY_VERTEX_INPUT_INSTANCE_ID
+        UNITY_VERTEX_OUTPUT_STEREO
+    #endif
+};
+// common function for regular vertex shader operations that can be called from a vertex, domain, or geometry shader
+// Tesselation programs also rely on this structure
+struct vertex_common_input_omega
+{
+    float4 vertex : INTERNALTESSPOS;
+    float4 tangent : TANGENT;
+    float3 normal : NORMAL;
+    float4 uv0and1 : TEXCOORD0;
     float4 uv2and3 : TEXCOORD1;
 #ifndef EXCLUDE_VERTEX_COLORS
-	float4 color : TEXCOORD2;
-#endif
-    float4 posWorld : TEXCOORD3;    
-    float4 posObject : TEXCOORD4;
-    float3 normalObject : TEXCOORD5;
-	float3 normalWorld : TEXCOORD6;
-	float3 tangentWorld : TEXCOORD7;
-	float3 bitangentWorld : TEXCOORD8;
-    float4 grabPos: TEXCOORD9;
-    float3 tangentViewDir : TEXCOORD10;
-	UNITY_FOG_COORDS(11)
-#ifndef UNITY_PASS_SHADOWCASTER
-	SHADOW_COORDS(12)
+    fixed4 color : COLOR;
 #endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
-    UNITY_VERTEX_OUTPUT_STEREO
 };
-v2f_full vert_full (appdata_full v)
+vertex_output_omega vert_common_omega (vertex_common_input_omega v)
 {
-	v2f_full o;
-    UNITY_SETUP_INSTANCE_ID(v);
-    UNITY_INITIALIZE_OUTPUT(v2f_full, o);
-    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-    UNITY_TRANSFER_INSTANCE_ID(v, o);
+    vertex_output_omega o;
+    #ifndef UNITY_PASS_META
+        UNITY_SETUP_INSTANCE_ID(v);
+        UNITY_INITIALIZE_OUTPUT(vertex_output_omega, o);
+        UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+        UNITY_TRANSFER_INSTANCE_ID(v, o);
+    #endif
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        UNITY_BRANCH
+        if (group_toggle_Parallax) // batched mehses don't have pre-normalized tangent/normal, and parallax NEEDS that
+        {
+            v.tangent.xyz = normalize(v.tangent.xyz);
+            v.normal = normalize(v.normal);
+        }
+        o.pos = UnityObjectToClipPos(v.vertex);
+    #elif defined(UNITY_PASS_META)
+        o.pos = UnityMetaVertexPosition(v.vertex, v.uv0and1.zw, v.uv2and3.xy, unity_LightmapST, unity_DynamicLightmapST);
+    #else
+        TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+    #endif
 
-    UNITY_BRANCH
-    if (group_toggle_Parallax) // batched mehses don't have normalized tangent/normal
-    {
-        v.tangent.xyz = normalize(v.tangent.xyz);
-	    v.normal = normalize(v.normal);
-    }
-
-    // http://www.humus.name/Articles/Persson_LowlevelShaderOptimization.pdf
-    // Packing interpolators is useless on dx11 hardware because each interpolator is resolved by a single instruction.
-    // Packing values to save interpolators would actually use more instructions.
-	o.pos = UnityObjectToClipPos(v.vertex);
     o.posWorld = mul(unity_ObjectToWorld, v.vertex);
     o.posObject = v.vertex;
 	o.normalWorld = UnityObjectToWorldNormal(v.normal);
     o.normalObject = v.normal;
 	o.tangentWorld = float4(UnityObjectToWorldDir(v.tangent.xyz), v.tangent.w);
 	o.bitangentWorld = cross(o.normalWorld, o.tangentWorld) * v.tangent.w;
-	o.uv0and1.xy = v.texcoord;
-    o.uv0and1.zw = v.texcoord1;
-    o.uv2and3.xy = v.texcoord2;
-    o.uv2and3.zw = v.texcoord3;
-#ifndef EXCLUDE_VERTEX_COLORS
-	o.color = v.color;
-#endif
-    o.grabPos = ComputeGrabScreenPos(o.pos);
-    float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal, v.tangent.xyz) * v.tangent.w, v.normal);
-	o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
-#ifndef UNITY_PASS_SHADOWCASTER
-	TRANSFER_SHADOW(o);
-#endif
-	UNITY_TRANSFER_FOG(o,o.pos);
-	return o;
+	o.uv0and1 = v.uv0and1;
+    o.uv2and3 = v.uv2and3;
+    #ifndef EXCLUDE_VERTEX_COLORS
+        o.color = v.color;
+    #endif
+    o.grabPos = ComputeGrabScreenPos(o.pos); // this doesn't even make sense to exist for shadow/meta sampling but it will break other macros atm.
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal, v.tangent.xyz) * v.tangent.w, v.normal);
+	    o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
+        TRANSFER_SHADOW(o);
+        UNITY_TRANSFER_FOG(o,o.pos);
+    #endif
+    #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
+        o.vizUV = 0;
+        o.lightCoord = 0;
+        if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
+            o.vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.texcoord.xy, v.texcoord1.xy, v.texcoord2.xy, unity_EditorViz_Texture_ST);
+        else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
+        {
+            o.vizUV = v.texcoord1.xy * unity_LightmapST.xy + unity_LightmapST.zw;
+            o.lightCoord = mul(unity_EditorViz_WorldToLight, mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1)));
+        }
+    #endif
+
+    return o;
 }
 
-half4 frag_full_pbr (v2f_full i) : SV_Target
+// Main Vertex Shader, completely changes definition based on tess/geom being enabled or not
+#if defined(TESSELATION_DISABLED) && defined(GEOMETRY_DISABLED)
+vertex_output_omega 
+#else
+vertex_common_input_omega 
+#endif
+vert_omega (appdata_full v)
 {
-    UNITY_SETUP_INSTANCE_ID(i);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
+    vertex_common_input_omega o;
+    
+    o.vertex = v.vertex;
+    o.tangent = v.tangent;
+    o.normal = v.normal;
+    o.uv0and1.xy = v.texcoord.xy;
+    o.uv0and1.zw = v.texcoord1.xy;
+    o.uv2and3.xy = v.texcoord2.xy;
+    o.uv2and3.zw = v.texcoord3.xy;
+    #ifndef EXCLUDE_VERTEX_COLORS
+        o.color = v.color;
+    #endif
+    // idk how tesselation will even handle a uint instanceID
+    UNITY_TRANSFER_INSTANCE_ID(v, o);
+    
+#if defined(TESSELATION_DISABLED) && defined(GEOMETRY_DISABLED)
+    return vert_common_omega(o);
+#else
+    return o;
+#endif
+}
+
+
+// Tesselation
+struct TessellationFactorsTri
+{
+    float edge[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+struct TessellationFactorsQuad
+{
+    float edge[4] : SV_TessFactor;
+    float inside[2] : SV_InsideTessFactor;
+};
+struct TessellationFactorsIsoline
+{
+    float edge[2] : SV_TessFactor;
+};
+TessellationFactorsTri patch_constant_omega_tri (InputPatch<vertex_common_input_omega, 3> patch)
+{
+    TessellationFactorsTri f;
+    f.edge[0] = _TesselationEdgeFactor;
+    f.edge[1] = _TesselationEdgeFactor;
+    f.edge[2] = _TesselationEdgeFactor;
+	f.inside = _TesselationEdgeFactor;
+	return f;
+}
+TessellationFactorsQuad patch_constant_omega_quad (InputPatch<vertex_common_input_omega, 3> patch)
+{
+    //_TesselationInsideFactor
+    TessellationFactorsQuad f;
+    f.edge[0] = _TesselationEdgeFactor;
+    f.edge[1] = _TesselationEdgeFactor;
+    f.edge[2] = _TesselationEdgeFactor;
+    f.edge[3] = _TesselationEdgeFactor;
+	f.inside[0] = _TesselationEdgeFactor;
+    f.inside[1] = _TesselationEdgeFactor;
+	return f;
+}
+
+[UNITY_domain("tri")]
+//[UNITY_domain("quad")]
+//[UNITY_domain("isoline")]
+[UNITY_outputcontrolpoints(3)]
+//[outputtopology("point")]
+//[outputtopology("line")]
+[UNITY_outputtopology("triangle_cw")]
+//[outputtopology("triangle_ccw")]
+[UNITY_partitioning("fractional_odd")]
+//[UNITY_partitioning("integer")]
+//[UNITY_patchconstantfunc("patch_constant_omega_quad")]
+[UNITY_patchconstantfunc("patch_constant_omega_tri")]
+vertex_common_input_omega hull_omega (InputPatch<vertex_common_input_omega, 3> patch, uint id : SV_OutputControlPointID)
+{
+    return patch[id];
+}
+
+[UNITY_domain("tri")]
+//[UNITY_domain("quad")]
+//[UNITY_domain("isoline")]
+#ifdef GEOMETRY_DISABLED
+vertex_output_omega 
+#else
+vertex_common_input_omega 
+#endif
+domain_omega (TessellationFactorsTri factors, OutputPatch<vertex_common_input_omega, 3> patch, float3 barycentricCoordinates : SV_DomainLocation)
+{
+    vertex_common_input_omega v;
+
+    #define DOMAIN_PROGRAM_INTERPOLATE(fieldName) v.fieldName = \
+		patch[0].fieldName * barycentricCoordinates.x + \
+		patch[1].fieldName * barycentricCoordinates.y + \
+		patch[2].fieldName * barycentricCoordinates.z;
+
+    DOMAIN_PROGRAM_INTERPOLATE(vertex)
+    DOMAIN_PROGRAM_INTERPOLATE(normal)
+    DOMAIN_PROGRAM_INTERPOLATE(tangent)
+    DOMAIN_PROGRAM_INTERPOLATE(uv0and1)
+    DOMAIN_PROGRAM_INTERPOLATE(uv2and3)
+#ifndef EXCLUDE_VERTEX_COLORS
+    DOMAIN_PROGRAM_INTERPOLATE(color)
+#endif
+    UNITY_TRANSFER_INSTANCE_ID(patch[0], v); // idk lmao
+
+#ifdef GEOMETRY_DISABLED
+    return vert_common_omega(v);
+#else
+    return v;
+#endif
+}
+
+// Geometry
+// Always expected to do vertex shader part if it is included
+[maxvertexcount(3)]
+void geom_omega(triangle vertex_common_input_omega IN[3], inout TriangleStream<vertex_output_omega> triStream)
+{
+    vertex_output_omega o;
+
+    float3 barys[3];
+    barys[0] = float3(1,0,0);
+    barys[1] = float3(0,1,0);
+    barys[2] = float3(0,0,1);
+
+    UNITY_UNROLL
+    for(int i=0; i<3; i++)
+    {
+        o = vert_common_omega(IN[i]);
+        #ifndef EXCLUDE_VERTEX_COLORS
+            if (_DebugWireframe) o.color.rgb = barys[i];
+        #endif
+        triStream.Append(o);
+    }
+    triStream.RestartStrip();
+}
+
+// Fragment
+struct fragment_input_omega
+{
+    #ifdef UNITY_PASS_SHADOWCASTER
+        V2F_SHADOW_CASTER_NOPOS
+        UNITY_VPOS_TYPE vpos : VPOS;
+    #else
+        float4 pos : SV_POSITION;
+    #endif
+        float4 uv0and1 : TEXCOORD0;
+        float4 uv2and3 : TEXCOORD1;
+    #ifndef EXCLUDE_VERTEX_COLORS
+        float4 color : TEXCOORD2;
+    #endif
+        float4 posWorld : TEXCOORD3;
+        float4 posObject : TEXCOORD4;
+        float3 normalObject : TEXCOORD5;
+        float3 normalWorld : TEXCOORD6;
+        float3 tangentWorld : TEXCOORD7;
+        float3 bitangentWorld : TEXCOORD8;
+        float4 grabPos: TEXCOORD9;
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        float3 tangentViewDir : TEXCOORD10;
+        UNITY_FOG_COORDS(11)
+        SHADOW_COORDS(12)
+    #endif
+    #ifdef UNITY_PASS_META
+        #ifdef EDITOR_VISUALIZATION
+            float2 vizUV        : TEXCOORD13;
+            float4 lightCoord   : TEXCOORD14;
+        #endif
+    #else
+        UNITY_VERTEX_INPUT_INSTANCE_ID
+        UNITY_VERTEX_OUTPUT_STEREO
+    #endif
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        fixed facing : VFACE;
+    #endif
+};
+half4 frag_omega (fragment_input_omega i) : SV_Target
+{
+    // Early discards, early opaque shadowcaster return, and instancing
+    #ifdef UNITY_PASS_SHADOWCASTER
+        // This subshader override tag doesn't work, so hard coding it here.
+        // Use the shader optimizer to make the override tag work & skip shadowcasting calls entirely
+        UNITY_BRANCH
+        if (_ForceNoShadowCasting) discard;
+        UNITY_SETUP_INSTANCE_ID(i);
+        UNITY_APPLY_DITHER_CROSSFADE(i.vpos.xy);
+        if (_Mode == 0) // Opaque shadowcaster
+        {
+            SHADOW_CASTER_FRAGMENT(i)
+        }
+    #elif !defined(UNITY_PASS_META)
+        UNITY_SETUP_INSTANCE_ID(i);
+        UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+        UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
+    #endif
 
     // Fragment normalizations and geometric specular antialiasing
-    i.normalWorld = normalize(i.normalWorld);
-
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        i.normalWorld = normalize(i.normalWorld);
+    #endif
 
     // Triplanar UVs
+    // Object Space
     float3 tpObjBlendFactor = normalize(abs(i.normalObject));
     tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
     float2 tpObjX = 0;
@@ -935,11 +1201,11 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     float2 tpObjZ = 0;
     if (_TriplanarUseVertexColors)
     {
-#ifndef EXCLUDE_VERTEX_COLORS
+    #ifndef EXCLUDE_VERTEX_COLORS
         tpObjX = i.color.yz;
         tpObjY = i.color.zx;
         tpObjZ = i.color.xy;
-#endif
+    #endif
     }
     else
     {
@@ -947,6 +1213,8 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         tpObjY = i.posObject.zx;
         tpObjZ = i.posObject.xy;
     }
+
+    // World Space
     float3 tpWorldBlendFactor = normalize(abs(i.normalWorld));
     tpWorldBlendFactor /= dot(tpWorldBlendFactor, (float3)1);
     float2 tpWorldX = i.posWorld.yz;
@@ -956,51 +1224,55 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     // Panosphere UVs
     float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
 
-    // Clearcoat first because it can affect viewDir and thus base layer parallax
-    half3 viewDir = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
-    half3 coatViewDir = viewDir;
-    fixed4 _ClearcoatMask_var = 1;
-    if (group_toggle_Clearcoat && _ClearcoatMask_TexelSize.x != 1)
-        //KSOInlineSamplerState(_MainTex, _ClearcoatMask)
-        PBR_SAMPLE_TEX2DS(_ClearcoatMask_var, _ClearcoatMask, _MainTex);
-    fixed clearcoatMask = _ClearcoatMaskMin + _ClearcoatMask_var[_ClearcoatMaskChannel] * (_ClearcoatMaskMax - _ClearcoatMaskMin);
-    if (group_toggle_Clearcoat && _ClearcoatRefract)
-    {
-        half3 newViewDir = -Refract(viewDir, i.normalWorld, CLEAR_COAT_IETA);
-        viewDir = lerp(viewDir, newViewDir, clearcoatMask);
-    }
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        // Clearcoat first because it can affect viewDir and thus base layer parallax
+        half3 viewDir = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
+        half3 coatViewDir = viewDir;
+        fixed4 _ClearcoatMask_var = 1;
+        if (group_toggle_Clearcoat && _ClearcoatMask_TexelSize.x != 1)
+            //KSOInlineSamplerState(_MainTex, _ClearcoatMask)
+            PBR_SAMPLE_TEX2DS(_ClearcoatMask_var, _ClearcoatMask, _MainTex);
+        fixed clearcoatMask = _ClearcoatMaskMin + _ClearcoatMask_var[_ClearcoatMaskChannel] * (_ClearcoatMaskMax - _ClearcoatMaskMin);
+        if (group_toggle_Clearcoat && _ClearcoatRefract)
+        {
+            half3 newViewDir = -Refract(viewDir, i.normalWorld, CLEAR_COAT_IETA);
+            viewDir = lerp(viewDir, newViewDir, clearcoatMask);
+        }
 
+        // Parallax next because it can affect other UVs
+        UNITY_BRANCH
+        if (group_toggle_Parallax)
+        {
+            fixed4 _ParallaxMap_var = 1;
+            if (_ParallaxMap_TexelSize.x != 1)
+                // KSOInlineSamplerState   ( _MainTex,  _ParallaxMap )
+                PBR_SAMPLE_TEX2DS(_ParallaxMap_var, _ParallaxMap, _MainTex);
+            i.tangentViewDir = normalize(i.tangentViewDir);
+            i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
+            half2 parallaxOffset = i.tangentViewDir.xy * _Parallax * (_ParallaxMap_var[_ParallaxMapChannel] - 0.5f);
+            if (_ParallaxUV0)
+                i.uv0and1.xy += parallaxOffset;
+            if (_ParallaxUV1)
+                i.uv0and1.zw += parallaxOffset;
+            if (_ParallaxUV2)
+                i.uv2and3.xy += parallaxOffset;
+            if (_ParallaxUV3)
+                i.uv2and3.zw += parallaxOffset;
 
-    // Parallax next because it can affect other UVs
-    UNITY_BRANCH
-    if (group_toggle_Parallax)
-    {
-        fixed4 _ParallaxMap_var = 1;
-        if (_ParallaxMap_TexelSize.x != 1)
-            // KSOInlineSamplerState   ( _MainTex,  _ParallaxMap )
-            PBR_SAMPLE_TEX2DS(_ParallaxMap_var, _ParallaxMap, _MainTex);
-        i.tangentViewDir = normalize(i.tangentViewDir);
-        i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
-        half2 parallaxOffset = i.tangentViewDir.xy * _Parallax * (_ParallaxMap_var[_ParallaxMapChannel] - 0.5f);
-        if (_ParallaxUV0)
-		    i.uv0and1.xy += parallaxOffset;
-        if (_ParallaxUV1)
-		    i.uv0and1.zw += parallaxOffset;
-        if (_ParallaxUV2)
-		    i.uv2and3.xy += parallaxOffset;
-        if (_ParallaxUV3)
-		    i.uv2and3.zw += parallaxOffset;
-
-        // Triplanar parallax goes here
-    }
+            // Triplanar parallax goes here
+        }
+    #endif
 
     // Opacity texture samples (MainTex, Converage, and Detail textures)
+    // Also emission texture so Meta pass can return early
     // Default behaviour is to have all textures sampled by Albedo until you lock in with inline samplers
-    // However, albedo will ALWAYS be sampled using its own sampler
+    // However, albedo will always be sampled using its own sampler
     // Texel size is used to determine if a texture is being used, combined with a uniform branch
     // Idk if this is actually more efficient, but it won't matter once the optimizer is run anyway
-    fixed4 _MainTex_var;
-    PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
+    fixed4 _MainTex_var = 1;
+    UNITY_BRANCH
+    if (_MainTex_TexelSize.x != 1)
+        PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
     fixed4 _CoverageMap_var = 0;
     UNITY_BRANCH
     if (_CoverageMap_TexelSize.x != 1)
@@ -1011,7 +1283,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_DetailMask_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailMask)
         PBR_SAMPLE_TEX2DS(_DetailMask_var, _DetailMask, _MainTex);
-    fixed _DetailAlbedoMapUV = _UVSec; // Temporary defines so the macro works
+    fixed _DetailAlbedoMapUV = _UVSec; // Temporary variables so the macro naming scheme works
     fixed _DetailAlbedoMapGreenUV = _UVSec;
     fixed _DetailAlbedoMapBlueUV = _UVSec;
     fixed _DetailAlbedoMapAlphaUV = _UVSec;
@@ -1035,10 +1307,15 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_DetailAlbedoMapAlpha_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
         PBR_SAMPLE_TEX2DS(_DetailAlbedoMapAlpha_var, _DetailAlbedoMapAlpha, _MainTex);
-    
+    fixed4 _EmissionMap_var = 1;
+    UNITY_BRANCH
+    if (_EmissionMap_TexelSize.x != 1)
+        //KSOInlineSamplerState(_MainTex, _EmissionMap)
+        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
+
     //KSODuplicateTextureCheckStart
 
-    // Early texture samples, _ParallaxMap must always be sampled independently because it affects other samples
+    // Early texture samples, _ParallaxMap and _ClearcoatMask must always be sampled independently because they affect other samples
     //KSODuplicateTextureCheck(_MainTex)
     //KSODuplicateTextureCheck(_CoverageMap)
     //KSODuplicateTextureCheck(_DetailMask)
@@ -1046,19 +1323,19 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     //KSODuplicateTextureCheck(_DetailAlbedoMapGreen)
     //KSODuplicateTextureCheck(_DetailAlbedoMapBlue)
     //KSODuplicateTextureCheck(_DetailAlbedoMapAlpha)
+    //KSODuplicateTextureCheck(_EmissionMap)
 
-    // Base opacity
+    // Opacity
     half3 albedo = _MainTex_var.rgb * _Color.rgb;
-#ifndef EXCLUDE_VERTEX_COLORS
-    if (_VertexColorsEnabled)
-        albedo *= i.color.rgb;
-#endif
+    #ifndef EXCLUDE_VERTEX_COLORS
+        if (_VertexColorsEnabled)
+            albedo *= i.color.rgb;
+    #endif
     half opacity = 1;
     if (_AlbedoTransparencyEnabled)
         opacity = _MainTex_var.a;
     if (_CoverageMap_TexelSize.x != 1)
         opacity = _CoverageMap_var[_CoverageMapChannel];
-    // Details color and albedos affect transparency!
     if (_DetailMask_TexelSize.x != 1)
     {
         // Detail colors only applied if a mask is used
@@ -1076,18 +1353,47 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     if (_DetailAlbedoMapAlpha_TexelSize.x != 1)
         opacity = lerp(opacity, opacity * _DetailAlbedoMapAlpha_var.a, _DetailMask_var.a);
     opacity *= _Color.a;
-#ifndef EXCLUDE_VERTEX_COLORS
-    if (_VertexColorsEnabled)
-        opacity *= i.color.a;
-#endif
-    // A2C
+    #ifndef EXCLUDE_VERTEX_COLORS
+        if (_VertexColorsEnabled)
+            opacity *= i.color.a;
+    #endif
+
+    // Shadowcaster clip and return
+    #ifdef UNITY_PASS_SHADOWCASTER
+        opacity += 0.01;
+        UNITY_BRANCH
+        if (_DitheredShadows && _Mode >= 1 && _Mode <= 3)
+            clip(tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, opacity * 0.9375)).a - 0.01);
+        clip(opacity - _Cutoff);
+        SHADOW_CASTER_FRAGMENT(i)
+    // Meta clip and return
+    #elif defined(UNITY_PASS_META)
+        UNITY_BRANCH
+        if (_Mode >= 1 && _Mode <= 3)
+            clip(opacity - _Cutoff);
+        UnityMetaInput o;
+        UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);
+        o.Albedo = albedo;
+        #ifdef EDITOR_VISUALIZATION
+            o.VizUV = i.vizUV;
+            o.LightCoord = i.lightCoord;
+        #endif
+        half3 emissionScale;
+        if (_EmissionMapChannel < 4)
+            emissionScale = _EmissionMap_var[_EmissionMapChannel];
+        else emissionScale = _EmissionMap_var.rgb;
+        o.Emission = _EmissionColor.rgb * lerp(emissionScale, o.Albedo.rgb * emissionScale, _EmissionTintByAlbedo) * _RealtimeGIIntensity;
+        return UnityMetaFragment(o);
+
+#else // The rest of the frag is ForwardBase and ForwardAdd stuff
+
+    // Alpha to Coverage sharpening
     UNITY_BRANCH
     if (_Mode == 1) // _ALPHATEST_ON
     {
         UNITY_BRANCH
         if (_AlphaToCoverage && _AlphaToMask)
         {
-            // todo: scale by coverage map instead if it exists, also use correct UV channel
             opacity *= 1 + max(0, CalcMipLevel(i.uv0and1.xy * _MainTex_TexelSize.zw)) * 0.25;
             opacity = saturate((opacity - _Cutoff) / max(fwidth(opacity), 0.0001) + 0.5);
         }
@@ -1180,12 +1486,7 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     //if (_SpecularMode == 2 && _SpecularAnisotropyTangentMap_TexelSize.x != 1)
         ////KSOInlineSamplerState(_MainTex, _SpecularAnisotropyTangentMap)
         //PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
-    #ifdef UNITY_PASS_FORWARDBASE
-        fixed4 _EmissionMap_var = 1;
-        if (_EmissionMap_TexelSize.x != 1)
-            //KSOInlineSamplerState(_MainTex, _EmissionMap)
-            PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
-    #endif
+
     // Duplicate texture checks, second bumpmap bias sample always done separately
     //KSODuplicateTextureCheck(_MetallicGlossMap)
     //KSODuplicateTextureCheck(_SpecGlossMap)
@@ -1197,8 +1498,6 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     //KSODuplicateTextureCheck(_DetailNormalMapBlue)
     //KSODuplicateTextureCheck(_DetailNormalMapAlpha)
     //KSODuplicateTextureCheck(_TranslucencyMap)
-    //KSODuplicateTextureCheck(_EmissionMap)
-
 
     // Assign shading variables
     // Map textures to PBR variables and filter them
@@ -1622,47 +1921,47 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
     // Reflections (Indirect Specular)
     half3 reflections_term = 0;
     half3 clearcoat_reflections_term = 0;
-#ifdef UNITY_PASS_FORWARDBASE
-    UNITY_BRANCH
-    if (group_toggle_Reflections)
-    {
+    #ifdef UNITY_PASS_FORWARDBASE
         UNITY_BRANCH
-        if (_ReflectionsMode == 1 || _ReflectionsMode == 3) // PBR
+        if (group_toggle_Reflections)
         {
+            UNITY_BRANCH
+            if (_ReflectionsMode == 1 || _ReflectionsMode == 3) // PBR
+            {
+                half surfaceReduction;
+                #ifdef UNITY_COLORSPACE_GAMMA
+                    surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
+                #else
+                    surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
+                #endif
+                half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
+                reflections_term = surfaceReduction * indirect_specular * FresnelLerp (F0, grazingTerm, NdotV) * _StandardFresnelIntensity;
+            }
+            else if (_ReflectionsMode == 2) // Skin aka Lazarov environmental
+            {
+                const half4 c0 = { -1, -0.0275, -0.572, 0.022 };
+                const half4 c1 = { 1, 0.0425, 1.04, -0.04 };
+                half4 r = perceptualRoughness * c0 + c1;
+                half a004 = min( r.x * r.x, exp2( -9.28 * NdotV ) ) * r.x + r.y;
+                half2 AB = half2( -1.04, 1.04 ) * a004 + r.zw;
+                half3 F_L = F0 * AB.x + AB.y;
+                reflections_term = indirect_specular * F_L;
+            }
+        }
+        UNITY_BRANCH
+        if (group_toggle_Clearcoat)
+        {
+            // clearcoat_indirect_specular
             half surfaceReduction;
             #ifdef UNITY_COLORSPACE_GAMMA
-                surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
+                surfaceReduction = 1.0-0.28*CLEAR_COAT_ROUGHNESS*CLEAR_COAT_PERCEPTUAL_ROUGHNESS;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
             #else
-                surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
+                surfaceReduction = 1.0 / (CLEAR_COAT_ROUGHNESS*CLEAR_COAT_ROUGHNESS + 1.0);           // fade \in [0.5;1]
             #endif
-            half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
-            reflections_term = surfaceReduction * indirect_specular * FresnelLerp (F0, grazingTerm, NdotV) * _StandardFresnelIntensity;
+            half grazingTerm = saturate(CLEAR_COAT_PERCEPTUAL_SMOOTHNESS + (1-cc_oneMinusReflectivity));
+            clearcoat_reflections_term = surfaceReduction * clearcoat_indirect_specular * FresnelLerp (CLEAR_COAT_F0, grazingTerm, cc_NdotV) * clearcoatMask;
         }
-        else if (_ReflectionsMode == 2) // Skin aka Lazarov environmental
-        {
-            const half4 c0 = { -1, -0.0275, -0.572, 0.022 };
-            const half4 c1 = { 1, 0.0425, 1.04, -0.04 };
-            half4 r = perceptualRoughness * c0 + c1;
-            half a004 = min( r.x * r.x, exp2( -9.28 * NdotV ) ) * r.x + r.y;
-            half2 AB = half2( -1.04, 1.04 ) * a004 + r.zw;
-            half3 F_L = F0 * AB.x + AB.y;
-            reflections_term = indirect_specular * F_L;
-        }
-    }
-    UNITY_BRANCH
-    if (group_toggle_Clearcoat)
-    {
-        // clearcoat_indirect_specular
-        half surfaceReduction;
-        #ifdef UNITY_COLORSPACE_GAMMA
-            surfaceReduction = 1.0-0.28*CLEAR_COAT_ROUGHNESS*CLEAR_COAT_PERCEPTUAL_ROUGHNESS;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
-        #else
-            surfaceReduction = 1.0 / (CLEAR_COAT_ROUGHNESS*CLEAR_COAT_ROUGHNESS + 1.0);           // fade \in [0.5;1]
-        #endif
-        half grazingTerm = saturate(CLEAR_COAT_PERCEPTUAL_SMOOTHNESS + (1-cc_oneMinusReflectivity));
-        clearcoat_reflections_term = surfaceReduction * clearcoat_indirect_specular * FresnelLerp (CLEAR_COAT_F0, grazingTerm, cc_NdotV) * clearcoatMask;
-    }
-#endif
+    #endif
 
     // Subsurface Transmission
     half3 transmission_term = 0;
@@ -1684,7 +1983,6 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         else transmission_term = transDot * _SubsurfaceColor * transmissionLightColor;
     }
 
-
     // Emission
     half3 emission_term = 0;
     #ifdef UNITY_PASS_FORWARDBASE
@@ -1697,9 +1995,9 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
 
     // Combine all brdf terms and rough conserve energy
     color.rgb += diffuse_term + max(specular_term, clearcoat_specular_term) + max(reflections_term, clearcoat_reflections_term) + transmission_term + emission_term;
-    if (!_HDREnabled)
+    if (!_HDREnabled) // Incorrect HDR limit - needs to affect indirect+direct light intensity
         color.rgb = saturate(color.rgb);
-    
+
     // Fog
     if (_ReceiveFog > 0)
     {
@@ -1713,321 +2011,17 @@ half4 frag_full_pbr (v2f_full i) : SV_Target
         color.rgb = normalDir;
     if (_DebugOcclusion)
         color.rgb = occlusion;
-
-	return color;
-}
-
-// Full shadowcaster with cutout support
-struct v2f_shadow_full
-{
-    V2F_SHADOW_CASTER;
-    float4 uv0and1 : TEXCOORD0;
-    float4 uv2and3 : TEXCOORD1;
-    float4 color : TEXCOORD2;
-    float4 posWorld : TEXCOORD3;
-    float4 posObject : TEXCOORD4;
-    float3 normalObject : TEXCOORD5;
-	float3 normalWorld : TEXCOORD6;
-    float4 grabPos: TEXCOORD7;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-    UNITY_VERTEX_OUTPUT_STEREO
-};
-v2f_shadow_full vert_shadow_full (appdata_full v)
-{
-    v2f_shadow_full o;
-    o.uv0and1.xy = v.texcoord;
-    o.uv0and1.zw = v.texcoord1;
-    o.uv2and3.xy = v.texcoord2;
-    o.uv2and3.zw = v.texcoord3;
-    o.color = v.color;
-    o.posWorld = mul(unity_ObjectToWorld, v.vertex);
-    o.posObject = v.vertex;
-	o.normalWorld = UnityObjectToWorldNormal(v.normal);
-    o.normalObject = v.normal;
-    TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
-    o.grabPos = ComputeGrabScreenPos(o.pos);
-    return o;
-}
-// Separate vpos struct for frag input instead of V2F_SHADOW_CASTER because you can't have both SV_Position and VPOS
-struct v2f_shadow_full_vpos
-{
-    V2F_SHADOW_CASTER_NOPOS
-    UNITY_VPOS_TYPE vpos : VPOS;
-    float4 uv0and1 : TEXCOORD0;
-    float4 uv2and3 : TEXCOORD1;
-    float4 color : TEXCOORD2;
-    float4 posWorld : TEXCOORD3;
-    float4 posObject : TEXCOORD4;
-    float3 normalObject : TEXCOORD5;
-	float3 normalWorld : TEXCOORD6;
-    float4 grabPos: TEXCOORD7;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-    UNITY_VERTEX_OUTPUT_STEREO
-};
-fixed4 frag_shadow_full (v2f_shadow_full_vpos i) : SV_Target
-{
-    // This subshader override tag doesn't work, so hard coding it here.
-    // Use the shader optimizer to make the override tag work & skip shadowcasting calls entirely
-    UNITY_BRANCH
-    if (_ForceNoShadowCasting) discard;
-
-    UNITY_SETUP_INSTANCE_ID(v);
-    UNITY_APPLY_DITHER_CROSSFADE(i.vpos.xy);
-
-    UNITY_BRANCH
-    if (_Mode >= 1 && _Mode <= 3) // _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
-    {
-        // Triplanar UVs
-        // Object Space
-        float3 tpObjBlendFactor = normalize(abs(i.normalObject));
-        tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
-        float2 tpObjX = 0;
-        float2 tpObjY = 0;
-        float2 tpObjZ = 0;
-        if (_TriplanarUseVertexColors)
+    #ifndef EXCLUDE_VERTEX_COLORS
+        if (_DebugWireframe)
         {
-            tpObjX = i.color.yz;
-            tpObjY = i.color.zx;
-            tpObjZ = i.color.xy;
+            float minBary = min(i.color.x, min(i.color.y, i.color.z));
+            float delta = abs(ddx(minBary)) + abs(ddy(minBary));
+            color.rgb = smoothstep(0, delta, minBary);
         }
-        else
-        {
-            tpObjX = i.posObject.yz;
-            tpObjY = i.posObject.zx;
-            tpObjZ = i.posObject.xy;
-        }
+    #endif
 
-        // World Space
-        float3 tpWorldBlendFactor = normalize(abs(i.normalWorld));
-        tpWorldBlendFactor /= dot(tpWorldBlendFactor, (float3)1);
-        float2 tpWorldX = i.posWorld.yz;
-        float2 tpWorldY = i.posWorld.zx;
-        float2 tpWorldZ = i.posWorld.xy;
-
-        // Panosphere UVs
-        float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
-
-        // Texture samples
-        fixed4 _MainTex_var = 1;
-        UNITY_BRANCH
-        if (_AlbedoTransparencyEnabled && _MainTex_TexelSize.x != 1)
-            PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
-        fixed4 _CoverageMap_var = 0;
-        UNITY_BRANCH
-        if (_CoverageMap_TexelSize.x != 1)
-            //KSOInlineSamplerState(_MainTex, _CoverageMap)
-            PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
-        fixed4 _DetailMask_var = 1;
-        UNITY_BRANCH
-        if (_DetailMask_TexelSize.x != 1)
-            //KSOInlineSamplerState(_MainTex, _DetailMask)
-            PBR_SAMPLE_TEX2DS(_DetailMask_var, _DetailMask, _MainTex);
-        fixed _DetailAlbedoMapUV = _UVSec;
-        fixed _DetailAlbedoMapGreenUV = _UVSec;
-        fixed _DetailAlbedoMapBlueUV = _UVSec;
-        fixed _DetailAlbedoMapAlphaUV = _UVSec;
-        fixed4 _DetailAlbedoMap_var = 0;
-        fixed4 _DetailAlbedoMapGreen_var = 0;
-        fixed4 _DetailAlbedoMapBlue_var = 0;
-        fixed4 _DetailAlbedoMapAlpha_var = 0;
-        UNITY_BRANCH
-        if (_DetailAlbedoMap_TexelSize.x != 1)
-            //KSOInlineSamplerState(_MainTex, _DetailAlbedoMap)
-            PBR_SAMPLE_TEX2DS(_DetailAlbedoMap_var, _DetailAlbedoMap, _MainTex);
-        UNITY_BRANCH
-        if (_DetailAlbedoMapGreen_TexelSize.x != 1)
-            //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapGreen)
-            PBR_SAMPLE_TEX2DS(_DetailAlbedoMapGreen_var, _DetailAlbedoMapGreen, _MainTex);
-        UNITY_BRANCH
-        if (_DetailAlbedoMapBlue_TexelSize.x != 1)
-            //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
-            PBR_SAMPLE_TEX2DS(_DetailAlbedoMapBlue_var, _DetailAlbedoMapBlue, _MainTex);
-        UNITY_BRANCH
-        if (_DetailAlbedoMapAlpha_TexelSize.x != 1)
-            //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
-            PBR_SAMPLE_TEX2DS(_DetailAlbedoMapAlpha_var, _DetailAlbedoMapAlpha, _MainTex);
-
-        //KSODuplicateTextureCheckStart
-
-        //KSODuplicateTextureCheck(_MainTex)
-        //KSODuplicateTextureCheck(_CoverageMap)
-        //KSODuplicateTextureCheck(_DetailMask)
-        //KSODuplicateTextureCheck(_DetailAlbedoMap)
-        //KSODuplicateTextureCheck(_DetailAlbedoMapGreen)
-        //KSODuplicateTextureCheck(_DetailAlbedoMapBlue)
-        //KSODuplicateTextureCheck(_DetailAlbedoMapAlpha)
-
-        // Base Opacity
-        fixed opacity = 1;
-        UNITY_BRANCH
-        if (_CoverageMap_TexelSize.x != 1)
-            opacity = _CoverageMap_var[_CoverageMapChannel];
-        else if (_AlbedoTransparencyEnabled && _MainTex_TexelSize.x != 1)
-            opacity = _MainTex_var.a;
-
-        // Details color and albedos affect transparency!
-        if (_DetailMask_TexelSize.x != 1)
-        {
-            // Detail colors only applied if a mask is used
-            opacity = lerp(opacity, opacity * _DetailColorR.a, _DetailMask_var.r);
-            opacity = lerp(opacity, opacity * _DetailColorG.a, _DetailMask_var.g);
-            opacity = lerp(opacity, opacity * _DetailColorB.a, _DetailMask_var.b);
-            opacity = lerp(opacity, opacity * _DetailColorA.a, _DetailMask_var.a);
-        }
-        if (_DetailAlbedoMap_TexelSize.x != 1) // always lerp
-            opacity = lerp(opacity, opacity * _DetailAlbedoMap_var.a, _DetailMask_var.r);
-        if (_DetailAlbedoMapGreen_TexelSize.x != 1)
-            opacity = lerp(opacity, opacity * _DetailAlbedoMapGreen_var.a, _DetailMask_var.g);
-        if (_DetailAlbedoMapBlue_TexelSize.x != 1)
-            opacity = lerp(opacity, opacity * _DetailAlbedoMapBlue_var.a, _DetailMask_var.b);
-        if (_DetailAlbedoMapAlpha_TexelSize.x != 1)
-            opacity = lerp(opacity, opacity * _DetailAlbedoMapAlpha_var.a, _DetailMask_var.a);
-        
-        opacity *= _Color.a;
-        if (_VertexColorsEnabled)
-            opacity *= i.color.a;
-
-        // Dithered shadows
-        opacity += 0.01;
-        UNITY_BRANCH
-        if (_DitheredShadows && _Mode >= 1 && _Mode <= 3)
-            clip(tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, opacity * 0.9375)).a - 0.01);
-
-        // Cutoff clipping
-        clip(opacity - _Cutoff);
-    }
-
-    SHADOW_CASTER_FRAGMENT(i)
-}
-
-// Full meta pass
-struct v2f_meta_full
-{
-    float4 pos : SV_POSITION;
-	float4 uv0and1 : TEXCOORD0;
-    float4 uv2and3 : TEXCOORD2;
-    float4 color : TEXCOORD3;
-    float4 posWorld : TEXCOORD4;
-    float4 posObject : TEXCOORD5;
-    float3 normalObject : TEXCOORD6;
-	float3 normalWorld : TEXCOORD7;
-    float4 grabPos: TEXCOORD8;
-#ifdef EDITOR_VISUALIZATION
-    float2 vizUV        : TEXCOORD9;
-    float4 lightCoord   : TEXCOORD10;
+    return color;
 #endif
-};
-v2f_meta_full vert_meta_full(appdata_full v)
-{
-    v2f_meta_full o;
-    o.pos = UnityMetaVertexPosition(v.vertex, v.texcoord1.xy, v.texcoord2.xy, unity_LightmapST, unity_DynamicLightmapST);
-    o.uv0and1.xy = v.texcoord;
-    o.uv0and1.zw = v.texcoord1;
-    o.uv2and3.xy = v.texcoord2;
-    o.uv2and3.zw = v.texcoord3;
-    o.color = v.color;
-    o.posWorld = mul(unity_ObjectToWorld, v.vertex);
-    o.posObject = v.vertex;
-	o.normalWorld = UnityObjectToWorldNormal(v.normal);
-    o.normalObject = v.normal;
-    o.grabPos = ComputeGrabScreenPos(o.pos);
-#ifdef EDITOR_VISUALIZATION
-    o.vizUV = 0;
-    o.lightCoord = 0;
-    if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
-        o.vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.texcoord.xy, v.texcoord1.xy, v.texcoord2.xy, unity_EditorViz_Texture_ST);
-    else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
-    {
-        o.vizUV = v.texcoord1.xy * unity_LightmapST.xy + unity_LightmapST.zw;
-        o.lightCoord = mul(unity_EditorViz_WorldToLight, mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1)));
-    }
-#endif
-    return o;
-}
-float4 frag_meta_full (v2f_meta_full i) : SV_Target
-{
-    // Triplanar UVs
-    // Object Space
-    float3 tpObjBlendFactor = normalize(abs(i.normalObject));
-    tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
-    float2 tpObjX = 0;
-    float2 tpObjY = 0;
-    float2 tpObjZ = 0;
-    if (_TriplanarUseVertexColors)
-    {
-        tpObjX = i.color.yz;
-        tpObjY = i.color.zx;
-        tpObjZ = i.color.xy;
-    }
-    else
-    {
-        tpObjX = i.posObject.yz;
-        tpObjY = i.posObject.zx;
-        tpObjZ = i.posObject.xy;
-    }
-
-    // World Space
-    float3 tpWorldBlendFactor = normalize(abs(i.normalWorld));
-    tpWorldBlendFactor /= dot(tpWorldBlendFactor, (float3)1);
-    float2 tpWorldX = i.posWorld.yz;
-    float2 tpWorldY = i.posWorld.zx;
-    float2 tpWorldZ = i.posWorld.xy;
-
-    // Panosphere UVs
-    float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
-
-    // Texture Samples
-    fixed4 _MainTex_var = 1;
-    UNITY_BRANCH
-    if (_MainTex_TexelSize.x != 1)
-        PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
-    fixed4 _CoverageMap_var = 0;
-    UNITY_BRANCH
-    if (_Mode >= 1 && _Mode <= 3 && _CoverageMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_MainTex, _CoverageMap)
-        PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
-    fixed4 _EmissionMap_var = 1;
-    UNITY_BRANCH
-    if (_EmissionMap_TexelSize.x != 1)
-        //KSOInlineSamplerState(_MainTex, _EmissionMap)
-        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
-
-    //KSODuplicateTextureCheckStart
-
-    //KSODuplicateTextureCheck(_MainTex)
-    //KSODuplicateTextureCheck(_CoverageMap)
-    //KSODuplicateTextureCheck(_EmissionMap)
-
-    UNITY_BRANCH
-    if (_Mode >= 1 && _Mode <= 3) // cutout, fade, and transparent
-    {
-        fixed opacity = 1;
-        if (_AlbedoTransparencyEnabled)
-            opacity = _MainTex_var.a;
-        UNITY_BRANCH
-        if (_CoverageMap_TexelSize.x != 1)
-            opacity = _CoverageMap_var[_CoverageMapChannel];
-        opacity *= _Color.a;
-        if (_VertexColorsEnabled)
-            opacity *= i.color.a;
-        clip(opacity - _Cutoff);
-    }
-
-    UnityMetaInput o;
-    UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);
-    o.Albedo = _MainTex_var.rgb * _Color.rgb;
-    if (_VertexColorsEnabled)
-        o.Albedo *= i.color.rgb;
-#ifdef EDITOR_VISUALIZATION
-    o.VizUV = i.vizUV;
-    o.LightCoord = i.lightCoord;
-#endif
-    half3 emissionScale;
-    if (_EmissionMapChannel < 4)
-        emissionScale = _EmissionMap_var[_EmissionMapChannel];
-    else emissionScale = _EmissionMap_var.rgb;
-    o.Emission = _EmissionColor.rgb * lerp(emissionScale, o.Albedo.rgb * emissionScale, _EmissionTintByAlbedo) * _RealtimeGIIntensity;
-    return UnityMetaFragment(o);
 }
 
 
