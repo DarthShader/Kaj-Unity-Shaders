@@ -31,7 +31,7 @@ Shader "Kaj/Omega"
         [UnIndent]
         _Cutoff("Cutoff", Range(0,1)) = 0.5
         [Indent]
-            [ToggleUI]_AlphaToCoverage("Sharpen Cutout (Requires A2C)", Int) = 0
+            [ToggleUI]_AlphaToMask ("Alpha To Coverage", Int) = 0
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
         [UnIndent]
@@ -84,6 +84,7 @@ Shader "Kaj/Omega"
 
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
         [ToggleUI]_HDREnabled("HDR Enabled", Int) = 1
+        [ToggleUI]_FlippedNormalBackfaces("Backfaces use Flipped Normals (Cull Front/Off)", Int) = 1
         _DirectLightIntensity("Direct Light Intensity", Range(0,1)) = 1
         [Indent]
             _DirectionalLightIntensity("Directional Lights", Range(0,1)) = 1
@@ -268,7 +269,6 @@ Shader "Kaj/Omega"
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
         [WideEnum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
-        [WideEnum(Off,0,On,1)] _AlphaToMask ("Alpha To Coverage", Int) = 0
         [WideEnum(Off,0,On,1)] _ZWrite ("ZWrite", Int) = 1
         [WideEnum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest", Int) = 4
         _OffsetFactor("Offset Factor", Float) = 0
@@ -327,6 +327,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_CurvatureScaleAnimated("  _CurvatureScale", Int) = 0
         [ToggleUILeft]_CutoffAnimated("  _Cutoff", Int) = 0
         [ToggleUILeft]_DebugOcclusionAnimated("  _DebugOcclusion", Int) = 0
+        [ToggleUILeft]_DebugWireframeAnimated("  _DebugWireframe", Int) = 0
         [ToggleUILeft]_DebugWorldNormalsAnimated("  _DebugWorldNormals", Int) = 0
         [ToggleUILeft]_DetailAlbedoCombineModeAnimated("  _DetailAlbedoCombineMode", Int) = 0
         [ToggleUILeft]_DetailAlbedoMap_STAnimated("  _DetailAlbedoMap_ST", Int) = 0
@@ -373,6 +374,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_FakeLightDirectionAnimated("  _FakeLightDirection", Int) = 0
         [ToggleUILeft]_FakeLightIntensityAnimated("  _FakeLightIntensity", Int) = 0
         [ToggleUILeft]_FakeLightToggleAnimated("  _FakeLightToggle", Int) = 0
+        [ToggleUILeft]_FlippedNormalBackfacesAnimated("  _FlippedNormalBackfaces", Int) = 0
         [ToggleUILeft]_GlossinessAnimated("  _Glossiness", Int) = 0
         [ToggleUILeft]_GlossinessMinAnimated("  _GlossinessMin", Int) = 0
         [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
@@ -449,6 +451,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_SSSTransmissionShadowCastingLightsOnlyAnimated("  _SSSTransmissionShadowCastingLightsOnly", Int) = 0
         [ToggleUILeft]_StandardFresnelIntensityAnimated("  _StandardFresnelIntensity", Int) = 0
         [ToggleUILeft]_SubsurfaceColorAnimated("  _SubsurfaceColor", Int) = 0
+        [ToggleUILeft]_TesselationEdgeFactorAnimated("  _TesselationEdgeFactor", Int) = 0
         [ToggleUILeft]_TranslucencyMap_STAnimated("  _TranslucencyMap_ST", Int) = 0
         [ToggleUILeft]_TranslucencyMap_TexelSizeAnimated("  _TranslucencyMap_TexelSize", Int) = 0
         [ToggleUILeft]_TranslucencyMapChannelAnimated("  _TranslucencyMapChannel", Int) = 0
@@ -471,7 +474,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 34", Int) = 34
+        [KajLabel]_Version("Shader Version: 35", Int) = 35
     }
 
     CustomEditor "Kaj.ShaderEditor"

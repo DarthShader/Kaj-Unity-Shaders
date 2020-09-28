@@ -164,7 +164,6 @@ uniform float _PhongSpecularEnabled;                    // Custom phong toggle
 uniform float _PhongSpecularPower;                      // Custom phong power
 uniform float4 _PhongSpecularColor;                     // Custom phong color
 uniform float _PhongSpecularIntensity;                  // Custom phong specular range
-uniform float _AlphaToCoverage;                         // A2C toggle
 uniform float _StandardFresnelIntensity;                // Standard BRDF fresnel control
 UNITY_DECLARE_TEX2D(_SkyrimSkinTex);                    // Skyrim SSS map
 uniform float _SkyrimLightingEffectOne;                 // Skyrim generic shader property - varies with shaders
@@ -324,6 +323,203 @@ uniform float _TranslucencyMapChannel;
 uniform float _TesselationEdgeFactor;
 uniform float _TesselationInsideFactor;
 uniform float _DebugWireframe;
+uniform float _FlippedNormalBackfaces;
+uniform float group_toggle_Geometry;
+uniform float group_toggle_GeometryForwardBase;
+uniform float group_toggle_GeometryForwardAdd;
+uniform float group_toggle_GeometryShadowCaster;
+uniform float group_toggle_GeometryMeta;
+uniform float group_toggle_Tesselation;
+uniform float group_toggle_TesselationForwardBase;
+uniform float group_toggle_TesselationForwardAdd;
+uniform float group_toggle_TesselationShadowCaster;
+uniform float group_toggle_TesselationMeta;
+
+// Omega Shader interpolator culling preprocessor variable definitions + tesselation/geometry disabling variable definitions
+// A ton of convolued logic just to cull some 
+#ifdef OPTIMIZER_ENABLED
+
+    #if PROPGROUP_TOGGLE_TESSELATION == 1
+        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_TESSELATIONFORWARDBASE == 0
+            #define TESSELATION_DISABLED
+        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_TESSELATIONFORWARDADD == 0
+            #define TESSELATION_DISABLED
+        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_TESSELATIONSHADOWCASTER == 0
+            #define TESSELATION_DISABLED
+        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_TESSELATIONMETA == 0
+            #define TESSELATION_DISABLED
+        #endif
+    #else
+        #define TESSELATION_DISABLED
+    #endif
+    #if PROPGROUP_TOGGLE_GEOMETRY == 1
+        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_GEOMETRYFORWARDBASE == 0
+            #define GEOMETRY_DISABLED
+        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_GEOMETRYFORWARDADD == 0
+            #define GEOMETRY_DISABLED
+        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_GEOMETRYSHADOWCASTER == 0
+            #define GEOMETRY_DISABLED
+        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_GEOMETRYMETA == 0
+            #define GEOMETRY_DISABLED
+        #endif
+    #else
+        #define GEOMETRY_DISABLED
+    #endif
+
+    #if PROP_VERTEXCOLORSENABLED == 0 && PROP_VERTEXCOLORSENABLEDANIMATED == 0 \
+        && PROP_TRIPLANARUSEVERTEXCOLORS == 0  && PROP_TRIPLANARUSEVERTEXCOLORSANIMATED == 0 \
+        && (defined(GEOMETRY_DISABLED) || (PROP_DEBUGWIREFRAME == 0 && PROP_DEBUGWIREFRAMEANIMATED == 0))
+        #define EXCLUDE_VERTEX_COLORS
+    #endif
+
+    // If ANY texture's UV channel mode isnt 12 (screenspace)
+    // && (Mode is Opaque || Dithering isn't and won't be enabled) 
+    // then grabpos can be excluded.
+    // The rest of the interpolator exclusion defines have a similar structure
+    #if PROP_MAINTEXUV != 12 && PROP_MAINTEXUVANIMATED == 0 \
+        && PROP_CLEARCOATMASKUV != 12 && PROP_CLEARCOATMASKUVANIMATED == 0 \
+        && PROP_PARALLAXMAPUV != 12 && PROP_PARALLAXMAPUVANIMATED == 0 \
+        && PROP_COVERAGEMAPUV != 12 && PROP_COVERAGEMAPUVANIMATED == 0 \
+        && PROP_DETAILMASKUV != 12 && PROP_DETAILMASKUVANIMATED == 0 \
+        && PROP_UVSEC != 12 && PROP_UVSECANIMATED == 0 \
+        && PROP_EMISSIONMAPUV != 12 && PROP_EMISSIONMAPUVANIMATED == 0 \
+        && PROP_METALLICGLOSSMAPUV != 12 && PROP_METALLICGLOSSMAPUVANIMATED == 0 \
+        && PROP_SPECGLOSSMAPUV != 12 && PROP_SPECGLOSSMAPUVANIMATED == 0 \
+        && PROP_OCCLUSIONMAPUV != 12 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
+        && PROP_SPECULARMAPUV != 12 && PROP_SPECULARMAPUVANIMATED == 0 \
+        && PROP_BUMPMAPUV != 12 && PROP_BUMPMAPUVANIMATED == 0 \
+        && PROP_TRANSLUCENCYMAPUV != 12 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+        && (PROP_MODE == 0 || (PROP_DITHERINGENABLED == 0 && PROP_DITHERINGENABLEDANIMATED == 0))
+        #define EXCLUDE_GRABPOS
+    #endif
+
+    #if PROP_MAINTEXUV != 5 && PROP_MAINTEXUVANIMATED == 0 \
+        && PROP_CLEARCOATMASKUV != 5 && PROP_CLEARCOATMASKUVANIMATED == 0 \
+        && PROP_PARALLAXMAPUV != 5 && PROP_PARALLAXMAPUVANIMATED == 0 \
+        && PROP_COVERAGEMAPUV != 5 && PROP_COVERAGEMAPUVANIMATED == 0 \
+        && PROP_DETAILMASKUV != 5 && PROP_DETAILMASKUVANIMATED == 0 \
+        && PROP_UVSEC != 5 && PROP_UVSECANIMATED == 0 \
+        && PROP_EMISSIONMAPUV != 5 && PROP_EMISSIONMAPUVANIMATED == 0 \
+        && PROP_METALLICGLOSSMAPUV != 5 && PROP_METALLICGLOSSMAPUVANIMATED == 0 \
+        && PROP_SPECGLOSSMAPUV != 5 && PROP_SPECGLOSSMAPUVANIMATED == 0 \
+        && PROP_OCCLUSIONMAPUV != 5 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
+        && PROP_SPECULARMAPUV != 5 && PROP_SPECULARMAPUVANIMATED == 0 \
+        && PROP_BUMPMAPUV != 5 && PROP_BUMPMAPUVANIMATED == 0 \
+        && PROP_TRANSLUCENCYMAPUV != 5 && PROP_TRANSLUCENCYMAPUVANIMATED == 0
+        #define EXCLUDE_NORMALOBJECT
+    #endif
+
+    #if (PROP_MAINTEXUV < 9 || PROP_MAINTEXUV > 11) && PROP_MAINTEXUVANIMATED == 0 \
+        && (PROP_CLEARCOATMASKUV < 9 || PROP_CLEARCOATMASKUV > 11) && PROP_CLEARCOATMASKUVANIMATED == 0 \
+        && (PROP_PARALLAXMAPUV < 9 || PROP_PARALLAXMAPUV > 11) && PROP_PARALLAXMAPUVANIMATED == 0 \
+        && (PROP_COVERAGEMAPUV < 9 || PROP_COVERAGEMAPUV > 11) && PROP_COVERAGEMAPUVANIMATED == 0 \
+        && (PROP_DETAILMASKUV < 9 || PROP_DETAILMASKUV > 11) && PROP_DETAILMASKUVANIMATED == 0 \
+        && (PROP_UVSEC < 9 || PROP_UVSEC > 11) && PROP_UVSECANIMATED == 0 \
+        && (PROP_EMISSIONMAPUV < 9 || PROP_EMISSIONMAPUV > 11) && PROP_EMISSIONMAPUVANIMATED == 0 \
+        && (PROP_METALLICGLOSSMAPUV < 9 || PROP_METALLICGLOSSMAPUV > 11) && PROP_METALLICGLOSSMAPUVANIMATED == 0 \
+        && (PROP_SPECGLOSSMAPUV < 9 || PROP_SPECGLOSSMAPUV > 11) && PROP_SPECGLOSSMAPUVANIMATED == 0 \
+        && (PROP_OCCLUSIONMAPUV < 9 || PROP_OCCLUSIONMAPUV > 11) && PROP_OCCLUSIONMAPUVANIMATED == 0 \
+        && (PROP_SPECULARMAPUV < 9 || PROP_SPECULARMAPUV > 11) && PROP_SPECULARMAPUVANIMATED == 0 \
+        && (PROP_BUMPMAPUV < 9 || PROP_BUMPMAPUV > 11) && PROP_BUMPMAPUVANIMATED == 0 \
+        && (PROP_TRANSLUCENCYMAPUV < 9 || PROP_TRANSLUCENCYMAPUV > 11) && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+        && ((PROPGROUP_TOGGLE_SSSTRANSMISSION == 0 && PROPGROUP_TOGGLE_SSSTRANSMISSIONANIMATED == 0) \
+            || (PROP_SSSSTYLIZEDINDIRECT == 0 && PROP_SSSSTYLIZEDINDIRECTANIMATED == 0))
+        #define EXCLUDE_POSOBJECT
+    #endif
+
+    #ifndef UNITY_PASS_META
+        #if PROP_MAINTEXUV != 0 && PROP_MAINTEXUVANIMATED == 0 \
+            && PROP_CLEARCOATMASKUV != 0 && PROP_CLEARCOATMASKUVANIMATED == 0 \
+            && PROP_PARALLAXMAPUV != 0 && PROP_PARALLAXMAPUVANIMATED == 0 \
+            && PROP_COVERAGEMAPUV != 0 && PROP_COVERAGEMAPUVANIMATED == 0 \
+            && PROP_DETAILMASKUV != 0 && PROP_DETAILMASKUVANIMATED == 0 \
+            && PROP_UVSEC != 0 && PROP_UVSECANIMATED == 0 \
+            && PROP_EMISSIONMAPUV != 0 && PROP_EMISSIONMAPUVANIMATED == 0 \
+            && PROP_METALLICGLOSSMAPUV != 0 && PROP_METALLICGLOSSMAPUVANIMATED == 0 \
+            && PROP_SPECGLOSSMAPUV != 0 && PROP_SPECGLOSSMAPUVANIMATED == 0 \
+            && PROP_OCCLUSIONMAPUV != 0 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
+            && PROP_SPECULARMAPUV != 0 && PROP_SPECULARMAPUVANIMATED == 0 \
+            && PROP_BUMPMAPUV != 0 && PROP_BUMPMAPUVANIMATED == 0 \
+            && PROP_TRANSLUCENCYMAPUV != 0 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+            && (PROP_MODE != 1 || (PROP_ALPHATOMASK == 0 && PROP_ALPHATOMASKANIMATED == 0))
+            #define EXCLUDE_UV0
+        #endif
+        #if PROP_MAINTEXUV != 1 && PROP_MAINTEXUVANIMATED == 0 \
+            && PROP_CLEARCOATMASKUV != 1 && PROP_CLEARCOATMASKUVANIMATED == 0 \
+            && PROP_PARALLAXMAPUV != 1 && PROP_PARALLAXMAPUVANIMATED == 0 \
+            && PROP_COVERAGEMAPUV != 1 && PROP_COVERAGEMAPUVANIMATED == 0 \
+            && PROP_DETAILMASKUV != 1 && PROP_DETAILMASKUVANIMATED == 0 \
+            && PROP_UVSEC != 1 && PROP_UVSECANIMATED == 0 \
+            && PROP_EMISSIONMAPUV != 1 && PROP_EMISSIONMAPUVANIMATED == 0 \
+            && PROP_METALLICGLOSSMAPUV != 1 && PROP_METALLICGLOSSMAPUVANIMATED == 0 \
+            && PROP_SPECGLOSSMAPUV != 1 && PROP_SPECGLOSSMAPUVANIMATED == 0 \
+            && PROP_OCCLUSIONMAPUV != 1 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
+            && PROP_SPECULARMAPUV != 1 && PROP_SPECULARMAPUVANIMATED == 0 \
+            && PROP_BUMPMAPUV != 1 && PROP_BUMPMAPUVANIMATED == 0 \
+            && PROP_TRANSLUCENCYMAPUV != 1 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+            && !defined(LIGHTMAP_ON)
+            #define EXCLUDE_UV1
+        #endif
+        #if PROP_MAINTEXUV != 2 && PROP_MAINTEXUVANIMATED == 0 \
+            && PROP_CLEARCOATMASKUV != 2 && PROP_CLEARCOATMASKUVANIMATED == 0 \
+            && PROP_PARALLAXMAPUV != 2 && PROP_PARALLAXMAPUVANIMATED == 0 \
+            && PROP_COVERAGEMAPUV != 2 && PROP_COVERAGEMAPUVANIMATED == 0 \
+            && PROP_DETAILMASKUV != 2 && PROP_DETAILMASKUVANIMATED == 0 \
+            && PROP_UVSEC != 2 && PROP_UVSECANIMATED == 0 \
+            && PROP_EMISSIONMAPUV != 2 && PROP_EMISSIONMAPUVANIMATED == 0 \
+            && PROP_METALLICGLOSSMAPUV != 2 && PROP_METALLICGLOSSMAPUVANIMATED == 0 \
+            && PROP_SPECGLOSSMAPUV != 2 && PROP_SPECGLOSSMAPUVANIMATED == 0 \
+            && PROP_OCCLUSIONMAPUV != 2 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
+            && PROP_SPECULARMAPUV != 2 && PROP_SPECULARMAPUVANIMATED == 0 \
+            && PROP_BUMPMAPUV != 2 && PROP_BUMPMAPUVANIMATED == 0 \
+            && PROP_TRANSLUCENCYMAPUV != 2 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+            && !defined(DYNAMICLIGHTMAP_ON)
+            #define EXCLUDE_UV2
+        #endif
+        #if PROP_MAINTEXUV != 3 && PROP_MAINTEXUVANIMATED == 0 \
+            && PROP_CLEARCOATMASKUV != 3 && PROP_CLEARCOATMASKUVANIMATED == 0 \
+            && PROP_PARALLAXMAPUV != 3 && PROP_PARALLAXMAPUVANIMATED == 0 \
+            && PROP_COVERAGEMAPUV != 3 && PROP_COVERAGEMAPUVANIMATED == 0 \
+            && PROP_DETAILMASKUV != 3 && PROP_DETAILMASKUVANIMATED == 0 \
+            && PROP_UVSEC != 3 && PROP_UVSECANIMATED == 0 \
+            && PROP_EMISSIONMAPUV != 3 && PROP_EMISSIONMAPUVANIMATED == 0 \
+            && PROP_METALLICGLOSSMAPUV != 3 && PROP_METALLICGLOSSMAPUVANIMATED == 0 \
+            && PROP_SPECGLOSSMAPUV != 3 && PROP_SPECGLOSSMAPUVANIMATED == 0 \
+            && PROP_OCCLUSIONMAPUV != 3 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
+            && PROP_SPECULARMAPUV != 3 && PROP_SPECULARMAPUVANIMATED == 0 \
+            && PROP_BUMPMAPUV != 3 && PROP_BUMPMAPUVANIMATED == 0 \
+            && PROP_TRANSLUCENCYMAPUV != 3 && PROP_TRANSLUCENCYMAPUVANIMATED == 0
+            #define EXCLUDE_UV3
+        #endif
+    #endif
+
+    #if defined(EXCLUDE_UV0) && defined(EXCLUDE_UV1)
+        #define EXCLUDE_UV0AND1
+    #endif
+    #if defined(EXCLUDE_UV2) && defined(EXCLUDE_UV3)
+        #define EXCLUDE_UV2AND3
+    #endif
+
+    #if PROPGROUP_TOGGLE_PARALLAX == 0 && PROPGROUP_TOGGLE_PARALLAXANIMATED == 0
+        #define EXCLUDE_TANGENT_VIEWDIR
+    #endif
+
+    #if PROP_RECEIVEFOG == 0 && PROP_RECEIVEFOGANIMATED == 0
+        #define EXCLUDE_FOG_COORDS
+    #endif
+
+    // This could also be culled if shadows aren't ever used, since shadows get multiplied into attenuation,
+    // then into lightcolor, then blah blah blah.  But that would probably be too much to keep track of.
+    // Maybe later.
+    #if PROP_RECEIVESHADOWS == 0 && PROP_RECEIVESHADOWSANIMATED == 0
+        #define EXCLUDE_SHADOW_COORDS
+    #endif
+
+    #if PROP_FLIPPEDNORMALBACKFACES == 0 && PROP_FLIPPEDNORMALBACKFACESANIMATED == 0
+        #define EXCLUDE_VFACE
+    #endif
+#endif
+
 
 // Reusable macros and functions
 
@@ -334,36 +530,69 @@ uniform float _DebugWireframe;
 #define _WorldSpaceStereoCameraCenterPos _WorldSpaceCameraPos
 #endif
 
-// UNITY_LIGHT_ATTENUATION macros without the shadow multiplied in
-#ifdef POINT
-#define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
-        unityShadowCoord3 lightCoord = mul(unity_WorldToLight, unityShadowCoord4(worldPos, 1)).xyz; \
-        fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
-        fixed destName = tex2D(_LightTexture0, dot(lightCoord, lightCoord).rr).r;
+// UNITY_LIGHT_ATTENUATION macros without the shadow multiplied in, versions with/without shadow coord interpolator
+#ifndef EXCLUDE_SHADOW_COORDS
+    #ifdef POINT
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            unityShadowCoord3 lightCoord = mul(unity_WorldToLight, unityShadowCoord4(worldPos, 1)).xyz; \
+            fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
+            fixed destName = tex2D(_LightTexture0, dot(lightCoord, lightCoord).rr).r;
+    #endif
+    #ifdef SPOT
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            DECLARE_LIGHT_COORD(input, worldPos); \
+            fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
+            fixed destName = (lightCoord.z > 0) * UnitySpotCookie(lightCoord) * UnitySpotAttenuate(lightCoord.xyz);
+    #endif
+    #ifdef DIRECTIONAL
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
+            fixed destName = 1;
+    #endif
+    #ifdef POINT_COOKIE
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            DECLARE_LIGHT_COORD(input, worldPos); \
+            fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
+            fixed destName = tex2D(_LightTextureB0, dot(lightCoord, lightCoord).rr).r * texCUBE(_LightTexture0, lightCoord).w;
+    #endif
+    #ifdef DIRECTIONAL_COOKIE
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            DECLARE_LIGHT_COORD(input, worldPos); \
+            fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
+            fixed destName = tex2D(_LightTexture0, lightCoord).w;
+    #endif
+#else
+    #ifdef POINT
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            unityShadowCoord3 lightCoord = mul(unity_WorldToLight, unityShadowCoord4(worldPos, 1)).xyz; \
+            fixed shadow = 1; \
+            fixed destName = tex2D(_LightTexture0, dot(lightCoord, lightCoord).rr).r;
+    #endif
+    #ifdef SPOT
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            DECLARE_LIGHT_COORD(input, worldPos); \
+            fixed shadow = 1; \
+            fixed destName = (lightCoord.z > 0) * UnitySpotCookie(lightCoord) * UnitySpotAttenuate(lightCoord.xyz);
+    #endif
+    #ifdef DIRECTIONAL
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            fixed shadow = 1; \
+            fixed destName = 1;
+    #endif
+    #ifdef POINT_COOKIE
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            DECLARE_LIGHT_COORD(input, worldPos); \
+            fixed shadow = 1; \
+            fixed destName = tex2D(_LightTextureB0, dot(lightCoord, lightCoord).rr).r * texCUBE(_LightTexture0, lightCoord).w;
+    #endif
+    #ifdef DIRECTIONAL_COOKIE
+    #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
+            DECLARE_LIGHT_COORD(input, worldPos); \
+            fixed shadow = 1; \
+            fixed destName = tex2D(_LightTexture0, lightCoord).w;
+    #endif
 #endif
-#ifdef SPOT
-#define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
-        DECLARE_LIGHT_COORD(input, worldPos); \
-        fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
-        fixed destName = (lightCoord.z > 0) * UnitySpotCookie(lightCoord) * UnitySpotAttenuate(lightCoord.xyz);
-#endif
-#ifdef DIRECTIONAL
-#define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
-        fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
-        fixed destName = 1;
-#endif
-#ifdef POINT_COOKIE
-#define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
-        DECLARE_LIGHT_COORD(input, worldPos); \
-        fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
-        fixed destName = tex2D(_LightTextureB0, dot(lightCoord, lightCoord).rr).r * texCUBE(_LightTexture0, lightCoord).w;
-#endif
-#ifdef DIRECTIONAL_COOKIE
-#define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
-        DECLARE_LIGHT_COORD(input, worldPos); \
-        fixed shadow = UNITY_SHADOW_ATTENUATION(input, worldPos); \
-        fixed destName = tex2D(_LightTexture0, lightCoord).w;
-#endif
+
 
 // Unity texture declarations and sampler macros because HLSLSupport.cginc doesn't have tex2Dbias or tex2Dlod
 #define UNITY_SAMPLE_TEX2D_BIAS(tex,coord,bias) tex.SampleBias (sampler##tex,coord,bias)
@@ -384,84 +613,6 @@ SamplerState sampler_trilinear_repeat;
 SamplerState sampler_trilinear_clamp;
 SamplerState sampler_trilinear_mirror;
 SamplerState sampler_trilinear_mirroronce;
-
-// Easy triplanar sampling
-#define SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex,samplertex,coordX,coordY,coordZ,scale,blend) \
-    UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, ((coordX) * (scale))) * (blend).x \
-    + UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, ((coordY) * (scale))) * (blend).y \
-    + UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, ((coordZ) * (scale))) * (blend).z
-
-#define SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex,samplertex,coordX,coordY,coordZ,scale,blend,bias) \
-    UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, ((coordX) * (scale)), bias) * (blend).x \
-    + UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, ((coordY) * (scale)), bias) * (blend).y \
-    + UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, ((coordZ) * (scale)), bias) * (blend).z
-
-
-// PBR shader specific branching and sampling, expects convention texture variables and specific triplanar variable names
-// Checks the convention UV set for the texture.  Either UVs 0-3 are used and transformed using Tiling/Offset or 
-// shader triplanar/planar/screenspace variables are used with custom Tiling/Offset setup
-//KSOEvaluateMacro
-#define PBR_SAMPLE_TEX2DS(var,tex,samplertex) \
-    if (tex##UV == 0) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv0and1.xy * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 1) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv0and1.zw * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 2) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv2and3.xy * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 3) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.uv2and3.zw * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 4) \
-        var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor); \
-    else if (tex##UV == 5) \
-        var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor); \
-    else if (tex##UV == 6) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posWorld.xy * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 7) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posWorld.yz * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 8) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posWorld.zx * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 9) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posObject.xy * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 10) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posObject.yz * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 11) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (i.posObject.zx * tex##_ST.xy + tex##_ST.zw)); \
-    else if (tex##UV == 12) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (stereoCorrectScreenUV01(i.grabPos) * tex##_ST.xy + tex##_ST.zw)); \
-    else \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER(tex, samplertex, (panoUV * tex##_ST.xy + tex##_ST.zw));
-
-// KSOEvaluateMacro
-#define PBR_SAMPLE_TEX2DS_BIAS(var,tex,samplertex,bias) \
-    if (tex##UV == 0) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv0and1.xy * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 1) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv0and1.zw * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 2) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv2and3.xy * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 3) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.uv2and3.zw * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 4) \
-        var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpWorldX + tex##_ST.wy), (tpWorldY + tex##_ST.yz), (tpWorldZ + tex##_ST.zw), tex##_ST.x, tpWorldBlendFactor, bias); \
-    else if (tex##UV == 5) \
-        var = SAMPLE_TEX2D_TRIPLANAR_SAMPLER_BIAS(tex, samplertex, (tpObjX + tex##_ST.wy), (tpObjY + tex##_ST.yz), (tpObjZ + tex##_ST.zw), tex##_ST.x, tpObjBlendFactor, bias); \
-    else if (tex##UV == 6) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posWorld.xy * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 7) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posWorld.yz * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 8) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posWorld.zx * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 9) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posObject.xy * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 10) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posObject.yz * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 11) \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (i.posObject.zx * tex##_ST.xy + tex##_ST.zw), bias); \
-    else if (tex##UV == 12)\
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (stereoCorrectScreenUV01(i.grabPos) * tex##_ST.xy + tex##_ST.zw), bias); \
-    else \
-        var = UNITY_SAMPLE_TEX2D_SAMPLER_BIAS(tex, samplertex, (panoUV * tex##_ST.xy + tex##_ST.zw), bias);
-
 
 // VRChat mirror utility
 bool IsInMirror()
@@ -845,41 +996,31 @@ UNITY_INSTANCING_BUFFER_START(Props)
     //UNITY_DEFINE_INSTANCED_PROP
 UNITY_INSTANCING_BUFFER_END(Props)
 
-// PBR/Omega Shader interpolator culling preprocessor variable definitions + tesselation disabled variable definitions
-// Temporarily disabled while re-writing combined vert/frag/geom shaders
-#ifdef OPTIMIZER_ENABLED
-    #if PROP_VERTEXCOLORSENABLED == 0 && PROP_TRIPLANARUSEVERTEXCOLORS == 0 && PROP_DEBUGWIREFRAME == 0
-        #define EXCLUDE_VERTEX_COLORS
-    #endif
-    #if PROPGROUP_TOGGLE_TESSELATION == 1
-        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_TESSELATIONFORWARDBASE == 0
-            #define TESSELATION_DISABLED
-        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_TESSELATIONFORWARDADD == 0
-            #define TESSELATION_DISABLED
-        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_TESSELATIONSHADOWCASTER == 0
-            #define TESSELATION_DISABLED
-        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_TESSELATIONMETA == 0
-            #define TESSELATION_DISABLED
-        #endif
-    #else
-        #define TESSELATION_DISABLED
-    #endif
-    #if PROPGROUP_TOGGLE_GEOMETRY == 1
-        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_GEOMETRYFORWARDBASE == 0
-            #define GEOMETRY_DISABLED
-        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_GEOMETRYFORWARDADD == 0
-            #define GEOMETRY_DISABLED
-        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_GEOMETRYSHADOWCASTER == 0
-            #define GEOMETRY_DISABLED
-        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_GEOMETRYMETA == 0
-            #define GEOMETRY_DISABLED
-        #endif
-    #else
-        #define GEOMETRY_DISABLED
-    #endif
-#endif
 
-
+// Culled appdata for vertex shader because although the hlsl compiler can mask out unused inputs
+// for the gpu program, afaik CPU side Unity still thinks it needs to provide all vertex stream data,
+// which is slower.  (Compiled shader shows "Uses vertex data channel", only indication of this)
+struct appdata_full_omega {
+    float4 vertex : POSITION;
+    float4 tangent : TANGENT;
+    float3 normal : NORMAL;
+    #ifndef EXCLUDE_UV0
+        float4 texcoord : TEXCOORD0;
+    #endif
+    #ifndef EXCLUDE_UV1
+        float4 texcoord1 : TEXCOORD1;
+    #endif
+    #ifndef EXCLUDE_UV2
+        float4 texcoord2 : TEXCOORD2;
+    #endif
+    #ifndef EXCLUDE_UV3
+        float4 texcoord3 : TEXCOORD3;
+    #endif
+    #ifndef EXCLUDE_VERTEX_COLORS
+        fixed4 color : COLOR;
+    #endif
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
 // vert_omega has different output depending on pass type/optimizer's interpolator culling keywords
 struct vertex_output_omega
 {
@@ -888,27 +1029,44 @@ struct vertex_output_omega
     #else
         float4 pos : SV_POSITION;
     #endif
+    #ifndef EXCLUDE_UV0AND1
         float4 uv0and1 : TEXCOORD0;
+    #endif
+    #ifndef EXCLUDE_UV2AND3
         float4 uv2and3 : TEXCOORD1;
+    #endif
     #ifndef EXCLUDE_VERTEX_COLORS
         float4 color : TEXCOORD2;
     #endif
         float4 posWorld : TEXCOORD3;
-        float4 posObject : TEXCOORD4;
-        float3 normalObject : TEXCOORD5;
+        #ifndef EXCLUDE_POSOBJECT
+            float4 posObject : TEXCOORD4;
+        #endif
+        #ifndef EXCLUDE_NORMALOBJECT
+            float3 normalObject : TEXCOORD5;
+        #endif
         float3 normalWorld : TEXCOORD6;
         float3 tangentWorld : TEXCOORD7;
         float3 bitangentWorld : TEXCOORD8;
-        float4 grabPos: TEXCOORD9;
+        #ifndef EXCLUDE_GRABPOS
+            float4 grabPos: TEXCOORD9;
+        #endif
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        float3 tangentViewDir : TEXCOORD10;
-        UNITY_FOG_COORDS(11)
-        SHADOW_COORDS(12)
+        centroid float3 centroidNormalWorld : TEXCOORD10;
+        #ifndef EXCLUDE_TANGENT_VIEWDIR
+            float3 tangentViewDir : TEXCOORD11;
+        #endif
+        #ifndef EXCLUDE_FOG_COORDS
+            UNITY_FOG_COORDS(12)
+        #endif
+        #ifndef EXCLUDE_SHADOW_COORDS
+            SHADOW_COORDS(13)
+        #endif
     #endif
     #ifdef UNITY_PASS_META
         #ifdef EDITOR_VISUALIZATION
-            float2 vizUV        : TEXCOORD13;
-            float4 lightCoord   : TEXCOORD14;
+            float2 vizUV        : TEXCOORD14;
+            float4 lightCoord   : TEXCOORD15;
         #endif
     #else
         UNITY_VERTEX_INPUT_INSTANCE_ID
@@ -922,8 +1080,12 @@ struct vertex_common_input_omega
     float4 vertex : INTERNALTESSPOS;
     float4 tangent : TANGENT;
     float3 normal : NORMAL;
-    float4 uv0and1 : TEXCOORD0;
-    float4 uv2and3 : TEXCOORD1;
+    #ifndef EXCLUDE_UV0AND1
+        float4 uv0and1 : TEXCOORD0;
+    #endif
+    #ifndef EXCLUDE_UV2AND3
+        float4 uv2and3 : TEXCOORD1;
+    #endif
 #ifndef EXCLUDE_VERTEX_COLORS
     fixed4 color : COLOR;
 #endif
@@ -953,22 +1115,39 @@ vertex_output_omega vert_common_omega (vertex_common_input_omega v)
     #endif
 
     o.posWorld = mul(unity_ObjectToWorld, v.vertex);
-    o.posObject = v.vertex;
+    #ifndef EXCLUDE_POSOBJECT
+        o.posObject = v.vertex;
+    #endif
 	o.normalWorld = UnityObjectToWorldNormal(v.normal);
-    o.normalObject = v.normal;
+    #ifndef EXCLUDE_NORMALOBJECT
+        o.normalObject = v.normal;
+    #endif
 	o.tangentWorld = float4(UnityObjectToWorldDir(v.tangent.xyz), v.tangent.w);
 	o.bitangentWorld = cross(o.normalWorld, o.tangentWorld) * v.tangent.w;
-	o.uv0and1 = v.uv0and1;
-    o.uv2and3 = v.uv2and3;
+    #ifndef EXCLUDE_UV0AND1
+	    o.uv0and1 = v.uv0and1;
+    #endif
+    #ifndef EXCLUDE_UV2AND3
+        o.uv2and3 = v.uv2and3;
+    #endif
     #ifndef EXCLUDE_VERTEX_COLORS
         o.color = v.color;
     #endif
-    o.grabPos = ComputeGrabScreenPos(o.pos); // this doesn't even make sense to exist for shadow/meta sampling but it will break other macros atm.
+    #ifndef EXCLUDE_GRABPOS
+        o.grabPos = ComputeGrabScreenPos(o.pos); // this doesn't even make sense to exist for shadow/meta sampling but it will break other macros atm.
+    #endif
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal, v.tangent.xyz) * v.tangent.w, v.normal);
-	    o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
-        TRANSFER_SHADOW(o);
-        UNITY_TRANSFER_FOG(o,o.pos);
+        o.centroidNormalWorld = o.normalWorld;
+        #ifndef EXCLUDE_TANGENT_VIEWDIR
+            float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal, v.tangent.xyz) * v.tangent.w, v.normal);
+	        o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
+        #endif
+        #ifndef EXCLUDE_SHADOW_COORDS
+            TRANSFER_SHADOW(o);
+        #endif
+        #ifndef EXCLUDE_FOG_COORDS
+            UNITY_TRANSFER_FOG(o,o.pos);
+        #endif
     #endif
     #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
         o.vizUV = 0;
@@ -991,17 +1170,33 @@ vertex_output_omega
 #else
 vertex_common_input_omega 
 #endif
-vert_omega (appdata_full v)
+vert_omega (appdata_full_omega v)
 {
     vertex_common_input_omega o;
     
     o.vertex = v.vertex;
     o.tangent = v.tangent;
     o.normal = v.normal;
-    o.uv0and1.xy = v.texcoord.xy;
-    o.uv0and1.zw = v.texcoord1.xy;
-    o.uv2and3.xy = v.texcoord2.xy;
-    o.uv2and3.zw = v.texcoord3.xy;
+    #ifndef EXCLUDE_UV0
+        o.uv0and1.xy = v.texcoord.xy;
+    #elif !defined(EXCLUDE_UV1)
+        o.uv0and1.xy = 0;
+    #endif
+    #ifndef EXCLUDE_UV1
+        o.uv0and1.zw = v.texcoord1.xy;
+    #elif !defined(EXCLUDE_UV0)
+        o.uv0and1.zw = 0;
+    #endif
+    #ifndef EXCLUDE_UV2
+        o.uv2and3.xy = v.texcoord2.xy;
+    #elif !defined(EXCLUDE_UV3)
+        o.uv2and3.xy = 0;
+    #endif
+    #ifndef EXCLUDE_UV3
+        o.uv2and3.zw = v.texcoord3.xy;
+    #elif !defined(EXCLUDE_UV2)
+        o.uv2and3.zw = 0;
+    #endif
     #ifndef EXCLUDE_VERTEX_COLORS
         o.color = v.color;
     #endif
@@ -1090,8 +1285,12 @@ domain_omega (TessellationFactorsTri factors, OutputPatch<vertex_common_input_om
     DOMAIN_PROGRAM_INTERPOLATE(vertex)
     DOMAIN_PROGRAM_INTERPOLATE(normal)
     DOMAIN_PROGRAM_INTERPOLATE(tangent)
-    DOMAIN_PROGRAM_INTERPOLATE(uv0and1)
-    DOMAIN_PROGRAM_INTERPOLATE(uv2and3)
+    #ifndef EXCLUDE_UV0AND1
+        DOMAIN_PROGRAM_INTERPOLATE(uv0and1)
+    #endif
+    #ifndef EXCLUDE_UV2AND3
+        DOMAIN_PROGRAM_INTERPOLATE(uv2and3)
+    #endif
 #ifndef EXCLUDE_VERTEX_COLORS
     DOMAIN_PROGRAM_INTERPOLATE(color)
 #endif
@@ -1121,7 +1320,10 @@ void geom_omega(triangle vertex_common_input_omega IN[3], inout TriangleStream<v
     {
         o = vert_common_omega(IN[i]);
         #ifndef EXCLUDE_VERTEX_COLORS
-            if (_DebugWireframe) o.color.rgb = barys[i];
+            #ifdef UNITY_PASS_FORWARDBASE
+                if (_DebugWireframe && group_toggle_Geometry && group_toggle_GeometryForwardBase)
+                    o.color.rgb = barys[i];
+            #endif
         #endif
         triStream.Append(o);
     }
@@ -1129,6 +1331,7 @@ void geom_omega(triangle vertex_common_input_omega IN[3], inout TriangleStream<v
 }
 
 // Fragment
+// needs to be culled similarly to vertex output 
 struct fragment_input_omega
 {
     #ifdef UNITY_PASS_SHADOWCASTER
@@ -1137,36 +1340,179 @@ struct fragment_input_omega
     #else
         float4 pos : SV_POSITION;
     #endif
+    #ifndef EXCLUDE_UV0AND1
         float4 uv0and1 : TEXCOORD0;
+    #endif
+    #ifndef EXCLUDE_UV2AND3
         float4 uv2and3 : TEXCOORD1;
+    #endif
     #ifndef EXCLUDE_VERTEX_COLORS
         float4 color : TEXCOORD2;
     #endif
         float4 posWorld : TEXCOORD3;
-        float4 posObject : TEXCOORD4;
-        float3 normalObject : TEXCOORD5;
+        #ifndef EXCLUDE_POSOBJECT
+            float4 posObject : TEXCOORD4;
+        #endif
+        #ifndef EXCLUDE_NORMALOBJECT
+            float3 normalObject : TEXCOORD5;
+        #endif
         float3 normalWorld : TEXCOORD6;
         float3 tangentWorld : TEXCOORD7;
         float3 bitangentWorld : TEXCOORD8;
-        float4 grabPos: TEXCOORD9;
+        #ifndef EXCLUDE_GRABPOS
+            float4 grabPos: TEXCOORD9;
+        #endif
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        float3 tangentViewDir : TEXCOORD10;
-        UNITY_FOG_COORDS(11)
-        SHADOW_COORDS(12)
+        centroid float3 centroidNormalWorld : TEXCOORD10;
+        #ifndef EXCLUDE_TANGENT_VIEWDIR
+            float3 tangentViewDir : TEXCOORD11;
+        #endif
+        #ifndef EXCLUDE_FOG_COORDS
+            UNITY_FOG_COORDS(12)
+        #endif
+        #ifndef EXCLUDE_SHADOW_COORDS
+            SHADOW_COORDS(13)
+        #endif
     #endif
     #ifdef UNITY_PASS_META
         #ifdef EDITOR_VISUALIZATION
-            float2 vizUV        : TEXCOORD13;
-            float4 lightCoord   : TEXCOORD14;
+            float2 vizUV        : TEXCOORD14;
+            float4 lightCoord   : TEXCOORD15;
         #endif
     #else
         UNITY_VERTEX_INPUT_INSTANCE_ID
         UNITY_VERTEX_OUTPUT_STEREO
-    #endif
-    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        fixed facing : VFACE;
+        #ifndef EXCLUDE_VFACE
+            fixed facing : VFACE;
+        #endif
     #endif
 };
+
+// Macro function for the texture sampling function.  Expects specificly named variables to be declared
+// KSOEvaluateMacro
+#define OMEGA_SAMPLE_TEX2D(var,tex,samplertex) \
+var = omega_sample_texture2D(tex, sampler##samplertex, i, tex##UV, tex##_ST, \
+                             tpWorldX, tpWorldY, tpWorldZ, tpWorldBlendFactor, \
+                             tpObjX, tpObjY, tpObjZ, tpObjBlendFactor, panoUV);
+// KSOEvaluateMacro
+#define OMEGA_SAMPLE_TEX2D_BIAS(var,tex,samplertex,bias) \
+var = omega_sample_texture2Dbias(tex, sampler##samplertex, i, tex##UV, tex##_ST, \
+                                 tpWorldX, tpWorldY, tpWorldZ, tpWorldBlendFactor, \
+                                 tpObjX, tpObjY, tpObjZ, tpObjBlendFactor, panoUV, bias);
+
+// Omega shader sampling function allowing a multitude of different UV channels/sampling methods
+// This used to be part of one big macro until different sampling modes needed to be culled by the preprocessor
+half4 omega_sample_texture2D(Texture2D tex, SamplerState samplertex, fragment_input_omega i, float texUV, float4 ST,
+                             float2 tpWorldX, float2 tpWorldY, float2 tpWorldZ, float3 tpWorldBlendFactor,
+                             float2 tpObjX, float2 tpObjY, float2 tpObjZ, float3 tpObjBlendFactor, float2 panoUV)
+{
+    half4 var;
+
+    // Check meta and shadowcaster pass for texUV invalid sampling modes here
+
+    #ifndef EXCLUDE_UV0AND1
+    if (texUV == 0)
+        var = tex.Sample (samplertex, i.uv0and1.xy * ST.xy + ST.zw);
+    else if (texUV == 1) 
+        var = tex.Sample (samplertex, i.uv0and1.zw * ST.xy + ST.zw);
+    else 
+    #endif
+    #ifndef EXCLUDE_UV2AND3
+    if (texUV == 2) 
+        var = tex.Sample (samplertex, i.uv2and3.xy * ST.xy + ST.zw);
+    else if (texUV == 3) 
+        var = tex.Sample (samplertex, i.uv2and3.zw * ST.xy + ST.zw);
+    else 
+    #endif
+    if (texUV == 4) 
+        var = tex.Sample(samplertex, (tpWorldX + ST.wy) * ST.x) * tpWorldBlendFactor.x
+            + tex.Sample(samplertex, (tpWorldY + ST.yz) * ST.x) * tpWorldBlendFactor.y
+            + tex.Sample(samplertex, (tpWorldZ + ST.zw) * ST.x) * tpWorldBlendFactor.z;
+    else if (texUV == 5) 
+        var = tex.Sample(samplertex, (tpObjX + ST.wy) * ST.x) * tpObjBlendFactor.x
+            + tex.Sample(samplertex, (tpObjY + ST.yz) * ST.x) * tpObjBlendFactor.y
+            + tex.Sample(samplertex, (tpObjZ + ST.zw) * ST.x) * tpObjBlendFactor.z;
+    else if (texUV == 6) 
+        var = tex.Sample (samplertex, i.posWorld.xy * ST.xy + ST.zw); 
+    else if (texUV == 7) 
+        var = tex.Sample (samplertex, i.posWorld.yz * ST.xy + ST.zw); 
+    else if (texUV == 8) 
+        var = tex.Sample (samplertex, i.posWorld.zx * ST.xy + ST.zw); 
+    #ifndef EXCLUDE_POSOBJECT
+        else if (texUV == 9) 
+            var = tex.Sample (samplertex, i.posObject.xy * ST.xy + ST.zw); 
+        else if (texUV == 10) 
+            var = tex.Sample (samplertex, i.posObject.yz * ST.xy + ST.zw); 
+        else if (texUV == 11) 
+            var = tex.Sample (samplertex, i.posObject.zx * ST.xy + ST.zw); 
+    #endif
+    #ifndef EXCLUDE_GRABPOS
+        else if (texUV == 12) 
+            var = tex.Sample (samplertex, stereoCorrectScreenUV01(i.grabPos) * ST.xy + ST.zw); 
+    #endif
+    else if (texUV == 13) 
+        var = tex.Sample (samplertex, panoUV * ST.xy + ST.zw); 
+    else // something went wrong
+        var = 1;
+
+    return var;
+}
+half4 omega_sample_texture2Dbias(Texture2D tex, SamplerState samplertex, fragment_input_omega i, float texUV, float4 ST,
+                             float2 tpWorldX, float2 tpWorldY, float2 tpWorldZ, float3 tpWorldBlendFactor,
+                             float2 tpObjX, float2 tpObjY, float2 tpObjZ, float3 tpObjBlendFactor, float2 panoUV, float bias)
+{
+    half4 var;
+
+    // Check meta and shadowcaster pass for texUV invalid sampling modes here
+
+    #ifndef EXCLUDE_UV0AND1
+    if (texUV == 0)
+        var = tex.SampleBias (samplertex, i.uv0and1.xy * ST.xy + ST.zw, bias);
+    else if (texUV == 1) 
+        var = tex.SampleBias (samplertex, i.uv0and1.zw * ST.xy + ST.zw, bias);
+    else 
+    #endif
+    #ifndef EXCLUDE_UV2AND3
+    if (texUV == 2) 
+        var = tex.SampleBias (samplertex, i.uv2and3.xy * ST.xy + ST.zw, bias);
+    else if (texUV == 3) 
+        var = tex.SampleBias (samplertex, i.uv2and3.zw * ST.xy + ST.zw, bias);
+    else 
+    #endif
+    if (texUV == 4) 
+        var = tex.SampleBias(samplertex, (tpWorldX + ST.wy) * ST.x, bias) * tpWorldBlendFactor.x
+            + tex.SampleBias(samplertex, (tpWorldY + ST.yz) * ST.x, bias) * tpWorldBlendFactor.y
+            + tex.SampleBias(samplertex, (tpWorldZ + ST.zw) * ST.x, bias) * tpWorldBlendFactor.z;
+    else if (texUV == 5) 
+        var = tex.SampleBias(samplertex, (tpObjX + ST.wy) * ST.x, bias) * tpObjBlendFactor.x
+            + tex.SampleBias(samplertex, (tpObjY + ST.yz) * ST.x, bias) * tpObjBlendFactor.y
+            + tex.SampleBias(samplertex, (tpObjZ + ST.zw) * ST.x, bias) * tpObjBlendFactor.z;
+    else if (texUV == 6) 
+        var = tex.SampleBias (samplertex, i.posWorld.xy * ST.xy + ST.zw, bias); 
+    else if (texUV == 7) 
+        var = tex.SampleBias (samplertex, i.posWorld.yz * ST.xy + ST.zw, bias); 
+    else if (texUV == 8) 
+        var = tex.SampleBias (samplertex, i.posWorld.zx * ST.xy + ST.zw, bias); 
+    #ifndef EXCLUDE_POSOBJECT
+        else if (texUV == 9) 
+            var = tex.SampleBias (samplertex, i.posObject.xy * ST.xy + ST.zw, bias); 
+        else if (texUV == 10) 
+            var = tex.SampleBias (samplertex, i.posObject.yz * ST.xy + ST.zw, bias); 
+        else if (texUV == 11) 
+            var = tex.SampleBias (samplertex, i.posObject.zx * ST.xy + ST.zw, bias); 
+    #endif
+    #ifndef EXCLUDE_GRABPOS
+        else if (texUV == 12) 
+            var = tex.SampleBias (samplertex, stereoCorrectScreenUV01(i.grabPos) * ST.xy + ST.zw, bias); 
+    #endif
+    else if (texUV == 13) 
+        var = tex.SampleBias (samplertex, panoUV * ST.xy + ST.zw, bias); 
+    else // something went wrong
+        var = 1;
+
+    return var;
+}
+
 half4 frag_omega (fragment_input_omega i) : SV_Target
 {
     // Early discards, early opaque shadowcaster return, and instancing
@@ -1186,15 +1532,41 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
         UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
     #endif
-
-    // Fragment normalizations and geometric specular antialiasing
+    
+    // Geometric specular antialiasing
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        i.normalWorld = normalize(i.normalWorld);
+        if ( dot( i.normalWorld, i.normalWorld ) >= 1.01 )
+            i.normalWorld = i.centroidNormalWorld;
+    #endif
+
+    // VFACE flipping
+    #ifndef EXCLUDE_VFACE
+        #ifndef UNITY_PASS_META
+            UNITY_BRANCH
+            if (i.facing <= 0 && _FlippedNormalBackfaces)
+            {
+                #ifndef EXCLUDE_NORMALOBJECT
+                    i.normalObject = -i.normalObject;
+                #endif
+                i.normalWorld = -i.normalWorld;
+                i.tangentWorld = -i.tangentWorld;
+                i.bitangentWorld = -i.bitangentWorld;
+                #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+                    #ifndef EXCLUDE_TANGENT_VIEWDIR
+                        i.tangentViewDir = -i.tangentViewDir; // necessary?
+                    #endif
+                #endif
+            }
+        #endif
     #endif
 
     // Triplanar UVs
     // Object Space
-    float3 tpObjBlendFactor = normalize(abs(i.normalObject));
+    #ifndef EXCLUDE_NORMALOBJECT
+        float3 tpObjBlendFactor = normalize(abs(i.normalObject));
+    #else
+        float3 tpObjBlendFactor = 1;
+    #endif
     tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
     float2 tpObjX = 0;
     float2 tpObjY = 0;
@@ -1207,12 +1579,14 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         tpObjZ = i.color.xy;
     #endif
     }
+    #ifndef EXCLUDE_POSOBJECT
     else
     {
         tpObjX = i.posObject.yz;
         tpObjY = i.posObject.zx;
         tpObjZ = i.posObject.xy;
     }
+    #endif
 
     // World Space
     float3 tpWorldBlendFactor = normalize(abs(i.normalWorld));
@@ -1231,7 +1605,7 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         fixed4 _ClearcoatMask_var = 1;
         if (group_toggle_Clearcoat && _ClearcoatMask_TexelSize.x != 1)
             //KSOInlineSamplerState(_MainTex, _ClearcoatMask)
-            PBR_SAMPLE_TEX2DS(_ClearcoatMask_var, _ClearcoatMask, _MainTex);
+            OMEGA_SAMPLE_TEX2D(_ClearcoatMask_var, _ClearcoatMask, _MainTex);
         fixed clearcoatMask = _ClearcoatMaskMin + _ClearcoatMask_var[_ClearcoatMaskChannel] * (_ClearcoatMaskMax - _ClearcoatMaskMin);
         if (group_toggle_Clearcoat && _ClearcoatRefract)
         {
@@ -1240,27 +1614,37 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         }
 
         // Parallax next because it can affect other UVs
-        UNITY_BRANCH
-        if (group_toggle_Parallax)
-        {
-            fixed4 _ParallaxMap_var = 1;
-            if (_ParallaxMap_TexelSize.x != 1)
-                // KSOInlineSamplerState   ( _MainTex,  _ParallaxMap )
-                PBR_SAMPLE_TEX2DS(_ParallaxMap_var, _ParallaxMap, _MainTex);
-            i.tangentViewDir = normalize(i.tangentViewDir);
-            i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
-            half2 parallaxOffset = i.tangentViewDir.xy * _Parallax * (_ParallaxMap_var[_ParallaxMapChannel] - 0.5f);
-            if (_ParallaxUV0)
-                i.uv0and1.xy += parallaxOffset;
-            if (_ParallaxUV1)
-                i.uv0and1.zw += parallaxOffset;
-            if (_ParallaxUV2)
-                i.uv2and3.xy += parallaxOffset;
-            if (_ParallaxUV3)
-                i.uv2and3.zw += parallaxOffset;
+        #ifndef EXCLUDE_TANGENT_VIEWDIR
+            UNITY_BRANCH
+            if (group_toggle_Parallax)
+            {
+                fixed4 _ParallaxMap_var = 1;
+                if (_ParallaxMap_TexelSize.x != 1)
+                    // KSOInlineSamplerState   ( _MainTex,  _ParallaxMap )
+                    OMEGA_SAMPLE_TEX2D(_ParallaxMap_var, _ParallaxMap, _MainTex);
+                i.tangentViewDir = normalize(i.tangentViewDir);
+                i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
+                half2 parallaxOffset = i.tangentViewDir.xy * _Parallax * (_ParallaxMap_var[_ParallaxMapChannel] - 0.5f);
+                #ifndef EXCLUDE_UV0
+                    if (_ParallaxUV0)
+                        i.uv0and1.xy += parallaxOffset;
+                #endif
+                #ifndef EXCLUDE_UV1
+                    if (_ParallaxUV1)
+                        i.uv0and1.zw += parallaxOffset;
+                #endif
+                #ifndef EXCLUDE_UV2
+                    if (_ParallaxUV2)
+                        i.uv2and3.xy += parallaxOffset;
+                #endif
+                #ifndef EXCLUDE_UV3
+                    if (_ParallaxUV3)
+                        i.uv2and3.zw += parallaxOffset;
+                #endif
 
-            // Triplanar parallax goes here
-        }
+                // Triplanar parallax goes here
+            }
+        #endif
     #endif
 
     // Opacity texture samples (MainTex, Converage, and Detail textures)
@@ -1272,17 +1656,17 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     fixed4 _MainTex_var = 1;
     UNITY_BRANCH
     if (_MainTex_TexelSize.x != 1)
-        PBR_SAMPLE_TEX2DS(_MainTex_var, _MainTex, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_MainTex_var, _MainTex, _MainTex);
     fixed4 _CoverageMap_var = 0;
     UNITY_BRANCH
     if (_CoverageMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _CoverageMap)
-        PBR_SAMPLE_TEX2DS(_CoverageMap_var, _CoverageMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_CoverageMap_var, _CoverageMap, _MainTex);
     fixed4 _DetailMask_var = 1;
     UNITY_BRANCH
     if (_DetailMask_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailMask)
-        PBR_SAMPLE_TEX2DS(_DetailMask_var, _DetailMask, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailMask_var, _DetailMask, _MainTex);
     fixed _DetailAlbedoMapUV = _UVSec; // Temporary variables so the macro naming scheme works
     fixed _DetailAlbedoMapGreenUV = _UVSec;
     fixed _DetailAlbedoMapBlueUV = _UVSec;
@@ -1294,24 +1678,24 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     UNITY_BRANCH
     if (_DetailAlbedoMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMap)
-        PBR_SAMPLE_TEX2DS(_DetailAlbedoMap_var, _DetailAlbedoMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMap_var, _DetailAlbedoMap, _MainTex);
     UNITY_BRANCH
     if (_DetailAlbedoMapGreen_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapGreen)
-        PBR_SAMPLE_TEX2DS(_DetailAlbedoMapGreen_var, _DetailAlbedoMapGreen, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapGreen_var, _DetailAlbedoMapGreen, _MainTex);
     UNITY_BRANCH
     if (_DetailAlbedoMapBlue_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
-        PBR_SAMPLE_TEX2DS(_DetailAlbedoMapBlue_var, _DetailAlbedoMapBlue, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapBlue_var, _DetailAlbedoMapBlue, _MainTex);
     UNITY_BRANCH
     if (_DetailAlbedoMapAlpha_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
-        PBR_SAMPLE_TEX2DS(_DetailAlbedoMapAlpha_var, _DetailAlbedoMapAlpha, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapAlpha_var, _DetailAlbedoMapAlpha, _MainTex);
     fixed4 _EmissionMap_var = 1;
     UNITY_BRANCH
     if (_EmissionMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _EmissionMap)
-        PBR_SAMPLE_TEX2DS(_EmissionMap_var, _EmissionMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_EmissionMap_var, _EmissionMap, _MainTex);
 
     //KSODuplicateTextureCheckStart
 
@@ -1388,36 +1772,37 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
 #else // The rest of the frag is ForwardBase and ForwardAdd stuff
 
     // Alpha to Coverage sharpening
-    UNITY_BRANCH
-    if (_Mode == 1) // _ALPHATEST_ON
-    {
+    #ifndef EXCLUDE_UV0AND1
         UNITY_BRANCH
-        if (_AlphaToCoverage && _AlphaToMask)
+        if (_Mode == 1 && _AlphaToMask) // _ALPHATEST_ON
         {
+            // Cutout mode with A2C is always sharpened
             opacity *= 1 + max(0, CalcMipLevel(i.uv0and1.xy * _MainTex_TexelSize.zw)) * 0.25;
             opacity = saturate((opacity - _Cutoff) / max(fwidth(opacity), 0.0001) + 0.5);
         }
-    }
+    #endif
     // Clipping
     UNITY_BRANCH
     if (_Mode >= 1 && _Mode <= 3) // _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
     {
         // Dithering
-        UNITY_BRANCH
-        if (_DitheringEnabled)
-        {
-            half dither = ditherBayer(stereoCorrectScreenUV(i.grabPos));
-            dither -= 0.01; // hack because opacity with vertex color imprecision makes dithering visible at full white
+        #ifndef EXCLUDE_GRABPOS
             UNITY_BRANCH
-            if (_AlphaToMask)
-                opacity = opacity - (dither * (1 - opacity) * 0.15);
-            else 
-                clip(opacity - dither);
-        }
+            if (_DitheringEnabled)
+            {
+                half dither = ditherBayer(stereoCorrectScreenUV(i.grabPos));
+                dither -= 0.01; // hack because opacity with vertex color imprecision makes dithering visible at full white
+                UNITY_BRANCH
+                if (_AlphaToMask)
+                    opacity = opacity - (dither * (1 - opacity) * 0.15);
+                else 
+                    clip(opacity - dither);
+            }
+        #endif
 
         // Cutoff
         UNITY_BRANCH
-        if (!_AlphaToCoverage)
+        if (!_AlphaToMask)
             clip(opacity - _Cutoff);
     }
 
@@ -1426,22 +1811,22 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     UNITY_BRANCH
     if (_MetallicGlossMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _MetallicGlossMap)
-        PBR_SAMPLE_TEX2DS(_MetallicGlossMap_var, _MetallicGlossMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_MetallicGlossMap_var, _MetallicGlossMap, _MainTex);
     fixed4 _SpecGlossMap_var = 1;
     UNITY_BRANCH
     if (_SpecGlossMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _SpecGlossMap)
-        PBR_SAMPLE_TEX2DS(_SpecGlossMap_var, _SpecGlossMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_SpecGlossMap_var, _SpecGlossMap, _MainTex);
     fixed4 _OcclusionMap_var = 1;
     UNITY_BRANCH
     if (_OcclusionMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _OcclusionMap)
-        PBR_SAMPLE_TEX2DS(_OcclusionMap_var, _OcclusionMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_OcclusionMap_var, _OcclusionMap, _MainTex);
     fixed4 _SpecularMap_var = 1;
     UNITY_BRANCH
     if (_SpecularMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _SpecularMap)
-        PBR_SAMPLE_TEX2DS(_SpecularMap_var, _SpecularMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_SpecularMap_var, _SpecularMap, _MainTex);
     fixed _DetailNormalMapUV = _UVSec;
     fixed _DetailNormalMapGreenUV = _UVSec;
     fixed _DetailNormalMapBlueUV = _UVSec;
@@ -1450,42 +1835,42 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     UNITY_BRANCH
     if (_BumpMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _BumpMap)
-        PBR_SAMPLE_TEX2DS(_BumpMap_var, _BumpMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_BumpMap_var, _BumpMap, _MainTex);
     fixed4 _DetailNormalMap_var = 0;
     UNITY_BRANCH
     if (_DetailNormalMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailNormalMap)
-        PBR_SAMPLE_TEX2DS(_DetailNormalMap_var, _DetailNormalMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailNormalMap_var, _DetailNormalMap, _MainTex);
     fixed4 _DetailNormalMapGreen_var = 0;
     UNITY_BRANCH
     if (_DetailNormalMapGreen_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailNormalMapGreen)
-        PBR_SAMPLE_TEX2DS(_DetailNormalMapGreen_var, _DetailNormalMapGreen, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailNormalMapGreen_var, _DetailNormalMapGreen, _MainTex);
     fixed4 _DetailNormalMapBlue_var = 0;
     UNITY_BRANCH
     if (_DetailNormalMapBlue_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailNormalMapBlue)
-        PBR_SAMPLE_TEX2DS(_DetailNormalMapBlue_var, _DetailNormalMapBlue, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailNormalMapBlue_var, _DetailNormalMapBlue, _MainTex);
     fixed4 _DetailNormalMapAlpha_var = 0;
     UNITY_BRANCH
     if (_DetailNormalMapAlpha_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _DetailNormalMapAlpha)
-        PBR_SAMPLE_TEX2DS(_DetailNormalMapAlpha_var, _DetailNormalMapAlpha, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_DetailNormalMapAlpha_var, _DetailNormalMapAlpha, _MainTex);
     fixed4 _TranslucencyMap_var = 0;
     UNITY_BRANCH
     if (group_toggle_SSSTransmission && _TranslucencyMap_TexelSize.x != 1)
         //KSOInlineSamplerState(_MainTex, _TranslucencyMap)
-        PBR_SAMPLE_TEX2DS(_TranslucencyMap_var, _TranslucencyMap, _MainTex);
+        OMEGA_SAMPLE_TEX2D(_TranslucencyMap_var, _TranslucencyMap, _MainTex);
     fixed4 blurredWorldNormal_var = 0;
     UNITY_BRANCH
     if (_DiffuseMode == 2)
         //KSOInlineSamplerState(_MainTex, _BumpMap)
-        PBR_SAMPLE_TEX2DS_BIAS(blurredWorldNormal_var, _BumpMap, _MainTex, _BumpBlurBias);
+        OMEGA_SAMPLE_TEX2D_BIAS(blurredWorldNormal_var, _BumpMap, _MainTex, _BumpBlurBias);
     fixed4 _SpecularAnisotropyTangentMap_var = 1;
     //UNITY_BRANCH
     //if (_SpecularMode == 2 && _SpecularAnisotropyTangentMap_TexelSize.x != 1)
         ////KSOInlineSamplerState(_MainTex, _SpecularAnisotropyTangentMap)
-        //PBR_SAMPLE_TEX2DS(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
+        //OMEGA_SAMPLE_TEX2D(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
 
     // Duplicate texture checks, second bumpmap bias sample always done separately
     //KSODuplicateTextureCheck(_MetallicGlossMap)
@@ -1565,8 +1950,16 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     if (group_toggle_SSSTransmission)
         translucency = _SSSTranslucencyMin + _TranslucencyMap_var[_TranslucencyMapChannel] * (_SSSTranslucencyMax - _SSSTranslucencyMin);
     // Common vars
-    float2 lightmapUV = i.uv0and1.zw * unity_LightmapST.xy + unity_LightmapST.zw;
-    float2 dynamicLightmapUV = i.uv2and3.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
+    #ifndef EXCLUDE_UV0AND1
+        float2 lightmapUV = i.uv0and1.zw * unity_LightmapST.xy + unity_LightmapST.zw;
+    #else
+        float2 lightmapUV = 0;
+    #endif
+    #ifndef EXCLUDE_UV2AND3
+        float2 dynamicLightmapUV = i.uv2and3.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
+    #else
+        float2 dynamicLightmapUV = 0;
+    #endif
     fixed3 lightDir = getLightDirection(i.posWorld.xyz, lightmapUV); 
     #ifdef UNITY_PASS_FORWARDBASE
         if (_FakeLightToggle)
@@ -1712,14 +2105,16 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
             indirect_diffuse = VertexLightsDiffuse(indirect_diffuse_normal, i.posWorld.xyz) * _VertexLightIntensity;
             indirect_diffuse += ShadeSHPerPixelModular(indirect_diffuse_normal, i.posWorld.xyz) * _LightProbeIntensity;
             // Stylized indirect diffuse transmission
-            if (group_toggle_SSSTransmission && _SSSStylizedIndirect > 0)
-            {
-                half3 stylized_transmission_normal = UnityObjectToWorldNormal(i.posObject.xyz); // probably needs to be normalized
-                half3 stylized_indirect_diffuse_transmission = VertexLightsDiffuse(stylized_transmission_normal, i.posWorld.xyz) * _VertexLightIntensity;
-                stylized_indirect_diffuse_transmission += ShadeSHPerPixelModular(stylized_transmission_normal, i.posWorld.xyz) * _LightProbeIntensity;
-                indirect_diffuse = lerp(indirect_diffuse, stylized_indirect_diffuse_transmission, 
-                                    _SSSStylizedIndirect * (_SSSStylizedIndrectScaleByTranslucency ? translucency : 1));
-            }
+            #ifndef EXCLUDE_POSOBJECT
+                if (group_toggle_SSSTransmission && _SSSStylizedIndirect > 0)
+                {
+                    half3 stylized_transmission_normal = UnityObjectToWorldNormal(i.posObject.xyz); // probably needs to be normalized
+                    half3 stylized_indirect_diffuse_transmission = VertexLightsDiffuse(stylized_transmission_normal, i.posWorld.xyz) * _VertexLightIntensity;
+                    stylized_indirect_diffuse_transmission += ShadeSHPerPixelModular(stylized_transmission_normal, i.posWorld.xyz) * _LightProbeIntensity;
+                    indirect_diffuse = lerp(indirect_diffuse, stylized_indirect_diffuse_transmission, 
+                                        _SSSStylizedIndirect * (_SSSStylizedIndrectScaleByTranslucency ? translucency : 1));
+                }
+            #endif
             #ifdef UNITY_COLORSPACE_GAMMA
                 indirect_diffuse = LinearToGammaSpace(indirect_diffuse);
             #endif
@@ -1999,24 +2394,38 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         color.rgb = saturate(color.rgb);
 
     // Fog
-    if (_ReceiveFog > 0)
-    {
-        half4 foggedColor = color;
-        UNITY_APPLY_FOG(i.fogCoord, foggedColor);
-        color = lerp(color, foggedColor, _ReceiveFog);
-    }
+    #ifndef EXCLUDE_FOG_COORDS
+        if (_ReceiveFog > 0)
+        {
+            half4 foggedColor = color;
+            UNITY_APPLY_FOG(i.fogCoord, foggedColor);
+            color = lerp(color, foggedColor, _ReceiveFog);
+        }
+    #endif
 
     // Debug
     if (_DebugWorldNormals)
-        color.rgb = normalDir;
+        #ifdef UNITY_PASS_FORWARDBASE
+            color.rgb = normalDir;
+        #else
+            color.rgb = 0;
+        #endif
     if (_DebugOcclusion)
-        color.rgb = occlusion;
+        #ifdef UNITY_PASS_FORWARDBASE
+            color.rgb = occlusion;
+        #else
+            color.rgb = 0;
+        #endif
     #ifndef EXCLUDE_VERTEX_COLORS
-        if (_DebugWireframe)
+        if (_DebugWireframe && group_toggle_Geometry && group_toggle_GeometryForwardBase)
         {
-            float minBary = min(i.color.x, min(i.color.y, i.color.z));
-            float delta = abs(ddx(minBary)) + abs(ddy(minBary));
-            color.rgb = smoothstep(0, delta, minBary);
+            #ifdef UNITY_PASS_FORWARDBASE
+                float minBary = min(i.color.x, min(i.color.y, i.color.z));
+                float delta = abs(ddx(minBary)) + abs(ddy(minBary));
+                color.rgb = smoothstep(0, delta, minBary);
+            #else
+                color.rgb = 0;
+            #endif
         }
     #endif
 

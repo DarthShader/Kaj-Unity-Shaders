@@ -303,7 +303,26 @@ namespace Kaj
             foreach (MaterialProperty prop in props)
             {
                 if (prop == null) continue;
-                else if (prop.name.EndsWith(AnimatedPropertySuffix)) continue;
+
+                // Every property gets turned into a preprocessor variable
+                switch(prop.type)
+                {
+                    case MaterialProperty.PropType.Float:
+                    case MaterialProperty.PropType.Range:
+                        definesSB.Append("#define PROP");
+                        definesSB.Append(prop.name.ToUpper());
+                        definesSB.Append(' ');
+                        definesSB.Append(prop.floatValue.ToString(CultureInfo.InvariantCulture));
+                        definesSB.Append(Environment.NewLine);
+                        break;
+                    case MaterialProperty.PropType.Texture:
+                        definesSB.Append("#define PROP");
+                        definesSB.Append(prop.name.ToUpper());
+                        definesSB.Append(Environment.NewLine);
+                        break;
+                }
+
+                if (prop.name.EndsWith(AnimatedPropertySuffix)) continue;
                 else if (prop.name == UseInlineSamplerStatesPropertyName)
                 {
                     UseInlineSamplerStates = (prop.floatValue == 1);
@@ -336,22 +355,7 @@ namespace Kaj
                         UseTesselationMeta = (prop.floatValue == 1);
                 }
 
-                switch(prop.type)
-                {
-                    case MaterialProperty.PropType.Float:
-                    case MaterialProperty.PropType.Range:
-                        definesSB.Append("#define PROP");
-                        definesSB.Append(prop.name.ToUpper());
-                        definesSB.Append(' ');
-                        definesSB.Append(prop.floatValue.ToString(CultureInfo.InvariantCulture));
-                        definesSB.Append(Environment.NewLine);
-                        break;
-                    case MaterialProperty.PropType.Texture:
-                        definesSB.Append("#define PROP");
-                        definesSB.Append(prop.name.ToUpper());
-                        definesSB.Append(Environment.NewLine);
-                        break;
-                }
+
 
                 // Check for the convention 'Animated' Property to be true otherwise assume all properties are constant
                 // nlogn trash
