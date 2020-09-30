@@ -23,8 +23,8 @@ Shader "Kaj/Omega"
             [Enum(Kaj.UVMapping)]_MainTexUV ("UV Set", Int) = 0
         [UnIndent]
         [ToggleUI]_AlbedoTransparencyEnabled("Albedo Alpha is Transparency", Int) = 1
-        [Toggle(VERTEX_COLORS)]_VertexColorsEnabled(";VERTEX_COLORS;Vertex Color Albedo and Transparency", Int) = 0
-        [KeywordTex(COVERAGE_MAP)]_CoverageMap (";COVERAGE_MAP;Coverage (Transparency) Map", 2D) = "white" {}
+        [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo and Transparency", Int) = 0
+        [KeywordTex(_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A)]_CoverageMap (";_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A;Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_CoverageMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_CoverageMapChannel("Channel to Sample", Int) = 0
@@ -35,13 +35,13 @@ Shader "Kaj/Omega"
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
         [UnIndent]
-        [Normal]_BumpMap("Normal Map", 2D) = "bump" {}
+        [Normal][KeywordTex(_NORMALMAP)]_BumpMap(";_NORMALMAP;Normal Map", 2D) = "bump" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_BumpMapUV ("UV Set", Int) = 0
             _BumpScale("Normals Scale", Float) = 1.0
         [UnIndent]
         [HDR]_EmissionColor("Emission Color", Color) = (1,1,1,1)
-        _EmissionMap("Emission Map", 2D) = "white" {}
+        [KeywordTex(_EMISSION)]_EmissionMap(";_EMISSION;Emission Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_EmissionMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_EmissionMapChannel("Channel(s) to Sample", Int) = 4
@@ -51,7 +51,7 @@ Shader "Kaj/Omega"
 
         [HideInInspector]group_StandardSettings("Standard Settings", Int) = 0
         [WideEnum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow", Int) = 0
-        _MetallicGlossMap("Metallic Map", 2D) = "white" {}
+        [KeywordTex(_METALLICGLOSSMAP)]_MetallicGlossMap(";_METALLICGLOSSMAP;Metallic Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_MetallicGlossMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_MetallicGlossMapChannel("Channel to Sample", Int) = 0
@@ -59,21 +59,21 @@ Shader "Kaj/Omega"
             [RangeMin]_MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
         [UnIndent]
         [WideEnum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 1
-        _SpecGlossMap("Glossiness Map", 2D) = "white" {}
+        [KeywordTex(_GLOSSYREFLECTIONS_OFF)]_SpecGlossMap(";_GLOSSYREFLECTIONS_OFF;Glossiness Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_SpecGlossMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMapChannel("Channel to Sample", Int) = 0
             [RangeMax]_Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
             [RangeMin]_GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
         [UnIndent]
-        _OcclusionMap("Occlusion Map", 2D) = "white" {}
+        [KeywordTex(_REQUIRE_UV2)]_OcclusionMap(";_REQUIRE_UV2;Occlusion Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_OcclusionMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_OcclusionMapChannel("Channel(s) to Sample", Int) = 4
             _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
         [UnIndent]
         _SpecColor("Specular Color", Color) = (1,1,1,1)
-        _SpecularMap("Specular Map", 2D) = "white" {}
+        [KeywordTex(_SPECGLOSSMAP)]_SpecularMap(";_SPECGLOSSMAP;Specular Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_SpecularMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_SpecularMapChannel("Channel(s) to Sample", Int) = 4
@@ -118,7 +118,7 @@ Shader "Kaj/Omega"
         [WideEnum(Off,0, Fallback Only,1, Always Use CubeMap,2)]_CubeMapMode("Fallback Cubemap Mode", Int) = 0
         [HideInInspector]end_Lighting("", Int) = 0
 
-        [HideInInspector][ToggleUI]group_toggle_Diffuse("Diffuse Shading", Int) = 1
+        [HideInInspector][Toggle(_COLORADDSUBDIFF_ON)]group_toggle_Diffuse(";_COLORADDSUBDIFF_ON;Diffuse Shading", Int) = 1
         [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3)]_DiffuseMode("Mode", Int) = 1
         _OcclusionDirectDiffuse("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_Lambert("Lambert", Int) = 0
@@ -136,7 +136,7 @@ Shader "Kaj/Omega"
         [HideInInspector]end_SkinDiffuse("", Int) = 0
         [HideInInspector]end_Diffuse("", Int) = 0
 
-        [HideInInspector][ToggleUI]group_toggle_Specular("Specular Highlights", Int) = 1
+        [HideInInspector][Toggle(_COLOROVERLAY_ON)]group_toggle_Specular(";_COLOROVERLAY_ON;Specular Highlights", Int) = 1
         [WideEnum(Phong,0, PBR,1, PBR Anisotropic,2, Skin,3)]_SpecularMode("Mode", Int) = 1
         _OcclusionDirectSpecular("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_PhongSpecular("Phong", Int) = 0
@@ -150,7 +150,7 @@ Shader "Kaj/Omega"
         [HideInInspector]end_PBRAnisotropicSpecular("", Int) = 0
         [HideInInspector]end_Specular("", Int) = 0
 
-        [HideInInspector][ToggleUI]group_toggle_Reflections("Reflections", Int) = 1
+        [HideInInspector][Toggle(_MAPPING_6_FRAMES_LAYOUT)]group_toggle_Reflections(";_MAPPING_6_FRAMES_LAYOUT;Reflections", Int) = 1
         [WideEnum(PBR,1, Skin,2, PBR Anisotropic,3)]_ReflectionsMode("Mode", Int) = 1
         [HideInInspector]group_PBRReflections("PBR", Int) = 0
         _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
@@ -161,8 +161,8 @@ Shader "Kaj/Omega"
         [HideInInspector]end_PBRAnisotropicReflections("", Int) = 0
         [HideInInspector]end_Reflections("", Int) = 0
 
-        [HideInInspector][ToggleUI]group_toggle_Clearcoat("Clearcoat", Int) = 0
-        _ClearcoatMask("Clearcoat Mask", 2D) = "white" {}
+        [HideInInspector][Toggle(_DETAIL_MULX2)]group_toggle_Clearcoat(";_DETAIL_MULX2;Clearcoat", Int) = 0
+        [KeywordTex(_COLORCOLOR_ON)]_ClearcoatMask(";_COLORCOLOR_ON;Clearcoat Mask", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_ClearcoatMaskUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_ClearcoatMaskChannel("Channel to Sample", Int) = 0
@@ -174,8 +174,8 @@ Shader "Kaj/Omega"
         _ClearcoatRoughnessInfluence("Roughness Influence", Range(0,1)) = 1
         [HideInInspector]end_Clearcoat("", Int) = 0
         
-        [HideInInspector][ToggleUI]group_toggle_Parallax("Parallax", Int) = 0
-        _ParallaxMap ("Parallax (Height) Map", 2D) = "white" {}
+        [HideInInspector][Toggle(EFFECT_BUMP)]group_toggle_Parallax(";EFFECT_BUMP;Parallax", Int) = 0
+        [KeywordTex(_PARALLAXMAP)]_ParallaxMap (";_PARALLAXMAP;Parallax (Height) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_ParallaxMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_ParallaxMapChannel("Channel to Sample", Int) = 0
@@ -188,11 +188,11 @@ Shader "Kaj/Omega"
         [ToggleUI]_ParallaxUV3 ("Affects UV3", Int) = 1
         [HideInInspector]end_Parallax("", Int) = 0
 
-        [HideInInspector][ToggleUI]group_toggle_SSSTransmission("Subsurface Transmission", Int) = 0
+        [HideInInspector][Toggle(_SPECULARHIGHLIGHTS_OFF)]group_toggle_SSSTransmission(";_SPECULARHIGHLIGHTS_OFF;Subsurface Transmission", Int) = 0
         [ToggleUI]_SSSTransmissionShadowCastingLightsOnly("Shadow Casting Lights Only", Int) = 1
         [ToggleUI]_SSSTransmissionIgnoreShadowAttenuation("Ignore Shadows", Int) = 0
         _SubsurfaceColor("Subsurface Color", Color) = (1,0.4,0.25)
-        _TranslucencyMap("Translucency (Thickness) Map", 2D) = "white" {}
+        [KeywordTex(_FADING_ON)]_TranslucencyMap(";_FADING_ON;Translucency (Thickness) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_TranslucencyMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_TranslucencyMapChannel("Channel to Sample", Int) = 0
@@ -208,7 +208,7 @@ Shader "Kaj/Omega"
         [HideInInspector]end_SSSTransmission("", Int) = 0
 
         [HideInInspector]group_Details("Detail Settings", Int) = 0
-        _DetailMask("Detail Mask (RGBA)", 2D) = "white" {}
+        [KeywordTex(GEOM_TYPE_BRANCH_DETAIL)]_DetailMask(";GEOM_TYPE_BRANCH_DETAIL;Detail Mask (RGBA)", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_DetailMaskUV("UV Set", Int) = 0
         [UnIndent]
@@ -217,24 +217,24 @@ Shader "Kaj/Omega"
         _DetailColorB("Detail Color (Blue)", Color) = (1,1,1,1)
         _DetailColorA("Detail Color (Alpha)", Color) = (1,1,1,1)
         [Space(10)]
-        _DetailAlbedoMap("Detail Albedo (Red)", 2D) = "grey" {}
-        _DetailAlbedoMapGreen("Detail Albedo (Green)", 2D) = "grey" {}
-        _DetailAlbedoMapBlue("Detail Albedo (Blue)", 2D) = "grey" {}
-        _DetailAlbedoMapAlpha("Detail Albedo (Alpha)", 2D) = "grey" {}
+        [KeywordTex(_ALPHABLEND_ON)]_DetailAlbedoMap(";_ALPHABLEND_ON;Detail Albedo (Red)", 2D) = "grey" {}
+        [KeywordTex(_ALPHAMODULATE_ON)]_DetailAlbedoMapGreen(";_ALPHAMODULATE_ON;Detail Albedo (Green)", 2D) = "grey" {}
+        [KeywordTex(_ALPHAPREMULTIPLY_ON)]_DetailAlbedoMapBlue(";_ALPHAPREMULTIPLY_ON;Detail Albedo (Blue)", 2D) = "grey" {}
+        [KeywordTex(_ALPHATEST_ON)]_DetailAlbedoMapAlpha(";_ALPHATEST_ON;Detail Albedo (Alpha)", 2D) = "grey" {}
         [Space(10)]
-        [Normal]_DetailNormalMap("Detail Normal Map (Red)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_BRANCH)]_DetailNormalMap(";GEOM_TYPE_BRANCH;Detail Normal Map (Red)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScale("Detail Normals (Red) Scale", Float) = 1.0
         [UnIndent]
-        [Normal]_DetailNormalMapGreen("Detail Normal Map (Green)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_FROND)]_DetailNormalMapGreen(";GEOM_TYPE_FROND;Detail Normal Map (Green)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScaleGreen("Detail Normals (Green) Scale", Float) = 1.0
         [UnIndent]
-        [Normal]_DetailNormalMapBlue("Detail Normal Map (Blue)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_LEAF)]_DetailNormalMapBlue(";GEOM_TYPE_LEAF;Detail Normal Map (Blue)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
         [UnIndent]
-        [Normal]_DetailNormalMapAlpha("Detail Normal Map (Alpha)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_MESH)]_DetailNormalMapAlpha(";GEOM_TYPE_MESH;Detail Normal Map (Alpha)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScaleAlpha("Detail Normals (Alpha) Scale", Float) = 1.0
         [UnIndent]
@@ -304,12 +304,12 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
         [ToggleUILeft]_BumpBlurBiasAnimated("  _BumpBlurBias", Int) = 0
         [ToggleUILeft]_BumpMap_STAnimated("  _BumpMap_ST", Int) = 0
-        [ToggleUILeft]_BumpMap_TexelSizeAnimated("  _BumpMap_TexelSize", Int) = 0
+        [ToggleUILeft]_BumpMap_TexelSizeAnimated("  _BumpMap Texture", Int) = 0
         [ToggleUILeft]_BumpMapUVAnimated("  _BumpMapUV", Int) = 0
         [ToggleUILeft]_BumpScaleAnimated("  _BumpScale", Int) = 0
         [ToggleUILeft]_ClearcoatFresnelInfluenceAnimated("  _ClearcoatFresnelInfluence", Int) = 0
         [ToggleUILeft]_ClearcoatMask_STAnimated("  _ClearcoatMask_ST", Int) = 0
-        [ToggleUILeft]_ClearcoatMask_TexelSizeAnimated("  _ClearcoatMask_TexelSize", Int) = 0
+        [ToggleUILeft]_ClearcoatMask_TexelSizeAnimated("  _ClearcoatMask Texture", Int) = 0
         [ToggleUILeft]_ClearcoatMaskChannelAnimated("  _ClearcoatMaskChannel", Int) = 0
         [ToggleUILeft]_ClearcoatMaskMaxAnimated("  _ClearcoatMaskMax", Int) = 0
         [ToggleUILeft]_ClearcoatMaskMinAnimated("  _ClearcoatMaskMin", Int) = 0
@@ -317,7 +317,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_ClearcoatRoughnessInfluenceAnimated("  _ClearcoatRoughnessInfluence", Int) = 0
         [ToggleUILeft]_ColorAnimated("  _Color", Int) = 0
         [ToggleUILeft]_CoverageMap_STAnimated("  _CoverageMap_ST", Int) = 0
-        [ToggleUILeft]_CoverageMap_TexelSizeAnimated("  _CoverageMap_TexelSize", Int) = 0
+        [ToggleUILeft]_CoverageMap_TexelSizeAnimated("  _CoverageMap Texture", Int) = 0
         [ToggleUILeft]_CoverageMapChannelAnimated("  _CoverageMapChannel", Int) = 0
         [ToggleUILeft]_CoverageMapUVAnimated("  _CoverageMapUV", Int) = 0
         [ToggleUILeft]_CubeMapAnimated("  _CubeMap", Int) = 0
@@ -331,28 +331,28 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_DebugWorldNormalsAnimated("  _DebugWorldNormals", Int) = 0
         [ToggleUILeft]_DetailAlbedoCombineModeAnimated("  _DetailAlbedoCombineMode", Int) = 0
         [ToggleUILeft]_DetailAlbedoMap_STAnimated("  _DetailAlbedoMap_ST", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMap_TexelSizeAnimated("  _DetailAlbedoMap_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMap_TexelSizeAnimated("  _DetailAlbedoMap Texture", Int) = 0
         [ToggleUILeft]_DetailAlbedoMapAlpha_STAnimated("  _DetailAlbedoMapAlpha_ST", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMapAlpha_TexelSizeAnimated("  _DetailAlbedoMapAlpha_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapAlpha_TexelSizeAnimated("  _DetailAlbedoMapAlpha Texture", Int) = 0
         [ToggleUILeft]_DetailAlbedoMapBlue_STAnimated("  _DetailAlbedoMapBlue_ST", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMapBlue_TexelSizeAnimated("  _DetailAlbedoMapBlue_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapBlue_TexelSizeAnimated("  _DetailAlbedoMapBlue Texture", Int) = 0
         [ToggleUILeft]_DetailAlbedoMapGreen_STAnimated("  _DetailAlbedoMapGreen_ST", Int) = 0
-        [ToggleUILeft]_DetailAlbedoMapGreen_TexelSizeAnimated("  _DetailAlbedoMapGreen_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailAlbedoMapGreen_TexelSizeAnimated("  _DetailAlbedoMapGreen Texture", Int) = 0
         [ToggleUILeft]_DetailColorAAnimated("  _DetailColorA", Int) = 0
         [ToggleUILeft]_DetailColorBAnimated("  _DetailColorB", Int) = 0
         [ToggleUILeft]_DetailColorGAnimated("  _DetailColorG", Int) = 0
         [ToggleUILeft]_DetailColorRAnimated("  _DetailColorR", Int) = 0
         [ToggleUILeft]_DetailMask_STAnimated("  _DetailMask_ST", Int) = 0
-        [ToggleUILeft]_DetailMask_TexelSizeAnimated("  _DetailMask_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailMask_TexelSizeAnimated("  _DetailMask Texture", Int) = 0
         [ToggleUILeft]_DetailMaskUVAnimated("  _DetailMaskUV", Int) = 0
         [ToggleUILeft]_DetailNormalMap_STAnimated("  _DetailNormalMap_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMap_TexelSizeAnimated("  _DetailNormalMap_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMap_TexelSizeAnimated("  _DetailNormalMap Texture", Int) = 0
         [ToggleUILeft]_DetailNormalMapAlpha_STAnimated("  _DetailNormalMapAlpha_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMapAlpha_TexelSizeAnimated("  _DetailNormalMapAlpha_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMapAlpha_TexelSizeAnimated("  _DetailNormalMapAlpha Texture", Int) = 0
         [ToggleUILeft]_DetailNormalMapBlue_STAnimated("  _DetailNormalMapBlue_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMapBlue_TexelSizeAnimated("  _DetailNormalMapBlue_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMapBlue_TexelSizeAnimated("  _DetailNormalMapBlue Texture", Int) = 0
         [ToggleUILeft]_DetailNormalMapGreen_STAnimated("  _DetailNormalMapGreen_ST", Int) = 0
-        [ToggleUILeft]_DetailNormalMapGreen_TexelSizeAnimated("  _DetailNormalMapGreen_TexelSize", Int) = 0
+        [ToggleUILeft]_DetailNormalMapGreen_TexelSizeAnimated("  _DetailNormalMapGreen Texture", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleAlphaAnimated("  _DetailNormalMapScaleAlpha", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleAnimated("  _DetailNormalMapScale", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleBlueAnimated("  _DetailNormalMapScaleBlue", Int) = 0
@@ -366,7 +366,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_DitheringEnabledAnimated("  _DitheringEnabled", Int) = 0
         [ToggleUILeft]_EmissionColorAnimated("  _EmissionColor", Int) = 0
         [ToggleUILeft]_EmissionMap_STAnimated("  _EmissionMap_ST", Int) = 0
-        [ToggleUILeft]_EmissionMap_TexelSizeAnimated("  _EmissionMap_TexelSize", Int) = 0
+        [ToggleUILeft]_EmissionMap_TexelSizeAnimated("  _EmissionMap Texture", Int) = 0
         [ToggleUILeft]_EmissionMapChannelAnimated("  _EmissionMapChannel", Int) = 0
         [ToggleUILeft]_EmissionMapUVAnimated("  _EmissionMapUV", Int) = 0
         [ToggleUILeft]_EmissionTintByAlbedoAnimated("  _EmissionTintByAlbedo", Int) = 0
@@ -384,25 +384,25 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_LightmapIntensityAnimated("  _LightmapIntensityAnimated", Int) = 0
         [ToggleUILeft]_LightProbeIntensityAnimated("  _LightProbeIntensityAnimated", Int) = 0
         [ToggleUILeft]_MainTex_STAnimated("  _MainTex_ST", Int) = 0
-        [ToggleUILeft]_MainTex_TexelSizeAnimated("  _MainTex_TexelSize", Int) = 0
+        [ToggleUILeft]_MainTex_TexelSizeAnimated("  _MainTex Texture", Int) = 0
         [ToggleUILeft]_MainTexUVAnimated("  _MainTexUV", Int) = 0
         [ToggleUILeft]_MetallicAnimated("  _Metallic", Int) = 0
         [ToggleUILeft]_MetallicGlossMap_STAnimated("  _MetallicGlossMap_ST", Int) = 0
-        [ToggleUILeft]_MetallicGlossMap_TexelSizeAnimated("  _MetallicGlossMap_TexelSize", Int) = 0
+        [ToggleUILeft]_MetallicGlossMap_TexelSizeAnimated("  _MetallicGlossMap Texture", Int) = 0
         [ToggleUILeft]_MetallicGlossMapChannelAnimated("  _MetallicGlossMapChannel", Int) = 0
         [ToggleUILeft]_MetallicGlossMapUVAnimated("  _MetallicGlossMapUV", Int) = 0
         [ToggleUILeft]_MetallicMinAnimated("  _MetallicMin", Int) = 0
         [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
         [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
         [ToggleUILeft]_OcclusionMap_STAnimated("  _OcclusionMap_ST", Int) = 0
-        [ToggleUILeft]_OcclusionMap_TexelSizeAnimated("  _OcclusionMap_TexelSize", Int) = 0
+        [ToggleUILeft]_OcclusionMap_TexelSizeAnimated("  _OcclusionMap Texture", Int) = 0
         [ToggleUILeft]_OcclusionMapChannelAnimated("  _OcclusionMapChannel", Int) = 0
         [ToggleUILeft]_OcclusionMapUVAnimated("  _OcclusionMapUV", Int) = 0
         [ToggleUILeft]_OcclusionStrengthAnimated("  _OcclusionStrength", Int) = 0
         [ToggleUILeft]_ParallaxAnimated("  _Parallax", Int) = 0
         [ToggleUILeft]_ParallaxBiasAnimated("  _ParallaxBias", Int) = 0
         [ToggleUILeft]_ParallaxMap_STAnimated("  _ParallaxMap_ST", Int) = 0
-        [ToggleUILeft]_ParallaxMap_TexelSizeAnimated("  _ParallaxMap_TexelSize", Int) = 0
+        [ToggleUILeft]_ParallaxMap_TexelSizeAnimated("  _ParallaxMap Texture", Int) = 0
         [ToggleUILeft]_ParallaxMapChannelAnimated("  _ParallaxMapChannel", Int) = 0
         [ToggleUILeft]_ParallaxMapUVAnimated("  _ParallaxMapUV", Int) = 0
         [ToggleUILeft]_ParallaxUV0Animated("  _ParallaxUV0", Int) = 0
@@ -414,7 +414,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_PhongSpecularUseRoughnessAnimated("  _PhongSpecularUseRoughness", Int) = 0
         [ToggleUILeft]_PointLightIntensityAnimated("  _PointLightIntensityAnimated", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_STAnimated("  _PreIntSkinTex_ST", Int) = 0
-        [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("  _PreIntSkinTex_TexelSize", Int) = 0
+        [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("  _PreIntSkinTex Texture", Int) = 0
         [ToggleUILeft]_RealtimeGIIntensityAnimated("  _RealtimeGIIntensity", Int) = 0
         [ToggleUILeft]_RealtimeLightmapIntensityAnimated("  _RealtimeLightmapIntensityAnimated", Int) = 0
         [ToggleUILeft]_ReceiveFogAnimated("  _ReceiveFog", Int) = 0
@@ -427,13 +427,13 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_ShadowsSmoothAnimated("  _ShadowsSmooth", Int) = 0
         [ToggleUILeft]_SpecColorAnimated("  _SpecColor", Int) = 0
         [ToggleUILeft]_SpecGlossMap_STAnimated("  _SpecGlossMap_ST", Int) = 0
-        [ToggleUILeft]_SpecGlossMap_TexelSizeAnimated("  _SpecGlossMap_TexelSize", Int) = 0
+        [ToggleUILeft]_SpecGlossMap_TexelSizeAnimated("  _SpecGlossMap Texture", Int) = 0
         [ToggleUILeft]_SpecGlossMapChannelAnimated("  _SpecGlossMapChannel", Int) = 0
         [ToggleUILeft]_SpecGlossMapUVAnimated("  _SpecGlossMapUV", Int) = 0
         [ToggleUILeft]_SpecularAnisotropyAngleAnimated("  _SpecularAnisotropyAngle", Int) = 0
         [ToggleUILeft]_SpecularAnisotropyAnimated("  _SpecularAnisotropy", Int) = 0
         [ToggleUILeft]_SpecularMap_STAnimated("  _SpecularMap_ST", Int) = 0
-        [ToggleUILeft]_SpecularMap_TexelSizeAnimated("  _SpecularMap_TexelSize", Int) = 0
+        [ToggleUILeft]_SpecularMap_TexelSizeAnimated("  _SpecularMap Texture", Int) = 0
         [ToggleUILeft]_SpecularMapChannelAnimated("  _SpecularMapChannel", Int) = 0
         [ToggleUILeft]_SpecularMapUVAnimated("  _SpecularMapUV", Int) = 0
         [ToggleUILeft]_SpecularMaxAnimated("  _SpecularMax", Int) = 0
@@ -453,7 +453,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_SubsurfaceColorAnimated("  _SubsurfaceColor", Int) = 0
         [ToggleUILeft]_TesselationEdgeFactorAnimated("  _TesselationEdgeFactor", Int) = 0
         [ToggleUILeft]_TranslucencyMap_STAnimated("  _TranslucencyMap_ST", Int) = 0
-        [ToggleUILeft]_TranslucencyMap_TexelSizeAnimated("  _TranslucencyMap_TexelSize", Int) = 0
+        [ToggleUILeft]_TranslucencyMap_TexelSizeAnimated("  _TranslucencyMap Texture", Int) = 0
         [ToggleUILeft]_TranslucencyMapChannelAnimated("  _TranslucencyMapChannel", Int) = 0
         [ToggleUILeft]_TranslucencyMapUVAnimated("  _TranslucencyMapUV", Int) = 0
         [ToggleUILeft]_TriplanarUseVertexColorsAnimated("  _TriplanarUseVertexColors", Int) = 0
@@ -474,7 +474,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 35", Int) = 35
+        [KajLabel]_Version("Shader Version: 36", Int) = 36
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -522,6 +522,37 @@ Shader "Kaj/Omega"
 			#pragma multi_compile _ LIGHTMAP_ON VERTEXLIGHT_ON
             //#pragma multi_compile _ LOD_FADE_CROSSFADE // Uncommented dynamically by the optimizer
 
+            // These compile directives serve only to make variant generation by the editor faster,
+            // as currently with Omega the more textures you have the slower variant generation is.
+            // These and the associated keywords get removed when the shader is locked in.
+            // Some are driven by textures being used, some by group toggles.
+            // The hitching still exists in the 2018 editor, but its effectively amortized.
+            #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+            #pragma shader_feature _NORMALMAP
+            #pragma shader_feature _EMISSION
+            #pragma shader_feature _METALLICGLOSSMAP
+            #pragma shader_feature _GLOSSYREFLECTIONS_OFF
+            #pragma shader_feature _REQUIRE_UV2
+            #pragma shader_feature _SPECGLOSSMAP
+            #pragma shader_feature _COLORCOLOR_ON
+            #pragma shader_feature _PARALLAXMAP
+            #pragma shader_feature _FADING_ON
+            #pragma shader_feature GEOM_TYPE_BRANCH_DETAIL
+            #pragma shader_feature _ALPHABLEND_ON
+            #pragma shader_feature _ALPHAMODULATE_ON
+            #pragma shader_feature _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ALPHATEST_ON
+            #pragma shader_feature GEOM_TYPE_BRANCH
+            #pragma shader_feature GEOM_TYPE_FROND
+            #pragma shader_feature GEOM_TYPE_LEAF
+            #pragma shader_feature GEOM_TYPE_MESH
+            #pragma shader_feature EFFECT_BUMP
+            #pragma shader_feature _COLORADDSUBDIFF_ON
+            #pragma shader_feature _COLOROVERLAY_ON
+            #pragma shader_feature _DETAIL_MULX2
+            #pragma shader_feature _MAPPING_6_FRAMES_LAYOUT
+            #pragma shader_feature _SPECULARHIGHLIGHTS_OFF
+
             #pragma vertex vert_omega
             #pragma hull hull_omega
             #pragma domain domain_omega
@@ -548,6 +579,32 @@ Shader "Kaj/Omega"
             //#pragma instancing_options
             //#pragma multi_compile _ LOD_FADE_CROSSFADE
 
+            #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+            #pragma shader_feature _NORMALMAP
+            #pragma shader_feature _EMISSION
+            #pragma shader_feature _METALLICGLOSSMAP
+            #pragma shader_feature _GLOSSYREFLECTIONS_OFF
+            #pragma shader_feature _REQUIRE_UV2
+            #pragma shader_feature _SPECGLOSSMAP
+            #pragma shader_feature _COLORCOLOR_ON
+            #pragma shader_feature _PARALLAXMAP
+            #pragma shader_feature _FADING_ON
+            #pragma shader_feature GEOM_TYPE_BRANCH_DETAIL
+            #pragma shader_feature _ALPHABLEND_ON
+            #pragma shader_feature _ALPHAMODULATE_ON
+            #pragma shader_feature _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ALPHATEST_ON
+            #pragma shader_feature GEOM_TYPE_BRANCH
+            #pragma shader_feature GEOM_TYPE_FROND
+            #pragma shader_feature GEOM_TYPE_LEAF
+            #pragma shader_feature GEOM_TYPE_MESH
+            #pragma shader_feature EFFECT_BUMP
+            #pragma shader_feature _COLORADDSUBDIFF_ON
+            #pragma shader_feature _COLOROVERLAY_ON
+            #pragma shader_feature _DETAIL_MULX2
+            #pragma shader_feature _MAPPING_6_FRAMES_LAYOUT
+            #pragma shader_feature _SPECULARHIGHLIGHTS_OFF
+
             #pragma vertex vert_omega
             #pragma hull hull_omega
             #pragma domain domain_omega
@@ -570,6 +627,13 @@ Shader "Kaj/Omega"
             //#pragma instancing_options
             //#pragma multi_compile _ LOD_FADE_CROSSFADE
 
+            #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+            #pragma shader_feature GEOM_TYPE_BRANCH_DETAIL
+            #pragma shader_feature _ALPHABLEND_ON
+            #pragma shader_feature _ALPHAMODULATE_ON
+            #pragma shader_feature _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ALPHATEST_ON
+
             #pragma vertex vert_omega
             #pragma hull hull_omega
             #pragma domain domain_omega
@@ -588,6 +652,14 @@ Shader "Kaj/Omega"
             CGPROGRAM
             #pragma target 5.0
             #pragma shader_feature EDITOR_VISUALIZATION
+
+            #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+            #pragma shader_feature _EMISSION
+            #pragma shader_feature GEOM_TYPE_BRANCH_DETAIL
+            #pragma shader_feature _ALPHABLEND_ON
+            #pragma shader_feature _ALPHAMODULATE_ON
+            #pragma shader_feature _ALPHAPREMULTIPLY_ON
+            #pragma shader_feature _ALPHATEST_ON
 
             #pragma vertex vert_omega
             #pragma hull hull_omega

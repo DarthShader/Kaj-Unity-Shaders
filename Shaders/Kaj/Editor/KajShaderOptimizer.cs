@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Globalization;
 
-// v7
+// v8
 
 namespace Kaj
 {
@@ -316,9 +316,12 @@ namespace Kaj
                         definesSB.Append(Environment.NewLine);
                         break;
                     case MaterialProperty.PropType.Texture:
-                        definesSB.Append("#define PROP");
-                        definesSB.Append(prop.name.ToUpper());
-                        definesSB.Append(Environment.NewLine);
+                        if (prop.textureValue != null)
+                        {
+                            definesSB.Append("#define PROP");
+                            definesSB.Append(prop.name.ToUpper());
+                            definesSB.Append(Environment.NewLine);
+                        }
                         break;
                 }
 
@@ -668,7 +671,7 @@ namespace Kaj
                     }
                 }
                 // Specifically requires no whitespace between // and KSOEvaluateMacro
-                else if (UseInlineSamplerStates && lineParsed == "//KSOEvaluateMacro")
+                else if (lineParsed == "//KSOEvaluateMacro")
                 {
                     string macro = "";
                     string lineTrimmed = null;
@@ -797,7 +800,7 @@ namespace Kaj
                 else if (lineTrimmed.StartsWith("#pragma shader_feature") || lineTrimmed.StartsWith("#pragma shader_feature_local"))
                     lines[i] = "//" + lines[i];
                 // Replace inline smapler states
-                else if (lineTrimmed.StartsWith("//KSOInlineSamplerState"))
+                else if (UseInlineSamplerStates && lineTrimmed.StartsWith("//KSOInlineSamplerState"))
                 {
                     string lineParsed = lineTrimmed.Replace(" ", "").Replace("\t", "");
                     // Remove all whitespace
