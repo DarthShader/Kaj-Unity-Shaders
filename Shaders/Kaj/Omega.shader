@@ -10,9 +10,8 @@ Shader "Kaj/Omega"
         [OverrideTagToggle(ForceNoShadowCasting)] _ForceNoShadowCasting ("ForceNoShadowCasting", Int) = 0
         [OverrideTagToggle(CanUseSpriteAtlas)] _CanUseSpriteAtlas ("CanUseSpriteAtlas", Int) = 1
 
-        // Keyword to remind users in the VRChat SDK that this material hasn't been locked.  Inelegant but it works.
-        [HideInInspector] _ForgotToLockMaterial(";YOU_FORGOT_TO_LOCK_THIS_MATERIAL;", Int) = 1
         [ShaderOptimizerLockButton] _ShaderOptimizerEnabled ("", Int) = 0
+        [HelpBox(3)] _LockTooltip("ALWAYS LOCK YOUR MATERIALS BEFORE BUILDING VRCHAT AVATARS AND WORLDS", Int) = 0
 
         [PresetsEnum] _Mode ("Rendering Mode;Opaque,RenderQueue=-1,RenderType=,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=0,_SrcBlendAlpha=1,_DstBlendAlpha=0,_AlphaToMask=0,_ZWrite=1,_ZTest=4;Cutout,RenderQueue=2450,RenderType=TransparentCutout,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=0,_SrcBlendAlpha=1,_DstBlendAlpha=0,_AlphaToMask=1,_ZWrite=1,_ZTest=4;Fade,RenderQueue=3000,RenderType=Transparent,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=5,_DstBlend=10,_SrcBlendAlpha=5,_DstBlendAlpha=10,_AlphaToMask=0,_ZWrite=0,_ZTest=4;Transparent,RenderQueue=3000,RenderType=Transparent,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=10,_SrcBlendAlpha=1,_DstBlendAlpha=10,_AlphaToMask=0,_ZWrite=0,_ZTest=4", Int) = 0
 
@@ -24,7 +23,7 @@ Shader "Kaj/Omega"
         [UnIndent]
         [ToggleUI]_AlbedoTransparencyEnabled("Albedo Alpha is Transparency", Int) = 1
         [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo and Transparency", Int) = 0
-        [KeywordTex(_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A)]_CoverageMap (";_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A;Coverage (Transparency) Map", 2D) = "white" {}
+        [KeywordTex(_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A)]_CoverageMap (";;_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A;Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_CoverageMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_CoverageMapChannel("Channel to Sample", Int) = 0
@@ -35,13 +34,13 @@ Shader "Kaj/Omega"
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
         [UnIndent]
-        [Normal][KeywordTex(_NORMALMAP)]_BumpMap(";_NORMALMAP;Normal Map", 2D) = "bump" {}
+        [Normal][KeywordTex(_NORMALMAP)]_BumpMap(";;_NORMALMAP;Normal Map", 2D) = "bump" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_BumpMapUV ("UV Set", Int) = 0
             _BumpScale("Normals Scale", Float) = 1.0
         [UnIndent]
         [HDR]_EmissionColor("Emission Color", Color) = (1,1,1,1)
-        [KeywordTex(_EMISSION)]_EmissionMap(";_EMISSION;Emission Map", 2D) = "white" {}
+        [KeywordTex(_EMISSION)]_EmissionMap(";;_EMISSION;Emission Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_EmissionMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_EmissionMapChannel("Channel(s) to Sample", Int) = 4
@@ -51,7 +50,7 @@ Shader "Kaj/Omega"
 
         [HideInInspector]group_StandardSettings("Standard Settings", Int) = 0
         [WideEnum(Metallic, 0, Specular, 1)]_WorkflowMode("Standard Workflow", Int) = 0
-        [KeywordTex(_METALLICGLOSSMAP)]_MetallicGlossMap(";_METALLICGLOSSMAP;Metallic Map", 2D) = "white" {}
+        [KeywordTex(_METALLICGLOSSMAP)]_MetallicGlossMap(";;_METALLICGLOSSMAP;Metallic Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_MetallicGlossMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_MetallicGlossMapChannel("Channel to Sample", Int) = 0
@@ -59,21 +58,21 @@ Shader "Kaj/Omega"
             [RangeMin]_MetallicMin("Metallic Min", Range(0.0, 1.0)) = 0.0
         [UnIndent]
         [WideEnum(Roughness, 0, Smoothness, 1)]_GlossinessMode("Glossiness Mode", Int) = 1
-        [KeywordTex(_GLOSSYREFLECTIONS_OFF)]_SpecGlossMap(";_GLOSSYREFLECTIONS_OFF;Glossiness Map", 2D) = "white" {}
+        [KeywordTex(_GLOSSYREFLECTIONS_OFF)]_SpecGlossMap(";;_GLOSSYREFLECTIONS_OFF;Glossiness Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_SpecGlossMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMapChannel("Channel to Sample", Int) = 0
             [RangeMax]_Glossiness("Glossiness Max", Range(0.0, 1.0)) = 0.5
             [RangeMin]_GlossinessMin("Glossiness Min", Range(0.0, 1.0)) = 0.0
         [UnIndent]
-        [KeywordTex(_REQUIRE_UV2)]_OcclusionMap(";_REQUIRE_UV2;Occlusion Map", 2D) = "white" {}
+        [KeywordTex(_REQUIRE_UV2)]_OcclusionMap(";;_REQUIRE_UV2;Occlusion Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_OcclusionMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_OcclusionMapChannel("Channel(s) to Sample", Int) = 4
             _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
         [UnIndent]
         _SpecColor("Specular Color", Color) = (1,1,1,1)
-        [KeywordTex(_SPECGLOSSMAP)]_SpecularMap(";_SPECGLOSSMAP;Specular Map", 2D) = "white" {}
+        [KeywordTex(_SPECGLOSSMAP)]_SpecularMap(";;_SPECGLOSSMAP;Specular Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_SpecularMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_SpecularMapChannel("Channel(s) to Sample", Int) = 4
@@ -85,6 +84,7 @@ Shader "Kaj/Omega"
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
         [ToggleUI]_HDREnabled("HDR Enabled", Int) = 1
         [ToggleUI]_FlippedNormalBackfaces("Backfaces use Flipped Normals (Cull Front/Off)", Int) = 1
+        [ToggleUI]_GeometricSpecularAA("Geometric Specular Anti-aliasing", Int) = 0
         _DirectLightIntensity("Direct Light Intensity", Range(0,1)) = 1
         [Indent]
             _DirectionalLightIntensity("Directional Lights", Range(0,1)) = 1
@@ -112,14 +112,15 @@ Shader "Kaj/Omega"
         _ReceiveFog("Fog Intensity", Range(0,1)) = 1
         [ToggleUI]_GlossyReflections("Cubemap Reflections", Int) = 1
         [Indent]
+            [ToggleUI]_IndirectSpecFallback("Indirect Specular Fallback", Int) = 1
             _ReflectionsIntensity("Intensity", Range(0,1)) = 1
+            [NoScaleOffset]_CubeMap ("Fallback Cubemap", Cube) = "" { }
+            [WideEnum(Off,0, Fallback Only,1, Always Use CubeMap,2)]_CubeMapMode("Fallback Cubemap Mode", Int) = 0
         [UnIndent]
-        [NoScaleOffset]_CubeMap ("Fallback Cubemap", Cube) = "" { }
-        [WideEnum(Off,0, Fallback Only,1, Always Use CubeMap,2)]_CubeMapMode("Fallback Cubemap Mode", Int) = 0
         [HideInInspector]end_Lighting("", Int) = 0
 
-        [HideInInspector][Toggle(_COLORADDSUBDIFF_ON)]group_toggle_Diffuse(";_COLORADDSUBDIFF_ON;Diffuse Shading", Int) = 1
-        [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3)]_DiffuseMode("Mode", Int) = 1
+        [HideInInspector][Toggle(_COLORADDSUBDIFF_ON)]group_toggle_Diffuse(";;_COLORADDSUBDIFF_ON;Diffuse Shading", Int) = 1
+        [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3,Oren Nayer,4)]_DiffuseMode("Mode", Int) = 1
         _OcclusionDirectDiffuse("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_Lambert("Lambert", Int) = 0
         _DiffuseWrap("Wrap Factor", Range(0,1)) = 0
@@ -136,10 +137,11 @@ Shader "Kaj/Omega"
         [HideInInspector]end_SkinDiffuse("", Int) = 0
         [HideInInspector]end_Diffuse("", Int) = 0
 
-        [HideInInspector][Toggle(_COLOROVERLAY_ON)]group_toggle_Specular(";_COLOROVERLAY_ON;Specular Highlights", Int) = 1
+        [HideInInspector][Toggle(_COLOROVERLAY_ON)]group_toggle_Specular(";;_COLOROVERLAY_ON;Specular Highlights", Int) = 1
         [WideEnum(Phong,0, PBR,1, PBR Anisotropic,2, Skin,3)]_SpecularMode("Mode", Int) = 1
         _OcclusionDirectSpecular("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_PhongSpecular("Phong", Int) = 0
+        [ToggleUI]_Blinn("Blinn-Phong Shape", Int) = 1
         [MinimumFloat(1)]_PhongSpecularPower("Power", Float) = 5.0
         _PhongSpecularIntensity("Intensity", Range(0,1)) = 1
         [ToggleUI]_PhongSpecularUseRoughness("Use PBR Roughness for Power", Int) = 0
@@ -150,7 +152,7 @@ Shader "Kaj/Omega"
         [HideInInspector]end_PBRAnisotropicSpecular("", Int) = 0
         [HideInInspector]end_Specular("", Int) = 0
 
-        [HideInInspector][Toggle(_MAPPING_6_FRAMES_LAYOUT)]group_toggle_Reflections(";_MAPPING_6_FRAMES_LAYOUT;Reflections", Int) = 1
+        [HideInInspector][Toggle(_MAPPING_6_FRAMES_LAYOUT)]group_toggle_Reflections(";;_MAPPING_6_FRAMES_LAYOUT;Reflections", Int) = 1
         [WideEnum(PBR,1, Skin,2, PBR Anisotropic,3)]_ReflectionsMode("Mode", Int) = 1
         [HideInInspector]group_PBRReflections("PBR", Int) = 0
         _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
@@ -161,8 +163,8 @@ Shader "Kaj/Omega"
         [HideInInspector]end_PBRAnisotropicReflections("", Int) = 0
         [HideInInspector]end_Reflections("", Int) = 0
 
-        [HideInInspector][Toggle(_DETAIL_MULX2)]group_toggle_Clearcoat(";_DETAIL_MULX2;Clearcoat", Int) = 0
-        [KeywordTex(_COLORCOLOR_ON)]_ClearcoatMask(";_COLORCOLOR_ON;Clearcoat Mask", 2D) = "white" {}
+        [HideInInspector][Toggle(_DETAIL_MULX2)]group_toggle_Clearcoat(";;_DETAIL_MULX2;Clearcoat", Int) = 0
+        [KeywordTex(_COLORCOLOR_ON)]_ClearcoatMask(";;_COLORCOLOR_ON;Clearcoat Mask", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_ClearcoatMaskUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_ClearcoatMaskChannel("Channel to Sample", Int) = 0
@@ -174,8 +176,8 @@ Shader "Kaj/Omega"
         _ClearcoatRoughnessInfluence("Roughness Influence", Range(0,1)) = 1
         [HideInInspector]end_Clearcoat("", Int) = 0
         
-        [HideInInspector][Toggle(EFFECT_BUMP)]group_toggle_Parallax(";EFFECT_BUMP;Parallax", Int) = 0
-        [KeywordTex(_PARALLAXMAP)]_ParallaxMap (";_PARALLAXMAP;Parallax (Height) Map", 2D) = "white" {}
+        [HideInInspector][Toggle(EFFECT_BUMP)]group_toggle_Parallax(";;EFFECT_BUMP;Parallax", Int) = 0
+        [KeywordTex(_PARALLAXMAP)]_ParallaxMap (";;_PARALLAXMAP;Parallax (Height) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_ParallaxMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_ParallaxMapChannel("Channel to Sample", Int) = 0
@@ -188,11 +190,11 @@ Shader "Kaj/Omega"
         [ToggleUI]_ParallaxUV3 ("Affects UV3", Int) = 1
         [HideInInspector]end_Parallax("", Int) = 0
 
-        [HideInInspector][Toggle(_SPECULARHIGHLIGHTS_OFF)]group_toggle_SSSTransmission(";_SPECULARHIGHLIGHTS_OFF;Subsurface Transmission", Int) = 0
+        [HideInInspector][Toggle(_SPECULARHIGHLIGHTS_OFF)]group_toggle_SSSTransmission(";;_SPECULARHIGHLIGHTS_OFF;Subsurface Transmission", Int) = 0
         [ToggleUI]_SSSTransmissionShadowCastingLightsOnly("Shadow Casting Lights Only", Int) = 1
         [ToggleUI]_SSSTransmissionIgnoreShadowAttenuation("Ignore Shadows", Int) = 0
         _SubsurfaceColor("Subsurface Color", Color) = (1,0.4,0.25)
-        [KeywordTex(_FADING_ON)]_TranslucencyMap(";_FADING_ON;Translucency (Thickness) Map", 2D) = "white" {}
+        [KeywordTex(_FADING_ON)]_TranslucencyMap(";;_FADING_ON;Translucency (Thickness) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_TranslucencyMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_TranslucencyMapChannel("Channel to Sample", Int) = 0
@@ -208,7 +210,7 @@ Shader "Kaj/Omega"
         [HideInInspector]end_SSSTransmission("", Int) = 0
 
         [HideInInspector]group_Details("Detail Settings", Int) = 0
-        [KeywordTex(GEOM_TYPE_BRANCH_DETAIL)]_DetailMask(";GEOM_TYPE_BRANCH_DETAIL;Detail Mask (RGBA)", 2D) = "white" {}
+        [KeywordTex(GEOM_TYPE_BRANCH_DETAIL)]_DetailMask(";;GEOM_TYPE_BRANCH_DETAIL;Detail Mask (RGBA)", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_DetailMaskUV("UV Set", Int) = 0
         [UnIndent]
@@ -217,24 +219,24 @@ Shader "Kaj/Omega"
         _DetailColorB("Detail Color (Blue)", Color) = (1,1,1,1)
         _DetailColorA("Detail Color (Alpha)", Color) = (1,1,1,1)
         [Space(10)]
-        [KeywordTex(_ALPHABLEND_ON)]_DetailAlbedoMap(";_ALPHABLEND_ON;Detail Albedo (Red)", 2D) = "grey" {}
-        [KeywordTex(_ALPHAMODULATE_ON)]_DetailAlbedoMapGreen(";_ALPHAMODULATE_ON;Detail Albedo (Green)", 2D) = "grey" {}
-        [KeywordTex(_ALPHAPREMULTIPLY_ON)]_DetailAlbedoMapBlue(";_ALPHAPREMULTIPLY_ON;Detail Albedo (Blue)", 2D) = "grey" {}
-        [KeywordTex(_ALPHATEST_ON)]_DetailAlbedoMapAlpha(";_ALPHATEST_ON;Detail Albedo (Alpha)", 2D) = "grey" {}
+        [KeywordTex(_ALPHABLEND_ON)]_DetailAlbedoMap(";;_ALPHABLEND_ON;Detail Albedo (Red)", 2D) = "grey" {}
+        [KeywordTex(_ALPHAMODULATE_ON)]_DetailAlbedoMapGreen(";;_ALPHAMODULATE_ON;Detail Albedo (Green)", 2D) = "grey" {}
+        [KeywordTex(_ALPHAPREMULTIPLY_ON)]_DetailAlbedoMapBlue(";;_ALPHAPREMULTIPLY_ON;Detail Albedo (Blue)", 2D) = "grey" {}
+        [KeywordTex(_ALPHATEST_ON)]_DetailAlbedoMapAlpha(";;_ALPHATEST_ON;Detail Albedo (Alpha)", 2D) = "grey" {}
         [Space(10)]
-        [Normal][KeywordTex(GEOM_TYPE_BRANCH)]_DetailNormalMap(";GEOM_TYPE_BRANCH;Detail Normal Map (Red)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_BRANCH)]_DetailNormalMap(";;GEOM_TYPE_BRANCH;Detail Normal Map (Red)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScale("Detail Normals (Red) Scale", Float) = 1.0
         [UnIndent]
-        [Normal][KeywordTex(GEOM_TYPE_FROND)]_DetailNormalMapGreen(";GEOM_TYPE_FROND;Detail Normal Map (Green)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_FROND)]_DetailNormalMapGreen(";;GEOM_TYPE_FROND;Detail Normal Map (Green)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScaleGreen("Detail Normals (Green) Scale", Float) = 1.0
         [UnIndent]
-        [Normal][KeywordTex(GEOM_TYPE_LEAF)]_DetailNormalMapBlue(";GEOM_TYPE_LEAF;Detail Normal Map (Blue)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_LEAF)]_DetailNormalMapBlue(";;GEOM_TYPE_LEAF;Detail Normal Map (Blue)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScaleBlue("Detail Normals (Blue) Scale", Float) = 1.0
         [UnIndent]
-        [Normal][KeywordTex(GEOM_TYPE_MESH)]_DetailNormalMapAlpha(";GEOM_TYPE_MESH;Detail Normal Map (Alpha)", 2D) = "bump" {}
+        [Normal][KeywordTex(GEOM_TYPE_MESH)]_DetailNormalMapAlpha(";;GEOM_TYPE_MESH;Detail Normal Map (Alpha)", 2D) = "bump" {}
         [Indent]
             _DetailNormalMapScaleAlpha("Detail Normals (Alpha) Scale", Float) = 1.0
         [UnIndent]
@@ -243,29 +245,83 @@ Shader "Kaj/Omega"
         [WideEnum(Multiply x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Albedo Combine Mode", Int) = 0
         [HideInInspector]end_Details("", Int) = 0
 
-        [HideInInspector]group_Triplanar("Triplanar/Planar Mapping", Int) = 0
-        [HelpBox]_TriplanarTooltip("Object and World Triplanar sampling is scaled using each texture's Tiling X parameter.  Offset X/Y offsets the X/Y axes and Tiling Y offsets the Z axis.", Int) = 0
-        [ToggleUI]_TriplanarUseVertexColors("Vertex Colors are Object Space Position - WIP", Int) = 0
-        [HideInInspector]end_Triplanar("", Int) = 0
-
         [HideInInspector][ToggleUI]group_toggle_Geometry("Geometry Effects", Int) = 0
         [ToggleUI]group_toggle_GeometryForwardBase("Affects Base Pass", Int) = 1
         [ToggleUI]group_toggle_GeometryForwardAdd("Affects Additive Passes (Point and Spot lights)", Int) = 1
         [ToggleUI]group_toggle_GeometryShadowCaster("Affects ShadowCaster Pass", Int) = 1
         [ToggleUI]group_toggle_GeometryMeta("Affects GI Pass", Int) = 1
-        [Header(Testing)]
-        [ToggleUI]_DebugWireframe("Wireframe Debug", Int) = 0
+        [Space(10)]
+        _GeometryFlattenNormals("Flatten Normals", Range(0,1)) = 0
+        [ToggleUI]_GeometryDisplacedTangents("Correct Displaced Vertex Tangets/Bitangents", Int) = 0
+        [Header(Debug)]
+        [ToggleUI]_DebugWireframe("Visualize Wireframe", Int) = 0
         [HideInInspector]end_Geometry("", Int) = 0
 
-        [HideInInspector][ToggleUI]group_toggle_Tesselation("Tesselation", Int) = 0
-        [ToggleUI]group_toggle_TesselationForwardBase("Affects Base Pass", Int) = 1
-        [ToggleUI]group_toggle_TesselationForwardAdd("Affects Additive Passes (Point and Spot lights)", Int) = 1
-        [ToggleUI]group_toggle_TesselationShadowCaster("Affects ShadowCaster Pass", Int) = 1
-        [ToggleUI]group_toggle_TesselationMeta("Affects GI Pass", Int) = 0
-        [Header(Testing)]
-        _TesselationEdgeFactor("Tesselation Factor", Range(1, 64)) = 1
-        //_TesselationInsideFactor("Inside Factor", Range(1, 64)) = 1
-        [HideInInspector]end_Tesselation("", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_Tessellation("Tessellation", Int) = 0
+        [ToggleUI]group_toggle_TessellationForwardBase("Affects Base Pass", Int) = 1
+        [ToggleUI]group_toggle_TessellationForwardAdd("Affects Additive Passes (Point and Spot lights)", Int) = 1
+        [ToggleUI]group_toggle_TessellationShadowCaster("Affects ShadowCaster Pass", Int) = 1
+        [ToggleUI]group_toggle_TessellationMeta("Affects GI Pass", Int) = 0
+        [Header(Settings)]
+        [WideKeywordEnum(Integer, FractionalEven, FractionalOdd)]_Partitioning(";;_SUNDISK_NONE;_SUNDISK_SIMPLE;Partitioning Mode", Int) = 2
+        [WideKeywordEnum(Triangle Clockwise, Triangle Counterclockwise)]_OutputTopology(";;_SUNDISK_HIGH_QUALITY;Output Topology", Int) = 0
+        [WideKeywordEnum(Triangle, Quad)]_Domain(";;_TERRAIN_NORMAL_MAP;Patch Domain", Int) = 0
+        [RangeMax]_TessellationFactorMax("Tessellation Max", Range(1, 64)) = 3
+        [RangeMin]_TessellationFactorMin("Tessellation Min", Range(1, 64)) = 1
+        [Space(10)]
+        [KeywordTex(BILLBOARD_FACE_CAMERA_POS)]_TessellationMask(";;BILLBOARD_FACE_CAMERA_POS;Tessellation Mask", 2D) = "white" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_TessellationMaskUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_TessellationMaskChannel("Channel to Sample", Int) = 0
+            [RangeMax]_TessellationMaskMax("Mask Max", Range(0,1)) = 1
+            [RangeMin]_TessellationMaskMin("Mask Min", Range(0,1)) = 0
+        [UnIndent]
+        [Header(Adaptive Culling)]
+        [ToggleUI]_MinEdgeLengthEnabled("Edge Length Scaling", Int) = 0
+        [Indent]
+            [MinimumFloat(0)]_MaxEdgeLength("Max Tess Factor Length", Float) = 0.1
+            [MinimumFloat(0)]_MinEdgeLength("Min Tess Factor Length", Float) = 0.01
+            [Enum(Object,0, World,1)]_MinEdgeLengthSpace("Object or World Space", Int) = 1
+        [UnIndent]
+        [ToggleUI]_CameraDistanceScaling("Camera Distance Scaling", Int) = 1
+        [Indent]
+            [MinimumFloat(0)]_TessMinCameraDist("Min Tess Factor Distance", Float) = 3
+            [MinimumFloat(0)]_TessMaxCameraDist("Max Tess Factor Distance", Float) = 0.5
+        [UnIndent]
+        [ToggleUI]_TessFrustumCulling("Frustum Culling", Int) = 0
+        [Indent]
+            [MinimumFloat(0)]_TessFrustumCullingRadius("Bias", Float) = 0
+        [UnIndent]
+        [ToggleUI]_TessCullUnusedFaces("Cull Unseen Faces", Int) = 1
+        [Indent]
+            _TessUnusedFacesBias("Bias", Range(0,1)) = 0
+        [UnIndent]
+        [ToggleUI]_RimTessOnly("Rim-Only Tessellation", Int) = 0
+        [Indent]
+            _RimTessBias("Bias", Range(0,1)) = 0
+        [UnIndent]
+        _RimTessIntensity("Rim-Only Intensity", Range(0,1)) = 1
+        [HideInInspector][ToggleUI]group_toggle_PhongTessellation("Phong Tessellation", Int) = 0
+        [KeywordTex(EFFECT_HUE_VARIATION)]_PhongTessMask(";;EFFECT_HUE_VARIATION;Phong Tessellation Mask", 2D) = "white" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_PhongTessMaskUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_PhongTessMaskChannel("Channel to Sample", Int) = 0
+            [RangeMax]_PhongTessMaskMax("Mask Max", Range(0,1)) = 0.5
+            [RangeMin]_PhongTessMaskMin("Mask Min", Range(0,1)) = 0
+        [UnIndent]
+        [HideInInspector]end_PhongTessellation("", Int) = 0
+        [HideInInspector]end_Tessellation("", Int) = 0
+
+        [HideInInspector][ToggleUI]group_toggle_Displacement("Displacement", Int) = 0
+        [KeywordTex(ETC1_EXTERNAL_ALPHA)]_DisplacementMap(";;ETC1_EXTERNAL_ALPHA;Displacement Map", 2D) = "white" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_DisplacementMapUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_DisplacementMapChannel("Channel to Sample", Int) = 0
+            [RangeMax]_DisplacementMapMax("Mask Max", Range(0,1)) = 1
+            [RangeMin]_DisplacementMapMin("Mask Min", Range(0,1)) = 0
+        [UnIndent]
+        _DisplacementIntensity("Displacement Intensity", Float) = 0.001
+        [HideInInspector]end_Displacement("", Int) = 0
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
         [WideEnum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Int) = 2
@@ -301,12 +357,14 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
         [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
         [ToggleUILeft]_AOColorBleedAnimated("  _AOColorBleed", Int) = 0
+        [ToggleUILeft]_BlinnAnimated("  _Blinn", Int) = 0
         [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
         [ToggleUILeft]_BumpBlurBiasAnimated("  _BumpBlurBias", Int) = 0
         [ToggleUILeft]_BumpMap_STAnimated("  _BumpMap_ST", Int) = 0
         [ToggleUILeft]_BumpMap_TexelSizeAnimated("  _BumpMap Texture", Int) = 0
         [ToggleUILeft]_BumpMapUVAnimated("  _BumpMapUV", Int) = 0
         [ToggleUILeft]_BumpScaleAnimated("  _BumpScale", Int) = 0
+        [ToggleUILeft]_CameraDistanceScalingAnimated("  _CameraDistanceScaling", Int) = 0
         [ToggleUILeft]_ClearcoatFresnelInfluenceAnimated("  _ClearcoatFresnelInfluence", Int) = 0
         [ToggleUILeft]_ClearcoatMask_STAnimated("  _ClearcoatMask_ST", Int) = 0
         [ToggleUILeft]_ClearcoatMask_TexelSizeAnimated("  _ClearcoatMask Texture", Int) = 0
@@ -360,8 +418,15 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_DiffuseModeAnimated("  _DiffuseMode", Int) = 0
         [ToggleUILeft]_DiffuseWrapAnimated("  _DiffuseWrap", Int) = 0
         [ToggleUILeft]_DiffuseWrapConserveEnergyAnimated("  _DiffuseWrapConserveEnergy", Int) = 0
-        [ToggleUILeft]_DirectionalLightIntensityAnimated("  _DirectionalLightIntensityAnimated", Int) = 0
-        [ToggleUILeft]_DirectLightIntensityAnimated("  _DirectLightIntensityAnimated", Int) = 0
+        [ToggleUILeft]_DirectionalLightIntensityAnimated("  _DirectionalLightIntensity", Int) = 0
+        [ToggleUILeft]_DirectLightIntensityAnimated("  _DirectLightIntensity", Int) = 0
+        [ToggleUILeft]_DisplacementIntensityAnimated("  _DisplacementIntensity", Int) = 0
+        [ToggleUILeft]_DisplacementMap_STAnimated("  _DisplacementMap_ST", Int) = 0
+        [ToggleUILeft]_DisplacementMap_TexelSizeAnimated("  _DisplacementMap Texture", Int) = 0
+        [ToggleUILeft]_DisplacementMapChannelAnimated("  _DisplacementMapChannel", Int) = 0
+        [ToggleUILeft]_DisplacementMapMaxAnimated("  _DisplacementMapMax", Int) = 0
+        [ToggleUILeft]_DisplacementMapMinAnimated("  _DisplacementMapMin", Int) = 0
+        [ToggleUILeft]_DisplacementMapUVAnimated("  _DisplacementMapUV", Int) = 0
         [ToggleUILeft]_DitheredShadowsAnimated("  _DitheredShadows", Int) = 0
         [ToggleUILeft]_DitheringEnabledAnimated("  _DitheringEnabled", Int) = 0
         [ToggleUILeft]_EmissionColorAnimated("  _EmissionColor", Int) = 0
@@ -375,14 +440,18 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_FakeLightIntensityAnimated("  _FakeLightIntensity", Int) = 0
         [ToggleUILeft]_FakeLightToggleAnimated("  _FakeLightToggle", Int) = 0
         [ToggleUILeft]_FlippedNormalBackfacesAnimated("  _FlippedNormalBackfaces", Int) = 0
+        [ToggleUILeft]_GeometricSpecularAAAnimated("  _GeometricSpecularAA", Int) = 0
+        [ToggleUILeft]_GeometryDisplacedTangentsAnimated("  _GeometryDisplacedTangents", Int) = 0
+        [ToggleUILeft]_GeometryFlattenNormalsAnimated("  _GeometryFlattenNormals",  Int) = 0
         [ToggleUILeft]_GlossinessAnimated("  _Glossiness", Int) = 0
         [ToggleUILeft]_GlossinessMinAnimated("  _GlossinessMin", Int) = 0
         [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
         [ToggleUILeft]_GlossyReflectionsAnimated("  _GlossyReflections", Int) = 0
         [ToggleUILeft]_HDREnabledAnimated("  _HDREnabled", Int) = 0
-        [ToggleUILeft]_IndirectLightIntensityAnimated("  _IndirectLightIntensityAnimated", Int) = 0
-        [ToggleUILeft]_LightmapIntensityAnimated("  _LightmapIntensityAnimated", Int) = 0
-        [ToggleUILeft]_LightProbeIntensityAnimated("  _LightProbeIntensityAnimated", Int) = 0
+        [ToggleUILeft]_IndirectLightIntensityAnimated("  _IndirectLightIntensity", Int) = 0
+        [ToggleUILeft]_IndirectSpecFallbackAnimated("  _IndirectSpecFallback", Int) = 0
+        [ToggleUILeft]_LightmapIntensityAnimated("  _LightmapIntensity", Int) = 0
+        [ToggleUILeft]_LightProbeIntensityAnimated("  _LightProbeIntensity", Int) = 0
         [ToggleUILeft]_MainTex_STAnimated("  _MainTex_ST", Int) = 0
         [ToggleUILeft]_MainTex_TexelSizeAnimated("  _MainTex Texture", Int) = 0
         [ToggleUILeft]_MainTexUVAnimated("  _MainTexUV", Int) = 0
@@ -392,6 +461,9 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_MetallicGlossMapChannelAnimated("  _MetallicGlossMapChannel", Int) = 0
         [ToggleUILeft]_MetallicGlossMapUVAnimated("  _MetallicGlossMapUV", Int) = 0
         [ToggleUILeft]_MetallicMinAnimated("  _MetallicMin", Int) = 0
+        [ToggleUILeft]_MinEdgeLengthSpaceAnimated("  _MinEdgeLengthSpace", Int) = 0
+        [ToggleUILeft]_MinEdgeLengthAnimated("  _MinEdgeLength", Int) = 0
+        [ToggleUILeft]_MinEdgeLengthEnabled("  _MinEdgeLengthEnabled", Int) = 0
         [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
         [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
         [ToggleUILeft]_OcclusionMap_STAnimated("  _OcclusionMap_ST", Int) = 0
@@ -412,17 +484,26 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_PhongSpecularIntensityAnimated("  _PhongSpecularIntensity", Int) = 0
         [ToggleUILeft]_PhongSpecularPowerAnimated("  _PhongSpecularPower", Int) = 0
         [ToggleUILeft]_PhongSpecularUseRoughnessAnimated("  _PhongSpecularUseRoughness", Int) = 0
-        [ToggleUILeft]_PointLightIntensityAnimated("  _PointLightIntensityAnimated", Int) = 0
+        [ToggleUILeft]_PhongTessMask_STAnimated("  _PhongTessMask_ST", Int) = 0
+        [ToggleUILeft]_PhongTessMask_TexelSizeAnimated("  _PhongTessMask Texture", Int) = 0
+        [ToggleUILeft]_PhongTessMaskChannelAnimated("  _PhongTessMaskChannel", Int) = 0
+        [ToggleUILeft]_PhongTessMaskMaxAnimated("  _PhongTessMaskMax", Int) = 0
+        [ToggleUILeft]_PhongTessMaskMinAnimated("  _PhongTessMaskMin", Int) = 0
+        [ToggleUILeft]_PhongTessMaskUVAnimated("  _PhongTessMaskUV", Int) = 0
+        [ToggleUILeft]_PointLightIntensityAnimated("  _PointLightIntensity", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_STAnimated("  _PreIntSkinTex_ST", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("  _PreIntSkinTex Texture", Int) = 0
         [ToggleUILeft]_RealtimeGIIntensityAnimated("  _RealtimeGIIntensity", Int) = 0
-        [ToggleUILeft]_RealtimeLightmapIntensityAnimated("  _RealtimeLightmapIntensityAnimated", Int) = 0
+        [ToggleUILeft]_RealtimeLightmapIntensityAnimated("  _RealtimeLightmapIntensity", Int) = 0
         [ToggleUILeft]_ReceiveFogAnimated("  _ReceiveFog", Int) = 0
         [ToggleUILeft]_ReceiveShadowsAnimated("  _ReceiveShadows", Int) = 0
         [ToggleUILeft]_ReflectionsAnisotropyAngleAnimated("  _ReflectionsAnisotropyAngle", Int) = 0
         [ToggleUILeft]_ReflectionsAnisotropyAnimated("  _ReflectionsAnisotropy", Int) = 0
-        [ToggleUILeft]_ReflectionsIntensityAnimated("  _ReflectionsIntensityAnimated", Int) = 0
+        [ToggleUILeft]_ReflectionsIntensityAnimated("  _ReflectionsIntensity", Int) = 0
         [ToggleUILeft]_ReflectionsModeAnimated("  _ReflectionsMode", Int) = 0
+        [ToggleUILeft]_RimTessBiasAnimated("  _RimTessBias", Int) = 0
+        [ToggleUILeft]_RimTessIntensityAnimated("  _RimTessIntensity", Int) = 0
+        [ToggleUILeft]_RimTessOnlyAnimated("  _RimTessOnly", Int) = 0
         [ToggleUILeft]_ShadowsSharpAnimated("  _ShadowsSharp", Int) = 0
         [ToggleUILeft]_ShadowsSmoothAnimated("  _ShadowsSmooth", Int) = 0
         [ToggleUILeft]_SpecColorAnimated("  _SpecColor", Int) = 0
@@ -439,7 +520,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_SpecularMaxAnimated("  _SpecularMax", Int) = 0
         [ToggleUILeft]_SpecularMinAnimated("  _SpecularMin", Int) = 0
         [ToggleUILeft]_SpecularModeAnimated("  _SpecularMode", Int) = 0
-        [ToggleUILeft]_SpotLightIntensityAnimated("  _SpotLightIntensityAnimated", Int) = 0
+        [ToggleUILeft]_SpotLightIntensityAnimated("  _SpotLightIntensity", Int) = 0
         [ToggleUILeft]_SSSStylizedIndirectAnimated("  _SSSStylizedIndirect", Int) = 0
         [ToggleUILeft]_SSSStylizedIndrectScaleByTranslucencyAnimated("  _SSSStylizedIndrectScaleByTranslucency", Int) = 0
         [ToggleUILeft]_SSSTranslucencyMaxAnimated("  _SSSTranslucencyMax", Int) = 0
@@ -451,30 +532,50 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_SSSTransmissionShadowCastingLightsOnlyAnimated("  _SSSTransmissionShadowCastingLightsOnly", Int) = 0
         [ToggleUILeft]_StandardFresnelIntensityAnimated("  _StandardFresnelIntensity", Int) = 0
         [ToggleUILeft]_SubsurfaceColorAnimated("  _SubsurfaceColor", Int) = 0
-        [ToggleUILeft]_TesselationEdgeFactorAnimated("  _TesselationEdgeFactor", Int) = 0
+        [ToggleUILeft]_TessCullUnusedFacesAnimated("  _TessCullUnusedFaces", Int) = 0
+        [ToggleUILeft]_TessellationFactorMaxAnimated("  _TessellationFactorMax", Int) = 0
+        [ToggleUILeft]_TessellationFactorMinAnimated("  _TessellationFactorMin", Int) = 0
+        [ToggleUILeft]_TessellationMask_STAnimated("  _TessellationMask_ST", Int) = 0
+        [ToggleUILeft]_TessellationMask_TexelSizeAnimated("  _TessellationMask Texture", Int) = 0
+        [ToggleUILeft]_TessellationMaskChannelAnimated("  _TessellationMaskChannel", Int) = 0
+        [ToggleUILeft]_TessellationMaskMaxAnimated("  _TessellationMaskMax", Int) = 0
+        [ToggleUILeft]_TessellationMaskMinAnimated("  _TessellationMaskMin", Int) = 0
+        [ToggleUILeft]_TessellationMaskUVAnimated("  _TessellationMaskUV", Int) = 0
+        [ToggleUILeft]_TessFrustumCullingAnimated("  _TessFrustumCulling", Int) = 0
+        [ToggleUILeft]_TessFrustumCullingRadiusAnimated("  _TessFrustumCullingRadius", Int) = 0
+        [ToggleUILeft]_TessMaxCameraDistAnimated("  _TessMaxCameraDist", Int) = 0
+        [ToggleUILeft]_TessMinCameraDistAnimated("  _TessMinCameraDist", Int) = 0
+        [ToggleUILeft]_TessUnusedFacesBiasAnimated("  _TessUnusedFacesBias", Int) = 0
         [ToggleUILeft]_TranslucencyMap_STAnimated("  _TranslucencyMap_ST", Int) = 0
         [ToggleUILeft]_TranslucencyMap_TexelSizeAnimated("  _TranslucencyMap Texture", Int) = 0
         [ToggleUILeft]_TranslucencyMapChannelAnimated("  _TranslucencyMapChannel", Int) = 0
         [ToggleUILeft]_TranslucencyMapUVAnimated("  _TranslucencyMapUV", Int) = 0
         [ToggleUILeft]_TriplanarUseVertexColorsAnimated("  _TriplanarUseVertexColors", Int) = 0
         [ToggleUILeft]_UVSecAnimated("  _UVSec", Int) = 0
+        [ToggleUILeft]_VertDisplacementTessFactorAnimated("  _VertDisplacementTessFactor", Int) = 0
         [ToggleUILeft]_VertexColorsEnabledAnimated("  _VertexColorsEnabled", Int) = 0
-        [ToggleUILeft]_VertexLightIntensityAnimated("  _VertexLightIntensityAnimated", Int) = 0
+        [ToggleUILeft]_VertexLightIntensityAnimated("  _VertexLightIntensity", Int) = 0
         [ToggleUILeft]_WorkflowModeAnimated("  _WorkflowMode", Int) = 0
         [ToggleUILeft]group_toggle_ClearcoatAnimated("  group_toggle_Clearcoat", Int) = 0
         [ToggleUILeft]group_toggle_DiffuseAnimated("  group_toggle_Diffuse", Int) = 0
+        [ToggleUILeft]group_toggle_DisplacementAnimated("  group_toggle_Displacement", Int) = 0
         [ToggleUILeft]group_toggle_ParallaxAnimated("  group_toggle_Parallax", Int) = 0
+        [ToggleUILeft]group_toggle_PhongTessellationAnimated("  group_toggle_PhongTessellation", Int) = 0
         [ToggleUILeft]group_toggle_ReflectionsAnimated("  group_toggle_Reflections", Int) = 0
         [ToggleUILeft]group_toggle_SpecularAnimated("  group_toggle_Specular", Int) = 0
         [ToggleUILeft]group_toggle_SSSTransmissionAnimated("  group_toggle_SSSTransmission", Int) = 0
         [HideInInspector]end_OptimizerSettings("", Int) = 0
 
-        [HideInInspector]group_Debug("Debug", Int) = 0
-        [ToggleUI]_DebugWorldNormals("World Normal Direction", Int) = 0
-        [ToggleUI]_DebugOcclusion("Occlusion", Int) = 0
+        [HideInInspector]group_Debug("Other", Int) = 0
+        [Header(Triplanar Settings)]
+        [HelpBox]_TriplanarTooltip("Object and World Triplanar sampling is scaled using each texture's Tiling X parameter.  Offset X/Y offsets the X/Y axes and Tiling Y offsets the Z axis.", Int) = 0
+        [ToggleUI]_TriplanarUseVertexColors("Vertex Colors are Object Space Position - WIP", Int) = 0
+        [Header(Debug)]
+        [ToggleUI]_DebugWorldNormals("Visualize World Normal", Int) = 0
+        [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 36", Int) = 36
+        [KajLabel]_Version("Shader Version: 37", Int) = 37
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -552,6 +653,13 @@ Shader "Kaj/Omega"
             #pragma shader_feature _DETAIL_MULX2
             #pragma shader_feature _MAPPING_6_FRAMES_LAYOUT
             #pragma shader_feature _SPECULARHIGHLIGHTS_OFF
+            #pragma shader_feature BILLBOARD_FACE_CAMERA_POS
+            #pragma shader_feature EFFECT_HUE_VARIATION
+            #pragma shader_feature ETC1_EXTERNAL_ALPHA
+            // These keywords are used to switch tessellation and geometry program attributes
+            #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
+            #pragma shader_feature _SUNDISK_HIGH_QUALITY
+            #pragma shader_feature _TERRAIN_NORMAL_MAP
 
             #pragma vertex vert_omega
             #pragma hull hull_omega
@@ -604,6 +712,12 @@ Shader "Kaj/Omega"
             #pragma shader_feature _DETAIL_MULX2
             #pragma shader_feature _MAPPING_6_FRAMES_LAYOUT
             #pragma shader_feature _SPECULARHIGHLIGHTS_OFF
+            #pragma shader_feature BILLBOARD_FACE_CAMERA_POS
+            #pragma shader_feature EFFECT_HUE_VARIATION
+            #pragma shader_feature ETC1_EXTERNAL_ALPHA
+            #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
+            #pragma shader_feature _SUNDISK_HIGH_QUALITY
+            #pragma shader_feature _TERRAIN_NORMAL_MAP
 
             #pragma vertex vert_omega
             #pragma hull hull_omega
@@ -633,6 +747,12 @@ Shader "Kaj/Omega"
             #pragma shader_feature _ALPHAMODULATE_ON
             #pragma shader_feature _ALPHAPREMULTIPLY_ON
             #pragma shader_feature _ALPHATEST_ON
+            #pragma shader_feature BILLBOARD_FACE_CAMERA_POS
+            #pragma shader_feature EFFECT_HUE_VARIATION
+            #pragma shader_feature ETC1_EXTERNAL_ALPHA
+            #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
+            #pragma shader_feature _SUNDISK_HIGH_QUALITY
+            #pragma shader_feature _TERRAIN_NORMAL_MAP
 
             #pragma vertex vert_omega
             #pragma hull hull_omega
@@ -660,6 +780,13 @@ Shader "Kaj/Omega"
             #pragma shader_feature _ALPHAMODULATE_ON
             #pragma shader_feature _ALPHAPREMULTIPLY_ON
             #pragma shader_feature _ALPHATEST_ON
+            #pragma shader_feature BILLBOARD_FACE_CAMERA_POS
+            #pragma shader_feature EFFECT_HUE_VARIATION
+            #pragma shader_feature ETC1_EXTERNAL_ALPHA
+            #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
+            #pragma shader_feature _SUNDISK_HIGH_QUALITY
+            #pragma shader_feature _TERRAIN_NORMAL_MAP
+
 
             #pragma vertex vert_omega
             #pragma hull hull_omega

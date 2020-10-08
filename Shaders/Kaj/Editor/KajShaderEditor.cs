@@ -266,6 +266,55 @@ namespace Kaj
         }
     }
 
+    // WideEnum but with keyword toggles, uses keywords in the property's displayname instead of
+    // _PROPNAME_ENUMVALUE like the regular KeywordEnum
+    public class WideKeywordEnumDrawer : MaterialPropertyDrawer
+    {
+        private readonly GUIContent[] names;
+        const string keywordSeparatorChar = ";";
+        
+        public WideKeywordEnumDrawer(string n1) : this(new[] { n1 }) { }
+        public WideKeywordEnumDrawer(string n1, string n2) : this(new[] { n1, n2 }) { }
+        public WideKeywordEnumDrawer(string n1, string n2, string n3) : this(new[] { n1, n2, n3 }) { }
+        public WideKeywordEnumDrawer(string n1, string n2, string n3, string n4) : this(new[] { n1, n2, n3, n4 }) { }
+        public WideKeywordEnumDrawer(string n1, string n2, string n3, string n4, string n5) : this(new[] { n1, n2, n3, n4, n5 }) { }
+        public WideKeywordEnumDrawer(string n1, string n2, string n3, string n4, string n5, string n6) : this(new[] { n1, n2, n3, n4, n5, n6 }) { }
+        public WideKeywordEnumDrawer(string n1, string n2, string n3, string n4, string n5, string n6, string n7) : this(new[] { n1, n2, n3, n4, n5, n6, n7 }) { }
+        public WideKeywordEnumDrawer(string[] enumNames)
+        {
+            names = new GUIContent[enumNames.Length];
+            for (int i=0; i<enumNames.Length; ++i)
+                names[i] = new GUIContent(enumNames[i]);
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, GUIContent label, MaterialEditor editor)
+        {
+            EditorGUI.showMixedValue = prop.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+            float labelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 0f;
+            int oldValue = (int)prop.floatValue;
+            var value = EditorGUI.Popup(position, label, oldValue, names);
+            EditorGUI.showMixedValue = false;
+            if (EditorGUI.EndChangeCheck())
+            {
+                prop.floatValue = value;
+                string[] split = prop.displayName.Split(keywordSeparatorChar[0]);
+                foreach (Material m in editor.targets)
+                {
+                    m.DisableKeyword(split[oldValue+1]);
+                    m.EnableKeyword(split[value+1]);
+                }
+            }
+             EditorGUIUtility.labelWidth = labelWidth;
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return base.GetPropertyHeight(prop, label, editor);
+        }
+    }
+
     // Range drawer that looks for a property with the same name minus a 'Max' suffix if it exists or a matching
     // 'Min' property.  Then forces that value to be equal to this drawer's newly assigned value
     public class RangeMaxDrawer : MaterialPropertyDrawer
@@ -365,9 +414,21 @@ namespace Kaj
     // Simple auto-laid out information box, uses materialproperty display name as text
     public class HelpBoxDrawer : MaterialPropertyDrawer
     {
+        readonly MessageType type;
+
+        public HelpBoxDrawer()
+        {
+            type = MessageType.Info;
+        }
+
+        public HelpBoxDrawer(float f)
+        {
+            type = (MessageType)(int)f;
+        }
+
         public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
         {
-            EditorGUILayout.HelpBox(label, MessageType.Info);
+            EditorGUILayout.HelpBox(label, type);
         }
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
@@ -398,7 +459,7 @@ namespace Kaj
         }
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
-           return 0;
+           return -2;
         }
     }
 
@@ -870,6 +931,7 @@ namespace Kaj
         const string groupPrefix = "group_";
         const string togglePrefix = "toggle_"; // foldout combined with a checkbox i.e. group_toggle_Parallax
         const string endPrefix = "end_";
+        const string keywordSeparatorChar = ";";
         GUIStyle foldoutStyle;
         bool m_FirstTimeApply = true;
         bool afterShaderOptimizerButton = false;
@@ -891,31 +953,34 @@ namespace Kaj
                 foldoutStyle.fixedHeight = 22;
                 foldoutStyle.contentOffset = new Vector2(20f, -2f);
 
+                // Clear all keywords to begin with, in case there are conflicts with different shaders
+                foreach (Material m in materialEditor.targets)
+                    foreach (string keyword in m.shaderKeywords)
+                        m.DisableKeyword(keyword);
+
                 // Dynamically check for float and texture properties with shader keywords corresponding to
-                // the texture being used or the float value being 1.  
+                // a float value (toggles and keyword enums) or a texture slot being filled.  
                 // Keywords are stored in the displayname with starting and ending semicolons like ";ALBEDO_USED;Albedo"
                 // Keywords used this way are meant to make mega shaders more performant before being locked in and having
                 // all keywords removed.  This also requires property drawers to enable these keywords.
-                // Properties with ;KEYWORD; displaynames have the keyword and semicolons ignored when
+                // Properties with ;KEYWORD; displaynames have the keywords and semicolons ignored when
                 // they are drawn with this editor
                 // Keywords aren't assigned if the optimizer is enabled
                 if (shaderOptimizer!= null && shaderOptimizer.floatValue != 1)
                     foreach (Material m in materialEditor.targets)
                         foreach (MaterialProperty p in props)
                         {
-                            // Dynamic keyword properties need to have their displayname start with ;
-                            if (!p.displayName.StartsWith(";")) continue;
+                            if (!p.displayName.StartsWith(keywordSeparatorChar)) continue;
 
                             switch (p.type)
                             {
                                 case MaterialProperty.PropType.Float:
                                 case MaterialProperty.PropType.Range:
-                                    if (m.GetFloat(p.name) == 1)
-                                        m.EnableKeyword(p.displayName.Split(';')[1]);
+                                    m.EnableKeyword(p.displayName.Split(keywordSeparatorChar[0])[(int)p.floatValue+1]);
                                     break;
                                 case MaterialProperty.PropType.Texture:
                                     if (m.GetTexture(p.name) != null)
-                                        m.EnableKeyword(p.displayName.Split(';')[1]);
+                                        m.EnableKeyword(p.displayName.Split(keywordSeparatorChar[0])[2]);
                                     break;
                             }
                         }
@@ -953,7 +1018,7 @@ namespace Kaj
                 // Check for groups and toggle groups
                 bool toggle = false;
                 if (props[i].name.StartsWith(groupPrefix) && // props[i] is group property
-                   ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
+                    ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0))
                 {
                     if (props[i].name.StartsWith(groupPrefix + togglePrefix))
                         toggle = true;
@@ -1014,8 +1079,11 @@ namespace Kaj
                         EditorGUIUtility.labelWidth = 0;
                         if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
                             EditorGUI.BeginDisabledGroup(true);
-                        if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
-                            materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName.Split(';')[2]);
+                        if (props[i].displayName.StartsWith(keywordSeparatorChar)) // skip keywords embedded into displaynames
+                        {
+                            string[] split = props[i].displayName.Split(keywordSeparatorChar[0]);
+                            materialEditor.ShaderProperty(togglePropertyRect, props[i], split[split.Length-1]);
+                        }
                         else materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
                         if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
                             EditorGUI.EndDisabledGroup();
@@ -1040,7 +1108,7 @@ namespace Kaj
                     if (expanded)
                     {
                         int originalIndentLevel = EditorGUI.indentLevel;
-                        EditorGUI.indentLevel += 1;
+                        EditorGUI.indentLevel++;
                         EditorGUILayout.Space();
                         DrawPropertiesGUIRecursive(materialEditor, props, i+1, j-i-1);
                         EditorGUILayout.Space();
@@ -1056,18 +1124,30 @@ namespace Kaj
                 if ((props[i].flags & MaterialProperty.PropFlags.HideInInspector) != 0) 
                     continue;
                 
+                // Check the shader optimizer property before and after, it if changed, firstTimeApply needs to be done again
+                float shaderOptimizerValue = 0;
+                if (props[i].name == shaderOptimizerPropertyName)
+                    shaderOptimizerValue = props[i].floatValue;
+
                 float h = materialEditor.GetPropertyHeight(props[i], props[i].displayName);
                 Rect r = EditorGUILayout.GetControlRect(true, h, EditorStyles.layerMaskField);
                 if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
                     EditorGUI.BeginDisabledGroup(true);
-                if (props[i].displayName.StartsWith(";")) // skip keywords embedded into displaynames
-                    materialEditor.ShaderProperty(r, props[i], props[i].displayName.Split(';')[2]);
+                if (props[i].displayName.StartsWith(keywordSeparatorChar)) // skip keywords embedded into displaynames
+                {
+                    string[] split = props[i].displayName.Split(keywordSeparatorChar[0]);
+                    materialEditor.ShaderProperty(r, props[i], split[split.Length-1]);
+                }
                 else materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something throwing a warning here
                 if (afterShaderOptimizerButton && shaderOptimizer.floatValue == 1 && !propertyAnimated[i])
                     EditorGUI.EndDisabledGroup();
                 
                 if (props[i].name == shaderOptimizerPropertyName)
+                {
                     afterShaderOptimizerButton = true;
+                    if (shaderOptimizerValue != props[i].floatValue)
+                        m_FirstTimeApply = true;
+                }
             }
 
         }

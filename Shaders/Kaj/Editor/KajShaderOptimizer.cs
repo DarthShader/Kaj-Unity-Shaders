@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Globalization;
 
-// v8
+// v9
 
 namespace Kaj
 {
@@ -70,24 +70,30 @@ namespace Kaj
         // This keyword is added to the beginning of all passes, right after CGPROGRAM
         public static readonly string OptimizerEnabledKeyword = "OPTIMIZER_ENABLED";
 
-        // Mega shaders are expected to have geometry and tesselation shaders enabled by default,
+        // Mega shaders are expected to have geometry and tessellation shaders enabled by default,
         // but with the ability to be disabled by convention property names when the optimizer is run.
         // Additionally, they can be removed per-lightmode by the given property name plus 
         // the lightmode name as a suffix (e.g. group_toggle_GeometryShadowCaster)
-        // Geometry and Tesselation shaders are REMOVED by default, but if the main gorups
+        // Geometry and Tessellation shaders are REMOVED by default, but if the main gorups
         // are enabled certain pass types are assumed to be ENABLED
         public static readonly string GeometryShaderEnabledPropertyName = "group_toggle_Geometry";
-        public static readonly string TesselationEnabledPropertyName = "group_toggle_Tesselation";
+        public static readonly string TessellationEnabledPropertyName = "group_toggle_Tessellation";
         private static bool UseGeometry = false;
         private static bool UseGeometryForwardBase = true;
         private static bool UseGeometryForwardAdd = true;
         private static bool UseGeometryShadowCaster = true;
         private static bool UseGeometryMeta = true;
-        private static bool UseTesselation = false;
-        private static bool UseTesselationForwardBase = true;
-        private static bool UseTesselationForwardAdd = true;
-        private static bool UseTesselationShadowCaster = true;
-        private static bool UseTesselationMeta = false;
+        private static bool UseTessellation = false;
+        private static bool UseTessellationForwardBase = true;
+        private static bool UseTessellationForwardAdd = true;
+        private static bool UseTessellationShadowCaster = true;
+        private static bool UseTessellationMeta = false;
+
+        // Tessellation can be slightly optimized with a constant max tessellation factor attribute
+        // on the hull shader.  A non-animated property by this name will replace the argument of said
+        // attribute if it exists.
+        public static readonly string TessellationMaxFactorPropertyName = "_TessellationFactorMax";
+
         private static string CurrentLightmode = "";
 
         // In-order list of inline sampler state names that will be replaced by InlineSamplerState() lines
@@ -294,6 +300,7 @@ namespace Kaj
             // Append all keywords active on the material
             foreach (string keyword in material.shaderKeywords)
             {
+                if (keyword == "") continue; // idk why but null keywords exist if _ keyword is used and not removed by the editor at some point
                 definesSB.Append("#define ");
                 definesSB.Append(keyword);
                 definesSB.Append(Environment.NewLine);
@@ -344,18 +351,18 @@ namespace Kaj
                     else if (prop.name == GeometryShaderEnabledPropertyName + "Meta")
                         UseGeometryMeta = (prop.floatValue == 1);
                 }
-                else if (prop.name.StartsWith(TesselationEnabledPropertyName))
+                else if (prop.name.StartsWith(TessellationEnabledPropertyName))
                 {
-                    if (prop.name == TesselationEnabledPropertyName)
-                        UseTesselation = (prop.floatValue == 1);
-                    else if (prop.name == TesselationEnabledPropertyName + "ForwardBase")
-                        UseTesselationForwardBase = (prop.floatValue == 1);
-                    else if (prop.name == TesselationEnabledPropertyName + "ForwardAdd")
-                        UseTesselationForwardAdd = (prop.floatValue == 1);
-                    else if (prop.name == TesselationEnabledPropertyName + "ShadowCaster")
-                        UseTesselationShadowCaster = (prop.floatValue == 1);
-                    else if (prop.name == TesselationEnabledPropertyName + "Meta")
-                        UseTesselationMeta = (prop.floatValue == 1);
+                    if (prop.name == TessellationEnabledPropertyName)
+                        UseTessellation = (prop.floatValue == 1);
+                    else if (prop.name == TessellationEnabledPropertyName + "ForwardBase")
+                        UseTessellationForwardBase = (prop.floatValue == 1);
+                    else if (prop.name == TessellationEnabledPropertyName + "ForwardAdd")
+                        UseTessellationForwardAdd = (prop.floatValue == 1);
+                    else if (prop.name == TessellationEnabledPropertyName + "ShadowCaster")
+                        UseTessellationShadowCaster = (prop.floatValue == 1);
+                    else if (prop.name == TessellationEnabledPropertyName + "Meta")
+                        UseTessellationMeta = (prop.floatValue == 1);
                 }
 
 
@@ -520,7 +527,7 @@ namespace Kaj
                             if (lineFullyTrimmed.Contains("\"LightMode\"=\""))
                             {
                                 string lightModeName = lineFullyTrimmed.Split('\"')[3];
-                                // Store current lightmode name in a static, useful for per-pass geometry and tesselation removal
+                                // Store current lightmode name in a static, useful for per-pass geometry and tessellation removal
                                 CurrentLightmode = lightModeName;
                                 if (disabledLightModes.Contains(lightModeName))
                                 {
@@ -771,26 +778,26 @@ namespace Kaj
                 }
                 else if (lineTrimmed.StartsWith("#pragma hull") || lineTrimmed.StartsWith("#pragma domain"))
                 {
-                    if (!UseTesselation)
+                    if (!UseTessellation)
                         lines[i] = "//" + lines[i];
                     else
                     {
                         switch (CurrentLightmode)
                         {
                             case "ForwardBase":
-                                if (!UseTesselationForwardBase)
+                                if (!UseTessellationForwardBase)
                                     lines[i] = "//" + lines[i];
                                 break;
                             case "ForwardAdd":
-                                if (!UseTesselationForwardAdd)
+                                if (!UseTessellationForwardAdd)
                                     lines[i] = "//" + lines[i];
                                 break;
                             case "ShadowCaster":
-                                if (!UseTesselationShadowCaster)
+                                if (!UseTessellationShadowCaster)
                                     lines[i] = "//" + lines[i];
                                 break;
                             case "Meta":
-                                if (!UseTesselationMeta)
+                                if (!UseTessellationMeta)
                                     lines[i] = "//" + lines[i];
                                 break;
                         }
@@ -908,6 +915,18 @@ namespace Kaj
                         }
                     }
                 }
+                else if (lineTrimmed.StartsWith("[maxtessfactor("))
+                {
+                    MaterialProperty maxTessFactorProperty = Array.Find(props, x => x.name == TessellationMaxFactorPropertyName);
+                    if (maxTessFactorProperty != null)
+                    {
+                        float maxTessellation = maxTessFactorProperty.floatValue;
+                        MaterialProperty maxTessFactorAnimatedProperty = Array.Find(props, x => x.name == TessellationMaxFactorPropertyName + AnimatedPropertySuffix);
+                        if (maxTessFactorAnimatedProperty != null && maxTessFactorAnimatedProperty.floatValue == 1)
+                            maxTessellation = 64.0f;
+                        lines[i] = "[maxtessfactor(" + maxTessellation.ToString(".0######") + ")]";
+                    }
+                }
 
                 // then replace macros
                 foreach (Macro macro in macros)
@@ -936,8 +955,12 @@ namespace Kaj
                             while ((argIndex = newContents.IndexOf(macro.args[j], lastIndex)) != -1)
                             {
                                 lastIndex = argIndex+1;
-                                char charLeft = newContents[argIndex-1];
-                                char charRight = newContents[argIndex+macro.args[j].Length];
+                                char charLeft = ' ';
+                                if (argIndex-1 >= 0)
+                                    charLeft = newContents[argIndex-1];
+                                char charRight = ' ';
+                                if (argIndex+macro.args[j].Length < newContents.Length)
+                                    charRight = newContents[argIndex+macro.args[j].Length];
                                 if (Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight))
                                 {
                                     // Replcae the arg!
@@ -967,8 +990,12 @@ namespace Kaj
                     while ((constantIndex = lines[i].IndexOf(constant.name, lastIndex)) != -1)
                     {
                         lastIndex = constantIndex+1;
-                        char charLeft = lines[i][constantIndex-1];
-                        char charRight = lines[i][constantIndex + constant.name.Length];
+                        char charLeft = ' ';
+                        if (constantIndex-1 >= 0)
+                            charLeft = lines[i][constantIndex-1];
+                        char charRight = ' ';
+                        if (constantIndex + constant.name.Length < lines[i].Length)
+                            charRight = lines[i][constantIndex + constant.name.Length];
                         // Skip invalid matches (probably a subname of another symbol)
                         if (!(Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight)))
                             continue;
@@ -1017,8 +1044,12 @@ namespace Kaj
                     while ((gbIndex = lines[i].IndexOf(gpr.originalName, lastIndex)) != -1)
                     {
                         lastIndex = gbIndex+1;
-                        char charLeft = lines[i][gbIndex-1];
-                        char charRight = lines[i][gbIndex + gpr.originalName.Length];
+                        char charLeft = ' ';
+                        if (gbIndex-1 >= 0)
+                            charLeft = lines[i][gbIndex-1];
+                        char charRight = ' ';
+                        if (gbIndex + gpr.originalName.Length < lines[i].Length)
+                            charRight = lines[i][gbIndex + gpr.originalName.Length];
                         // Skip invalid matches (probably a subname of another symbol)
                         if (!(Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight)))
                             continue;

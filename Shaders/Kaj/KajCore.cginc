@@ -319,8 +319,6 @@ uniform float _SpecularMapChannel;
 uniform float _ClearcoatMaskChannel;
 uniform float _ParallaxMapChannel;
 uniform float _TranslucencyMapChannel;
-uniform float _TesselationEdgeFactor;
-uniform float _TesselationInsideFactor;
 uniform float _DebugWireframe;
 uniform float _FlippedNormalBackfaces;
 uniform float group_toggle_Geometry;
@@ -328,11 +326,57 @@ uniform float group_toggle_GeometryForwardBase;
 uniform float group_toggle_GeometryForwardAdd;
 uniform float group_toggle_GeometryShadowCaster;
 uniform float group_toggle_GeometryMeta;
-uniform float group_toggle_Tesselation;
-uniform float group_toggle_TesselationForwardBase;
-uniform float group_toggle_TesselationForwardAdd;
-uniform float group_toggle_TesselationShadowCaster;
-uniform float group_toggle_TesselationMeta;
+uniform float group_toggle_Tessellation;
+uniform float group_toggle_TessellationForwardBase;
+uniform float group_toggle_TessellationForwardAdd;
+uniform float group_toggle_TessellationShadowCaster;
+uniform float group_toggle_TessellationMeta;
+uniform float _GeometricSpecularAA;
+uniform float _IndirectSpecFallback;
+uniform float _Blinn;
+uniform float _TessellationFactorMax;
+uniform float _TessellationFactorMin;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_TessellationMask);
+    uniform float4 _TessellationMask_ST;
+    uniform float4 _TessellationMask_TexelSize;
+    uniform float _TessellationMaskUV;
+    uniform float _TessellationMaskChannel;
+uniform float _TessellationMaskMax;
+uniform float _TessellationMaskMin;
+uniform float _MinEdgeLengthEnabled;
+uniform float _MinEdgeLength;
+uniform float _MaxEdgeLength;
+uniform float _MinEdgeLengthSpace;
+uniform float _CameraDistanceScaling;
+uniform float _TessMinCameraDist;
+uniform float _TessMaxCameraDist;
+uniform float _TessFrustumCulling;
+uniform float _TessFrustumCullingRadius;
+uniform float _TessCullUnusedFaces;
+uniform float _TessUnusedFacesBias;
+uniform float _RimTessOnly;
+uniform float _RimTessBias;
+uniform float _RimTessIntensity;
+uniform float _VertDisplacementTessFactor;
+uniform float group_toggle_PhongTessellation;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_PhongTessMask);
+    uniform float4 _PhongTessMask_ST;
+    uniform float4 _PhongTessMask_TexelSize;
+    uniform float _PhongTessMaskUV;
+    uniform float _PhongTessMaskChannel;
+uniform float _PhongTessMaskMax;
+uniform float _PhongTessMaskMin;
+uniform float group_toggle_Displacement;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_DisplacementMap);
+    uniform float4 _DisplacementMap_ST;
+    uniform float4 _DisplacementMap_TexelSize;
+    uniform float4 _DisplacementMapUV;
+    uniform float _DisplacementMapChannel;
+uniform float _DisplacementMapMax;
+uniform float _DisplacementMapMin;
+uniform float _DisplacementIntensity;
+uniform float _GeometryFlattenNormals;
+uniform float _GeometryDisplacedTangents;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -460,25 +504,51 @@ uniform float group_toggle_TesselationMeta;
         #define PROPGROUP_TOGGLE_SSSTRANSMISSION
     #endif
 #endif
+#ifdef _SUNDISK_NONE
+    #define _PARTITIONING_FRACTIONALEVEN
+#endif
+#ifdef _SUNDISK_SIMPLE
+    #define _PARTITIONING_FRACTIONALODD
+#endif
+#ifdef _SUNDISK_HIGH_QUALITY
+    #define OUTPUT_TOPOLOGY_TRIANGLE_CCW
+#endif
+#ifdef _TERRAIN_NORMAL_MAP
+    #define DOMAIN_QUAD
+#endif
+#ifdef BILLBOARD_FACE_CAMERA_POS
+    #ifndef PROP_TESSELLATIONMASK
+        #define PROP_TESSELLATIONMASK
+    #endif
+#endif
+#ifdef EFFECT_HUE_VARIATION
+    #ifndef PROP_PHONGTESSMASK
+        #define PROP_PHONGTESSMASK
+    #endif
+#endif
+#ifdef ETC1_EXTERNAL_ALPHA
+    #ifndef PROP_DISPLACEMENTMAP
+        #define PROP_DISPLACEMENTMAP
+    #endif
+#endif
 
-
-// Omega Shader culling preprocessor variable definitions + tesselation/geometry disabling variable definitions
+// Omega Shader culling preprocessor variable definitions + tessellation/geometry disabling variable definitions
 // A ton of convolued logic just to cull some appdata and interpolator values.  Probably not worth much
 // in the end, but the principle of fine grained subtractive optimization is cool
 #ifdef OPTIMIZER_ENABLED
 
-    #if PROPGROUP_TOGGLE_TESSELATION
-        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_TESSELATIONFORWARDBASE == 0
-            #define TESSELATION_DISABLED
-        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_TESSELATIONFORWARDADD == 0
-            #define TESSELATION_DISABLED
-        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_TESSELATIONSHADOWCASTER == 0
-            #define TESSELATION_DISABLED
-        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_TESSELATIONMETA == 0
-            #define TESSELATION_DISABLED
+    #if PROPGROUP_TOGGLE_TESSELLATION
+        #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_TESSELLATIONFORWARDBASE == 0
+            #define TESSELLATION_DISABLED
+        #elif defined(UNITY_PASS_FORWARDADD) && PROPGROUP_TOGGLE_TESSELLATIONFORWARDADD == 0
+            #define TESSELLATION_DISABLED
+        #elif defined(UNITY_PASS_SHADOWCASTER) && PROPGROUP_TOGGLE_TESSELLATIONSHADOWCASTER == 0
+            #define TESSELLATION_DISABLED
+        #elif defined(UNITY_PASS_META) && PROPGROUP_TOGGLE_TESSELLATIONMETA == 0
+            #define TESSELLATION_DISABLED
         #endif
     #else
-        #define TESSELATION_DISABLED
+        #define TESSELLATION_DISABLED
     #endif
     #if PROPGROUP_TOGGLE_GEOMETRY
         #if defined(UNITY_PASS_FORWARDBASE) && PROPGROUP_TOGGLE_GEOMETRYFORWARDBASE == 0
@@ -498,9 +568,13 @@ uniform float group_toggle_TesselationMeta;
     // (if property is disabled and won't be re-enabled) foreach property needing a specific interpolator
     // Could be visually simplified but macro arguments cannot evaluate to other macro preprocessor variables
     #if PROP_VERTEXCOLORSENABLED == 0 && PROP_VERTEXCOLORSENABLEDANIMATED == 0 \
-        && PROP_TRIPLANARUSEVERTEXCOLORS == 0  && PROP_TRIPLANARUSEVERTEXCOLORSANIMATED == 0 \
-        && (defined(GEOMETRY_DISABLED) || (PROP_DEBUGWIREFRAME == 0 && PROP_DEBUGWIREFRAMEANIMATED == 0))
+        && PROP_TRIPLANARUSEVERTEXCOLORS == 0  && PROP_TRIPLANARUSEVERTEXCOLORSANIMATED == 0
         #define EXCLUDE_VERTEX_COLORS
+    #endif
+
+    #if defined(GEOMETRY_DISABLED) || (PROP_DEBUGWIREFRAME == 0 && PROP_DEBUGWIREFRAMEANIMATED == 0) \
+        || !defined(UNITY_PASS_FORWARDBASE)
+        #define EXCLUDE_GSTOPS_COLORS
     #endif
 
     #if !defined(PROP_MAINTEX) && PROP_MAINTEX_TEXELSIZEANIMATED == 0
@@ -563,6 +637,15 @@ uniform float group_toggle_TesselationMeta;
     #if !defined(PROP_TRANSLUCENCYMAP) && PROP_TRANSLUCENCYMAP_TEXELSIZEANIMATED == 0
         #define TRANSLUCENCYMAP_UNUSED 1
     #endif
+    #if !defined(PROP_TESSELLATIONMASK) && PROP_TESSELLATIONMASK_TEXELSIZEANIMATED == 0
+        #define TESSELLATIONMASK_UNUSED 1
+    #endif
+    #if !defined(PROP_PHONGTESSMASK) && PROP_PHONGTESSMASK_TEXELSIZEANIMATED == 0
+        #define PHONGTESSMASK_UNUSED 1
+    #endif
+    #if !defined(PROP_DISPLACEMENTMAP) && PROP_DISPLACEMENTMAP_TEXELSIZEANIMATED == 0
+        #define DISPLACEMENTMAP_UNUSED 1
+    #endif
 
     #ifndef UNITY_PASS_META // Meta pass needs UV1 and UV2 for lightmaps
 
@@ -590,6 +673,9 @@ uniform float group_toggle_TesselationMeta;
             && ((PROP_SPECULARMAPUV != 0 && PROP_SPECULARMAPUVANIMATED == 0) || SPECULARMAP_UNUSED) \
             && ((PROP_BUMPMAPUV != 0 && PROP_BUMPMAPUVANIMATED == 0) || BUMPMAP_UNUSED) \
             && ((PROP_TRANSLUCENCYMAPUV != 0 && PROP_TRANSLUCENCYMAPUVANIMATED == 0) || TRANSLUCENCYMAP_UNUSED) \
+            && ((PROP_TESSELLATIONMASKUV != 0 && PROP_TESSELLATIONMASKUVANIMATED == 0) || TESSELLATIONMASK_UNUSED) \
+            && ((PROP_PHONGTESSMASKUV != 0 && PROP_PHONGTESSMASKUVANIMATED == 0) || PHONGTESSMASK_UNUSED) \
+            && ((PROP_DISPLACEMENTMAPUV != 0 && PROP_DISPLACEMENTMAPUVANIMATED == 0) || DISPLACEMENTMAP_UNUSED) \
             && (PROP_MODE != 1 || (PROP_ALPHATOMASK == 0 && PROP_ALPHATOMASKANIMATED == 0))
             #define EXCLUDE_UV0
         #endif
@@ -606,6 +692,9 @@ uniform float group_toggle_TesselationMeta;
             && PROP_SPECULARMAPUV != 1 && PROP_SPECULARMAPUVANIMATED == 0 \
             && PROP_BUMPMAPUV != 1 && PROP_BUMPMAPUVANIMATED == 0 \
             && PROP_TRANSLUCENCYMAPUV != 1 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+            && PROP_TESSELLATIONMASKUV != 1 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
+            && PROP_PHONGTESSMASKUV != 1 && PROP_PHONGTESSMASKUVANIMATED == 0 \
+            && PROP_DISPLACEMENTMAPUV != 1 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
             && !defined(LIGHTMAP_ON)
             #define EXCLUDE_UV1
         #endif
@@ -622,6 +711,9 @@ uniform float group_toggle_TesselationMeta;
             && PROP_SPECULARMAPUV != 2 && PROP_SPECULARMAPUVANIMATED == 0 \
             && PROP_BUMPMAPUV != 2 && PROP_BUMPMAPUVANIMATED == 0 \
             && PROP_TRANSLUCENCYMAPUV != 2 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+            && PROP_TESSELLATIONMASKUV != 2 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
+            && PROP_PHONGTESSMASKUV != 2 && PROP_PHONGTESSMASKUVANIMATED == 0 \
+            && PROP_DISPLACEMENTMAPUV != 2 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
             && !defined(DYNAMICLIGHTMAP_ON)
             #define EXCLUDE_UV2
         #endif
@@ -637,7 +729,10 @@ uniform float group_toggle_TesselationMeta;
             && PROP_OCCLUSIONMAPUV != 3 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
             && PROP_SPECULARMAPUV != 3 && PROP_SPECULARMAPUVANIMATED == 0 \
             && PROP_BUMPMAPUV != 3 && PROP_BUMPMAPUVANIMATED == 0 \
-            && PROP_TRANSLUCENCYMAPUV != 3 && PROP_TRANSLUCENCYMAPUVANIMATED == 0
+            && PROP_TRANSLUCENCYMAPUV != 3 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+            && PROP_TESSELLATIONMASKUV != 3 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
+            && PROP_PHONGTESSMASKUV != 3 && PROP_PHONGTESSMASKUVANIMATED == 0 \
+            && PROP_DISPLACEMENTMAPUV != 3 && PROP_DISPLACEMENTMAPUVANIMATED == 0
             #define EXCLUDE_UV3
         #endif
     #endif
@@ -667,6 +762,9 @@ uniform float group_toggle_TesselationMeta;
         && PROP_SPECULARMAPUV != 12 && PROP_SPECULARMAPUVANIMATED == 0 \
         && PROP_BUMPMAPUV != 12 && PROP_BUMPMAPUVANIMATED == 0 \
         && PROP_TRANSLUCENCYMAPUV != 12 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+        && PROP_TESSELLATIONMASKUV != 12 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
+        && PROP_PHONGTESSMASKUV != 12 && PROP_PHONGTESSMASKUVANIMATED == 0 \
+        && PROP_DISPLACEMENTMAPUV != 12 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
         && (PROP_MODE == 0 || (PROP_DITHERINGENABLED == 0 && PROP_DITHERINGENABLEDANIMATED == 0))
         #define EXCLUDE_GRABPOS
     #endif
@@ -683,7 +781,10 @@ uniform float group_toggle_TesselationMeta;
         && PROP_OCCLUSIONMAPUV != 5 && PROP_OCCLUSIONMAPUVANIMATED == 0 \
         && PROP_SPECULARMAPUV != 5 && PROP_SPECULARMAPUVANIMATED == 0 \
         && PROP_BUMPMAPUV != 5 && PROP_BUMPMAPUVANIMATED == 0 \
-        && PROP_TRANSLUCENCYMAPUV != 5 && PROP_TRANSLUCENCYMAPUVANIMATED == 0
+        && PROP_TRANSLUCENCYMAPUV != 5 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
+        && PROP_TESSELLATIONMASKUV != 5 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
+        && PROP_PHONGTESSMASKUV != 5 && PROP_PHONGTESSMASKUVANIMATED == 0 \
+        && PROP_DISPLACEMENTMAPUV != 5 && PROP_DISPLACEMENTMAPUVANIMATED == 0
         #define EXCLUDE_NORMALOBJECT
     #endif
 
@@ -700,10 +801,14 @@ uniform float group_toggle_TesselationMeta;
         && (PROP_SPECULARMAPUV < 9 || PROP_SPECULARMAPUV > 11) && PROP_SPECULARMAPUVANIMATED == 0 \
         && (PROP_BUMPMAPUV < 9 || PROP_BUMPMAPUV > 11) && PROP_BUMPMAPUVANIMATED == 0 \
         && (PROP_TRANSLUCENCYMAPUV < 9 || PROP_TRANSLUCENCYMAPUV > 11) && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
-        && ((PROPGROUP_TOGGLE_SSSTRANSMISSION == 0 && PROPGROUP_TOGGLE_SSSTRANSMISSIONANIMATED == 0) \
-            || (PROP_SSSSTYLIZEDINDIRECT == 0 && PROP_SSSSTYLIZEDINDIRECTANIMATED == 0))
+        && (PROP_TESSELLATIONMASKUV < 9 || PROP_TESSELLATIONMASKUV > 11 ) && PROP_TESSELLATIONMASKUVANIMATED == 0 \
+        && (PROP_PHONGTESSMASKUV < 9 || PROP_PHONGTESSMASKUV > 11) && PROP_PHONGTESSMASKUVANIMATED == 0 \
+        && (PROP_DISPLACEMENTMAPUV < 9 || PROP_DISPLACEMENTMAPUV > 11) && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
+        && (PROPGROUP_TOGGLE_SSSTRANSMISSION == 0 && PROPGROUP_TOGGLE_SSSTRANSMISSIONANIMATED == 0)
         #define EXCLUDE_POSOBJECT
     #endif
+    //        || (PROP_SSSSTYLIZEDINDIRECT == 0.0 && PROP_SSSSTYLIZEDINDIRECTANIMATED == 0))
+    // Preprocessor logic doesn't like floats
 
     #if PROPGROUP_TOGGLE_PARALLAX == 0 && PROPGROUP_TOGGLE_PARALLAXANIMATED == 0
         #define EXCLUDE_TANGENT_VIEWDIR
@@ -735,8 +840,12 @@ uniform float group_toggle_TesselationMeta;
         #define EXCLUDE_VFACE
     #endif
 
+    #if PROP_GEOMETRICSPECULARAA == 0 && PROP_GEOMETRICSPECULARAAANIMATED == 0
+        #define EXCLUDE_CENTROID_NORMAL
+    #endif
+
     // posWorld and normal culling is too complicated to implement, and only almost completely 
-    // unlit materials are the only materials that wouldn't need either value, so skipping for now
+    // unlit materials are the only materials that wouldn't need either value, so skipping them for now
 
 #endif
 
@@ -751,6 +860,7 @@ uniform float group_toggle_TesselationMeta;
 #endif
 
 // UNITY_LIGHT_ATTENUATION macros without the shadow multiplied in, versions with/without shadow coord interpolator
+// Probably should be changed somehow to not rely on EXCLUDE_SHADOW_COORDS
 #ifndef EXCLUDE_SHADOW_COORDS
     #ifdef POINT
     #define LIGHT_ATTENUATION_NO_SHADOW_MUL(destName, input, worldPos) \
@@ -812,7 +922,6 @@ uniform float group_toggle_TesselationMeta;
             fixed destName = tex2D(_LightTexture0, lightCoord).w;
     #endif
 #endif
-
 
 // Unity texture declarations and sampler macros because HLSLSupport.cginc doesn't have tex2Dbias or tex2Dlod
 #define UNITY_SAMPLE_TEX2D_BIAS(tex,coord,bias) tex.SampleBias (sampler##tex,coord,bias)
@@ -1200,15 +1309,248 @@ half RoughnessToPerceptualSmoothness(half roughness)
     return 1.0 - RoughnessToPerceptualRoughness(roughness);
 }
 
+// Macro function for the texture sampling function.  Expects specificly named variables to be declared.
+//KSOEvaluateMacro
+#define OMEGA_SAMPLE_TEX2D(tex,samplertex,i) omega_sample_texture2D(tex, sampler##samplertex, tex##UV, tex##_ST, i)
+//KSOEvaluateMacro
+#define OMEGA_SAMPLE_TEX2D_BIAS(tex,samplertex,i,bias) omega_sample_texture2Dbias(tex, sampler##samplertex, tex##UV, tex##_ST, i, bias)
+//KSOEvaluateMacro
+#define OMEGA_SAMPLE_TEX2D_LOD(tex,samplertex,i,lod) omega_sample_texture2Dlod(tex, sampler##samplertex, tex##UV, tex##_ST, i, lod)
+struct omega_texture_sampling_vars
+{
+    float4 uv0and1;
+    float4 uv2and3;
+    float3 posObject;
+    float3 posWorld;
+    float3 normalObject;
+    float3 normalWorld;
+    float4 grabPos;
+    float3 color;
+};
+// Omega shader sampling function allowing a multitude of different UV channels/sampling methods.
+fixed4 omega_sample_texture2D(Texture2D tex, SamplerState samplertex, float texUV, float4 ST, omega_texture_sampling_vars i)
+{
+    fixed4 var = 0;
+    [forcecase]
+    switch (texUV)
+    {
+        case 0:
+            var = tex.Sample (samplertex, i.uv0and1.xy * ST.xy + ST.zw);
+            break;
+        case 1:
+            var = tex.Sample (samplertex, i.uv0and1.zw * ST.xy + ST.zw);
+            break;
+        case 2:
+            var = tex.Sample (samplertex, i.uv2and3.xy * ST.xy + ST.zw);
+            break;
+        case 3:
+            var = tex.Sample (samplertex, i.uv2and3.zw * ST.xy + ST.zw);
+            break;
+        case 4:
+            float3 tpWorldBlendFactor = abs(i.normalWorld);
+            tpWorldBlendFactor /= dot(tpWorldBlendFactor, (float3)1);
+            var = tex.Sample(samplertex, (i.posWorld.yz + ST.wy) * ST.x) * tpWorldBlendFactor.x
+                + tex.Sample(samplertex, (i.posWorld.zx + ST.yz) * ST.x) * tpWorldBlendFactor.y
+                + tex.Sample(samplertex, (i.posWorld.xy + ST.zw) * ST.x) * tpWorldBlendFactor.z;
+            break;
+        case 5:
+            float3 tpObjBlendFactor = abs(i.normalObject);
+            tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
+            float2 tpObjX = i.posObject.yz;
+            float2 tpObjY = i.posObject.zx;
+            float2 tpObjZ = i.posObject.xy;
+            if (_TriplanarUseVertexColors)
+            {
+                tpObjX = i.color.yz; tpObjY = i.color.zx; tpObjZ = i.color.xy;
+            }
+            var = tex.Sample(samplertex, (tpObjX + ST.wy) * ST.x) * tpObjBlendFactor.x
+                + tex.Sample(samplertex, (tpObjY + ST.yz) * ST.x) * tpObjBlendFactor.y
+                + tex.Sample(samplertex, (tpObjZ + ST.zw) * ST.x) * tpObjBlendFactor.z;
+            break;
+        case 6:
+            var = tex.Sample (samplertex, i.posWorld.xy * ST.xy + ST.zw); 
+            break;
+        case 7:
+            var = tex.Sample (samplertex, i.posWorld.yz * ST.xy + ST.zw); 
+            break;
+        case 8:
+            var = tex.Sample (samplertex, i.posWorld.zx * ST.xy + ST.zw); 
+            break;
+        case 9:
+            var = tex.Sample (samplertex, i.posObject.xy * ST.xy + ST.zw); 
+            break;
+        case 10:
+            var = tex.Sample (samplertex, i.posObject.yz * ST.xy + ST.zw); 
+            break;
+        case 11:
+            var = tex.Sample (samplertex, i.posObject.zx * ST.xy + ST.zw); 
+            break;
+        case 12:
+            var = tex.Sample (samplertex, stereoCorrectScreenUV01(i.grabPos) * ST.xy + ST.zw); 
+            break;
+        case 13:
+            var = tex.Sample (samplertex, PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz) * ST.xy + ST.zw); 
+            break;
+    }
+    return var;
+}
+fixed4 omega_sample_texture2Dbias(Texture2D tex, SamplerState samplertex, float texUV, float4 ST, omega_texture_sampling_vars i, float bias)
+{
+    fixed4 var = 0;
+    [forcecase]
+    switch (texUV)
+    {
+        case 0:
+            var = tex.SampleBias (samplertex, i.uv0and1.xy * ST.xy + ST.zw, bias);
+            break;
+        case 1:
+            var = tex.SampleBias (samplertex, i.uv0and1.zw * ST.xy + ST.zw, bias);
+            break;
+        case 2:
+            var = tex.SampleBias (samplertex, i.uv2and3.xy * ST.xy + ST.zw, bias);
+            break;
+        case 3:
+            var = tex.SampleBias (samplertex, i.uv2and3.zw * ST.xy + ST.zw, bias);
+            break;
+        case 4:
+            float3 tpWorldBlendFactor = abs(i.normalWorld);
+            tpWorldBlendFactor /= dot(tpWorldBlendFactor, (float3)1);
+            var = tex.SampleBias(samplertex, (i.posWorld.yz + ST.wy) * ST.x, bias) * tpWorldBlendFactor.x
+                + tex.SampleBias(samplertex, (i.posWorld.zx + ST.yz) * ST.x, bias) * tpWorldBlendFactor.y
+                + tex.SampleBias(samplertex, (i.posWorld.xy + ST.zw) * ST.x, bias) * tpWorldBlendFactor.z;
+            break;
+        case 5:
+            float3 tpObjBlendFactor = abs(i.normalObject);
+            tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
+            float2 tpObjX = i.posObject.yz;
+            float2 tpObjY = i.posObject.zx;
+            float2 tpObjZ = i.posObject.xy;
+            if (_TriplanarUseVertexColors)
+            {
+                tpObjX = i.color.yz; tpObjY = i.color.zx; tpObjZ = i.color.xy;
+            }
+            var = tex.SampleBias(samplertex, (tpObjX + ST.wy) * ST.x, bias) * tpObjBlendFactor.x
+                + tex.SampleBias(samplertex, (tpObjY + ST.yz) * ST.x, bias) * tpObjBlendFactor.y
+                + tex.SampleBias(samplertex, (tpObjZ + ST.zw) * ST.x, bias) * tpObjBlendFactor.z;
+            break;
+        case 6:
+            var = tex.SampleBias (samplertex, i.posWorld.xy * ST.xy + ST.zw, bias); 
+            break;
+        case 7:
+            var = tex.SampleBias (samplertex, i.posWorld.yz * ST.xy + ST.zw, bias); 
+            break;
+        case 8:
+            var = tex.SampleBias (samplertex, i.posWorld.zx * ST.xy + ST.zw, bias); 
+            break;
+        case 9:
+            var = tex.SampleBias (samplertex, i.posObject.xy * ST.xy + ST.zw, bias); 
+            break;
+        case 10:
+            var = tex.SampleBias (samplertex, i.posObject.yz * ST.xy + ST.zw, bias); 
+            break;
+        case 11:
+            var = tex.SampleBias (samplertex, i.posObject.zx * ST.xy + ST.zw, bias); 
+            break;
+        case 12:
+            var = tex.SampleBias (samplertex, stereoCorrectScreenUV01(i.grabPos) * ST.xy + ST.zw, bias); 
+            break;
+        case 13:
+            var = tex.SampleBias (samplertex, PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz) * ST.xy + ST.zw, bias); 
+            break;
+    }
+    return var;
+}
+fixed4 omega_sample_texture2Dlod(Texture2D tex, SamplerState samplertex, float texUV, float4 ST, omega_texture_sampling_vars i, float lod)
+{
+    fixed4 var = 0;
+    [forcecase]
+    switch (texUV)
+    {
+        case 0:
+            var = tex.SampleLevel (samplertex, i.uv0and1.xy * ST.xy + ST.zw, lod);
+            break;
+        case 1:
+            var = tex.SampleLevel (samplertex, i.uv0and1.zw * ST.xy + ST.zw, lod);
+            break;
+        case 2:
+            var = tex.SampleLevel (samplertex, i.uv2and3.xy * ST.xy + ST.zw, lod);
+            break;
+        case 3:
+            var = tex.SampleLevel (samplertex, i.uv2and3.zw * ST.xy + ST.zw, lod);
+            break;
+        case 4:
+            float3 tpWorldBlendFactor = abs(i.normalWorld);
+            tpWorldBlendFactor /= dot(tpWorldBlendFactor, (float3)1);
+            var = tex.SampleLevel(samplertex, (i.posWorld.yz + ST.wy) * ST.x, lod) * tpWorldBlendFactor.x
+                + tex.SampleLevel(samplertex, (i.posWorld.zx + ST.yz) * ST.x, lod) * tpWorldBlendFactor.y
+                + tex.SampleLevel(samplertex, (i.posWorld.xy + ST.zw) * ST.x, lod) * tpWorldBlendFactor.z;
+            break;
+        case 5:
+            float3 tpObjBlendFactor = abs(i.normalObject);
+            tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
+            float2 tpObjX = i.posObject.yz;
+            float2 tpObjY = i.posObject.zx;
+            float2 tpObjZ = i.posObject.xy;
+            if (_TriplanarUseVertexColors)
+            {
+                tpObjX = i.color.yz; tpObjY = i.color.zx; tpObjZ = i.color.xy;
+            }
+            var = tex.SampleLevel(samplertex, (tpObjX + ST.wy) * ST.x, lod) * tpObjBlendFactor.x
+                + tex.SampleLevel(samplertex, (tpObjY + ST.yz) * ST.x, lod) * tpObjBlendFactor.y
+                + tex.SampleLevel(samplertex, (tpObjZ + ST.zw) * ST.x, lod) * tpObjBlendFactor.z;
+            break;
+        case 6:
+            var = tex.SampleLevel (samplertex, i.posWorld.xy * ST.xy + ST.zw, lod); 
+            break;
+        case 7:
+            var = tex.SampleLevel (samplertex, i.posWorld.yz * ST.xy + ST.zw, lod); 
+            break;
+        case 8:
+            var = tex.SampleLevel (samplertex, i.posWorld.zx * ST.xy + ST.zw, lod); 
+            break;
+        case 9:
+            var = tex.SampleLevel (samplertex, i.posObject.xy * ST.xy + ST.zw, lod); 
+            break;
+        case 10:
+            var = tex.SampleLevel (samplertex, i.posObject.yz * ST.xy + ST.zw, lod); 
+            break;
+        case 11:
+            var = tex.SampleLevel (samplertex, i.posObject.zx * ST.xy + ST.zw, lod); 
+            break;
+        case 12:
+            var = tex.SampleLevel (samplertex, stereoCorrectScreenUV01(i.grabPos) * ST.xy + ST.zw, lod); 
+            break;
+        case 13:
+            var = tex.SampleLevel (samplertex, PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz) * ST.xy + ST.zw, lod); 
+            break;
+    }
+    return var;
+}
+
 
 UNITY_INSTANCING_BUFFER_START(Props)
     //UNITY_DEFINE_INSTANCED_PROP
 UNITY_INSTANCING_BUFFER_END(Props)
 
+// Below are different unique structs for each stage's input/output, culled and slightly changed to
+// minimize the amount of data passed in the pipeline
+
+// These are the structs that are currently not unique:
+// struct VStoGS - identical to VStoHS, INTERNALTESSPOS is current not a problem
+// struct HSfromVS (for use in both HS and DS) - not necessary now since VStoHS aligns with HS input
+// struct HStoDS - idk if a struct mismatch like this can even exists
+// struct DSfromHS - idk if a struct mismatch like this can even exists
+// struct DStoGS - VStoHS will currently suffice
+// struct DStoPS - VStoPS will current suffice
+// struct GSfromVS - VStoHS, as input doesn't need to change
+// struct GSfromDS - VStoHS, as input doesn't need to change
+// struct PSfromDS - can use PSfromVS
 
 // Culled appdata for vertex shader because although the hlsl compiler can mask out unused inputs
 // for the gpu program, afaik CPU side Unity still thinks it needs to provide all vertex stream data,
-// which is slower.  (Compiled shader shows "Uses vertex data channel", only indication of this)
+// which is slower.  Compiled shader shows "Uses vertex data channel", only indication of this, and
+// even then what 'data channels' it says it needs are illogical and unpredictable.  But the count of data channels
+// DOES consistently match input register count.
 struct appdata_full_omega {
     float4 vertex : POSITION;
     #ifndef EXCLUDE_TANGENT_BITANGENT
@@ -1232,8 +1574,29 @@ struct appdata_full_omega {
     #endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
-// vert_omega has different output depending on pass type/optimizer's interpolator culling keywords
-struct vertex_output_omega
+struct VStoHS_omega
+{
+    float4 vertex : INTERNALTESSPOS; // per-vert phong tess factor packed into vertex.w
+    #ifndef EXCLUDE_TANGENT_BITANGENT
+        float4 tangent : TANGENT;
+    #endif
+    #ifdef TESSELLATION_DISABLED
+        float3 normal : NORMAL;
+    #else
+        float4 normal : NORMAL; // per-vert tess factor packed into normal.w
+    #endif
+    #ifndef EXCLUDE_UV0AND1
+        float4 uv0and1 : TEXCOORD0; // UVs always packed on all VS output
+    #endif
+    #ifndef EXCLUDE_UV2AND3
+        float4 uv2and3 : TEXCOORD1;
+    #endif
+    #ifndef EXCLUDE_VERTEX_COLORS
+        fixed4 color : COLOR;
+    #endif
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+struct VStoPS_omega
 {
     #ifdef UNITY_PASS_SHADOWCASTER
         V2F_SHADOW_CASTER;
@@ -1249,23 +1612,25 @@ struct vertex_output_omega
     #ifndef EXCLUDE_VERTEX_COLORS
         float4 color : TEXCOORD2;
     #endif
-        float4 posWorld : TEXCOORD3;
-        #ifndef EXCLUDE_POSOBJECT
-            float4 posObject : TEXCOORD4;
-        #endif
-        #ifndef EXCLUDE_NORMALOBJECT
-            float3 normalObject : TEXCOORD5;
-        #endif
-        float3 normalWorld : TEXCOORD6;
-        #ifndef EXCLUDE_TANGENT_BITANGENT
-            float3 tangentWorld : TEXCOORD7;
-            float3 bitangentWorld : TEXCOORD8;
-        #endif
-        #ifndef EXCLUDE_GRABPOS
-            float4 grabPos: TEXCOORD9;
-        #endif
+    float4 posWorld : TEXCOORD3;
+    #ifndef EXCLUDE_POSOBJECT
+        float4 posObject : TEXCOORD4;
+    #endif
+    #ifndef EXCLUDE_NORMALOBJECT
+        float3 normalObject : TEXCOORD5;
+    #endif
+    float3 normalWorld : TEXCOORD6;
+    #ifndef EXCLUDE_TANGENT_BITANGENT
+        float3 tangentWorld : TEXCOORD7;
+        float3 bitangentWorld : TEXCOORD8;
+    #endif
+    #ifndef EXCLUDE_GRABPOS
+        float4 grabPos: TEXCOORD9;
+    #endif
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        centroid float3 centroidNormalWorld : TEXCOORD10;
+        #ifndef EXCLUDE_CENTROID_NORMAL
+            centroid float3 centroidNormalWorld : TEXCOORD10;
+        #endif
         #ifndef EXCLUDE_TANGENT_VIEWDIR
             float3 tangentViewDir : TEXCOORD11;
         #endif
@@ -1286,280 +1651,121 @@ struct vertex_output_omega
         UNITY_VERTEX_OUTPUT_STEREO
     #endif
 };
-// common function for regular vertex shader operations that can be called from a vertex, domain, or geometry shader
-// Tesselation programs also rely on this structure
-struct vertex_common_input_omega
+struct GStoPS_omega
 {
-    float4 vertex : INTERNALTESSPOS;
-    #ifndef EXCLUDE_TANGENT_BITANGENT
-        float4 tangent : TANGENT;
+    #ifdef UNITY_PASS_SHADOWCASTER
+        V2F_SHADOW_CASTER;
+    #else
+        float4 pos : SV_POSITION;
     #endif
-    float3 normal : NORMAL;
     #ifndef EXCLUDE_UV0AND1
         float4 uv0and1 : TEXCOORD0;
     #endif
     #ifndef EXCLUDE_UV2AND3
         float4 uv2and3 : TEXCOORD1;
     #endif
-#ifndef EXCLUDE_VERTEX_COLORS
-    fixed4 color : COLOR;
-#endif
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-};
-vertex_output_omega vert_common_omega (vertex_common_input_omega v)
-{
-    vertex_output_omega o;
-    #ifndef UNITY_PASS_META
-        UNITY_SETUP_INSTANCE_ID(v);
-        UNITY_INITIALIZE_OUTPUT(vertex_output_omega, o);
-        UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-        UNITY_TRANSFER_INSTANCE_ID(v, o);
+    #if !defined(EXCLUDE_VERTEX_COLORS) || !defined(EXCLUDE_GSTOPS_COLORS)
+        float4 color : TEXCOORD2;
     #endif
-    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        #ifndef EXCLUDE_TANGENT_BITANGENT
-            #ifdef PROPGROUP_TOGGLE_PARALLAX
-                UNITY_BRANCH
-                if (group_toggle_Parallax) // batched mehses don't have pre-normalized tangent/normal, and parallax needs that
-                {
-                    v.tangent.xyz = normalize(v.tangent.xyz);
-                    v.normal = normalize(v.normal);
-                }
-            #endif
-        #endif
-        o.pos = UnityObjectToClipPos(v.vertex);
-    #elif defined(UNITY_PASS_META)
-        o.pos = UnityMetaVertexPosition(v.vertex, v.uv0and1.zw, v.uv2and3.xy, unity_LightmapST, unity_DynamicLightmapST);
-    #else
-        TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
-    #endif
-
-    o.posWorld = mul(unity_ObjectToWorld, v.vertex);
+    float4 posWorld : TEXCOORD3;
     #ifndef EXCLUDE_POSOBJECT
-        o.posObject = v.vertex;
+        float4 posObject : TEXCOORD4;
     #endif
-	o.normalWorld = UnityObjectToWorldNormal(v.normal);
     #ifndef EXCLUDE_NORMALOBJECT
-        o.normalObject = v.normal;
+        float3 normalObject : TEXCOORD5;
     #endif
+    float3 normalWorld : TEXCOORD6;
     #ifndef EXCLUDE_TANGENT_BITANGENT
-        o.tangentWorld = float4(UnityObjectToWorldDir(v.tangent.xyz), v.tangent.w);
-        o.bitangentWorld = cross(o.normalWorld, o.tangentWorld) * v.tangent.w;
-    #endif
-    #ifndef EXCLUDE_UV0AND1
-	    o.uv0and1 = v.uv0and1;
-    #endif
-    #ifndef EXCLUDE_UV2AND3
-        o.uv2and3 = v.uv2and3;
-    #endif
-    #ifndef EXCLUDE_VERTEX_COLORS
-        o.color = v.color;
+        float3 tangentWorld : TEXCOORD7;
+        float3 bitangentWorld : TEXCOORD8;
     #endif
     #ifndef EXCLUDE_GRABPOS
-        o.grabPos = ComputeGrabScreenPos(o.pos);
+        float4 grabPos: TEXCOORD9;
     #endif
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        o.centroidNormalWorld = o.normalWorld;
-        #ifndef EXCLUDE_TANGENT_VIEWDIR
-            float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal, v.tangent.xyz) * v.tangent.w, v.normal);
-	        o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
+        #ifndef EXCLUDE_CENTROID_NORMAL
+            centroid float3 centroidNormalWorld : TEXCOORD10;
         #endif
-        #ifndef EXCLUDE_SHADOW_COORDS
-            TRANSFER_SHADOW(o);
+        #ifndef EXCLUDE_TANGENT_VIEWDIR
+            float3 tangentViewDir : TEXCOORD11;
         #endif
         #ifndef EXCLUDE_FOG_COORDS
-            UNITY_TRANSFER_FOG(o,o.pos);
+            UNITY_FOG_COORDS(12)
+        #endif
+        #ifndef EXCLUDE_SHADOW_COORDS
+            SHADOW_COORDS(13)
         #endif
     #endif
-    #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
-        o.vizUV = 0;
-        o.lightCoord = 0;
-        if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
-            o.vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.texcoord.xy, v.texcoord1.xy, v.texcoord2.xy, unity_EditorViz_Texture_ST);
-        else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
-        {
-            o.vizUV = v.texcoord1.xy * unity_LightmapST.xy + unity_LightmapST.zw;
-            o.lightCoord = mul(unity_EditorViz_WorldToLight, mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1)));
-        }
+    #ifdef UNITY_PASS_META
+        #ifdef EDITOR_VISUALIZATION
+            float2 vizUV        : TEXCOORD14;
+            float4 lightCoord   : TEXCOORD15;
+        #endif
+    #else
+        UNITY_VERTEX_INPUT_INSTANCE_ID
+        UNITY_VERTEX_OUTPUT_STEREO
     #endif
-
-    return o;
-}
-
-// Main Vertex Shader, completely changes definition based on tess/geom being enabled or not
-#if defined(TESSELATION_DISABLED) && defined(GEOMETRY_DISABLED)
-vertex_output_omega 
-#else
-vertex_common_input_omega 
-#endif
-vert_omega (appdata_full_omega v)
-{
-    vertex_common_input_omega o;
-    
-    o.vertex = v.vertex;
-    #ifndef EXCLUDE_TANGENT_BITANGENT
-        o.tangent = v.tangent;
-    #endif
-    o.normal = v.normal;
-    #ifndef EXCLUDE_UV0
-        o.uv0and1.xy = v.texcoord.xy;
-    #elif !defined(EXCLUDE_UV1)
-        // These stop the 'Output value isn't completely initialized' warnings.
-        // Alas #pragma warning (disable : 3578) doesn't work and at most two extra mov instructions must be used
-        o.uv0and1.xy = 0; 
-    #endif
-    #ifndef EXCLUDE_UV1
-        o.uv0and1.zw = v.texcoord1.xy;
-    #elif !defined(EXCLUDE_UV0)
-        o.uv0and1.zw = 0;
-    #endif
-    #ifndef EXCLUDE_UV2
-        o.uv2and3.xy = v.texcoord2.xy;
-    #elif !defined(EXCLUDE_UV3)
-        o.uv2and3.xy = 0;
-    #endif
-    #ifndef EXCLUDE_UV3
-        o.uv2and3.zw = v.texcoord3.xy;
-    #elif !defined(EXCLUDE_UV2)
-        o.uv2and3.zw = 0;
-    #endif
-    #ifndef EXCLUDE_VERTEX_COLORS
-        o.color = v.color;
-    #endif
-    // idk how tesselation will even handle a uint instanceID
-    UNITY_TRANSFER_INSTANCE_ID(v, o);
-    
-#if defined(TESSELATION_DISABLED) && defined(GEOMETRY_DISABLED)
-    return vert_common_omega(o);
-#else
-    return o;
-#endif
-}
-
-
-// Tesselation
-struct TessellationFactorsTri
-{
-    float edge[3] : SV_TessFactor;
-    float inside : SV_InsideTessFactor;
 };
-struct TessellationFactorsQuad
+struct PSfromVS_omega
 {
-    float edge[4] : SV_TessFactor;
-    float inside[2] : SV_InsideTessFactor;
-};
-struct TessellationFactorsIsoline
-{
-    float edge[2] : SV_TessFactor;
-};
-TessellationFactorsTri patch_constant_omega_tri (InputPatch<vertex_common_input_omega, 3> patch)
-{
-    TessellationFactorsTri f;
-    f.edge[0] = _TesselationEdgeFactor;
-    f.edge[1] = _TesselationEdgeFactor;
-    f.edge[2] = _TesselationEdgeFactor;
-	f.inside = _TesselationEdgeFactor;
-	return f;
-}
-TessellationFactorsQuad patch_constant_omega_quad (InputPatch<vertex_common_input_omega, 3> patch)
-{
-    //_TesselationInsideFactor
-    TessellationFactorsQuad f;
-    f.edge[0] = _TesselationEdgeFactor;
-    f.edge[1] = _TesselationEdgeFactor;
-    f.edge[2] = _TesselationEdgeFactor;
-    f.edge[3] = _TesselationEdgeFactor;
-	f.inside[0] = _TesselationEdgeFactor;
-    f.inside[1] = _TesselationEdgeFactor;
-	return f;
-}
-
-[UNITY_domain("tri")]
-//[UNITY_domain("quad")]
-//[UNITY_domain("isoline")]
-[UNITY_outputcontrolpoints(3)]
-//[outputtopology("point")]
-//[outputtopology("line")]
-[UNITY_outputtopology("triangle_cw")]
-//[outputtopology("triangle_ccw")]
-[UNITY_partitioning("fractional_odd")]
-//[UNITY_partitioning("integer")]
-//[UNITY_patchconstantfunc("patch_constant_omega_quad")]
-[UNITY_patchconstantfunc("patch_constant_omega_tri")]
-vertex_common_input_omega hull_omega (InputPatch<vertex_common_input_omega, 3> patch, uint id : SV_OutputControlPointID)
-{
-    return patch[id];
-}
-
-[UNITY_domain("tri")]
-//[UNITY_domain("quad")]
-//[UNITY_domain("isoline")]
-#ifdef GEOMETRY_DISABLED
-vertex_output_omega 
-#else
-vertex_common_input_omega 
-#endif
-domain_omega (TessellationFactorsTri factors, OutputPatch<vertex_common_input_omega, 3> patch, float3 barycentricCoordinates : SV_DomainLocation)
-{
-    vertex_common_input_omega v;
-
-    #define DOMAIN_PROGRAM_INTERPOLATE(fieldName) v.fieldName = \
-		patch[0].fieldName * barycentricCoordinates.x + \
-		patch[1].fieldName * barycentricCoordinates.y + \
-		patch[2].fieldName * barycentricCoordinates.z;
-
-    DOMAIN_PROGRAM_INTERPOLATE(vertex)
-    DOMAIN_PROGRAM_INTERPOLATE(normal)
-    #ifndef EXCLUDE_TANGENT_BITANGENT
-        DOMAIN_PROGRAM_INTERPOLATE(tangent)
+    #ifdef UNITY_PASS_SHADOWCASTER
+        V2F_SHADOW_CASTER_NOPOS
+        UNITY_VPOS_TYPE vpos : VPOS; // Altered position semantics for shadowcaster dithering
+    #else
+        float4 pos : SV_POSITION;
     #endif
     #ifndef EXCLUDE_UV0AND1
-        DOMAIN_PROGRAM_INTERPOLATE(uv0and1)
+        float4 uv0and1 : TEXCOORD0;
     #endif
     #ifndef EXCLUDE_UV2AND3
-        DOMAIN_PROGRAM_INTERPOLATE(uv2and3)
+        float4 uv2and3 : TEXCOORD1;
     #endif
-#ifndef EXCLUDE_VERTEX_COLORS
-    DOMAIN_PROGRAM_INTERPOLATE(color)
-#endif
-    UNITY_TRANSFER_INSTANCE_ID(patch[0], v); // idk lmao
-
-#ifdef GEOMETRY_DISABLED
-    return vert_common_omega(v);
-#else
-    return v;
-#endif
-}
-
-// Geometry
-// Always expected to do vertex shader part if it is included
-[maxvertexcount(3)]
-void geom_omega(triangle vertex_common_input_omega IN[3], inout TriangleStream<vertex_output_omega> triStream)
-{
-    vertex_output_omega o;
-
-    float3 barys[3];
-    barys[0] = float3(1,0,0);
-    barys[1] = float3(0,1,0);
-    barys[2] = float3(0,0,1);
-
-    UNITY_UNROLL
-    for(int i=0; i<3; i++)
-    {
-        o = vert_common_omega(IN[i]);
-        #ifndef EXCLUDE_VERTEX_COLORS
-            #ifdef UNITY_PASS_FORWARDBASE
-                if (_DebugWireframe && group_toggle_Geometry && group_toggle_GeometryForwardBase)
-                    o.color.rgb = barys[i];
-            #endif
+    #ifndef EXCLUDE_VERTEX_COLORS
+        float4 color : TEXCOORD2;
+    #endif
+    float4 posWorld : TEXCOORD3;
+    #ifndef EXCLUDE_POSOBJECT
+        float4 posObject : TEXCOORD4;
+    #endif
+    #ifndef EXCLUDE_NORMALOBJECT
+        float3 normalObject : TEXCOORD5;
+    #endif
+    float3 normalWorld : TEXCOORD6;
+    #ifndef EXCLUDE_TANGENT_BITANGENT
+        float3 tangentWorld : TEXCOORD7;
+        float3 bitangentWorld : TEXCOORD8;
+    #endif
+    #ifndef EXCLUDE_GRABPOS
+        float4 grabPos: TEXCOORD9;
+    #endif
+    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+        #ifndef EXCLUDE_CENTROID_NORMAL
+            centroid float3 centroidNormalWorld : TEXCOORD10;
         #endif
-        triStream.Append(o);
-    }
-    triStream.RestartStrip();
-}
-
-// Fragment
-// needs to be culled similarly to vertex output 
-struct fragment_input_omega
+        #ifndef EXCLUDE_TANGENT_VIEWDIR
+            float3 tangentViewDir : TEXCOORD11;
+        #endif
+        #ifndef EXCLUDE_FOG_COORDS
+            UNITY_FOG_COORDS(12)
+        #endif
+        #ifndef EXCLUDE_SHADOW_COORDS
+            SHADOW_COORDS(13)
+        #endif
+    #endif
+    #ifdef UNITY_PASS_META
+        #ifdef EDITOR_VISUALIZATION
+            float2 vizUV        : TEXCOORD14;
+            float4 lightCoord   : TEXCOORD15;
+        #endif
+    #else
+        UNITY_VERTEX_INPUT_INSTANCE_ID
+        UNITY_VERTEX_OUTPUT_STEREO
+        #ifndef EXCLUDE_VFACE
+            fixed facing : VFACE; // Vface sys value as input
+        #endif
+    #endif
+};
+struct PSfromGS_omega
 {
     #ifdef UNITY_PASS_SHADOWCASTER
         V2F_SHADOW_CASTER_NOPOS
@@ -1573,26 +1779,28 @@ struct fragment_input_omega
     #ifndef EXCLUDE_UV2AND3
         float4 uv2and3 : TEXCOORD1;
     #endif
-    #ifndef EXCLUDE_VERTEX_COLORS
+    #if !defined(EXCLUDE_VERTEX_COLORS) || !defined(EXCLUDE_GSTOPS_COLORS)
         float4 color : TEXCOORD2;
     #endif
-        float4 posWorld : TEXCOORD3;
-        #ifndef EXCLUDE_POSOBJECT
-            float4 posObject : TEXCOORD4;
-        #endif
-        #ifndef EXCLUDE_NORMALOBJECT
-            float3 normalObject : TEXCOORD5;
-        #endif
-        float3 normalWorld : TEXCOORD6;
-        #ifndef EXCLUDE_TANGENT_BITANGENT
-            float3 tangentWorld : TEXCOORD7;
-            float3 bitangentWorld : TEXCOORD8;
-        #endif
-        #ifndef EXCLUDE_GRABPOS
-            float4 grabPos: TEXCOORD9;
-        #endif
+    float4 posWorld : TEXCOORD3;
+    #ifndef EXCLUDE_POSOBJECT
+        float4 posObject : TEXCOORD4;
+    #endif
+    #ifndef EXCLUDE_NORMALOBJECT
+        float3 normalObject : TEXCOORD5;
+    #endif
+    float3 normalWorld : TEXCOORD6;
+    #ifndef EXCLUDE_TANGENT_BITANGENT
+        float3 tangentWorld : TEXCOORD7;
+        float3 bitangentWorld : TEXCOORD8;
+    #endif
+    #ifndef EXCLUDE_GRABPOS
+        float4 grabPos: TEXCOORD9;
+    #endif
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        centroid float3 centroidNormalWorld : TEXCOORD10;
+        #ifndef EXCLUDE_CENTROID_NORMAL
+            centroid float3 centroidNormalWorld : TEXCOORD10;
+        #endif
         #ifndef EXCLUDE_TANGENT_VIEWDIR
             float3 tangentViewDir : TEXCOORD11;
         #endif
@@ -1617,128 +1825,966 @@ struct fragment_input_omega
     #endif
 };
 
-// Macro function for the texture sampling function.  Expects specificly named variables to be declared
-//KSOEvaluateMacro
-#define OMEGA_SAMPLE_TEX2D(var,tex,samplertex) \
-var = omega_sample_texture2D(tex, sampler##samplertex, i, tex##UV, tex##_ST, \
-                             tpWorldX, tpWorldY, tpWorldZ, tpWorldBlendFactor, \
-                             tpObjX, tpObjY, tpObjZ, tpObjBlendFactor, panoUV);
-//KSOEvaluateMacro
-#define OMEGA_SAMPLE_TEX2D_BIAS(var,tex,samplertex,bias) \
-var = omega_sample_texture2Dbias(tex, sampler##samplertex, i, tex##UV, tex##_ST, \
-                                 tpWorldX, tpWorldY, tpWorldZ, tpWorldBlendFactor, \
-                                 tpObjX, tpObjY, tpObjZ, tpObjBlendFactor, panoUV, bias);
-
-// Omega shader sampling function allowing a multitude of different UV channels/sampling methods
-// This used to be part of one big macro until different sampling modes needed to be culled by the preprocessor
-half4 omega_sample_texture2D(Texture2D tex, SamplerState samplertex, fragment_input_omega i, float texUV, float4 ST,
-                             float2 tpWorldX, float2 tpWorldY, float2 tpWorldZ, float3 tpWorldBlendFactor,
-                             float2 tpObjX, float2 tpObjY, float2 tpObjZ, float3 tpObjBlendFactor, float2 panoUV)
+// Main Vertex Shader, completely changes definition based on tess/geom being enabled or not
+#if defined(TESSELLATION_DISABLED) && defined(GEOMETRY_DISABLED)
+VStoPS_omega
+#else
+VStoHS_omega 
+#endif
+vert_omega (appdata_full_omega v)
 {
-    half4 var;
+    // Texture samples struct
+    omega_texture_sampling_vars tex_vars;
+    #ifndef EXCLUDE_UV0
+        tex_vars.uv0and1.xy = v.texcoord.xy;
+    #elif !defined(EXCLUDE_UV1)
+        tex_vars.uv0and1.xy = v.texcoord1.xy; 
+    #endif
+    #ifndef EXCLUDE_UV1
+        tex_vars.uv0and1.zw = v.texcoord1.xy;
+    #elif !defined(EXCLUDE_UV0)
+        tex_vars.uv0and1.zw = v.texcoord.xy;
+    #endif
+    #ifdef EXCLUDE_UV0AND1
+        tex_vars.uv0and1 = 0;
+    #endif
+    #ifndef EXCLUDE_UV2
+        tex_vars.uv2and3.xy = v.texcoord2.xy;
+    #elif !defined(EXCLUDE_UV3)
+        tex_vars.uv2and3.xy = v.texcoord3.xy;
+    #endif
+    #ifndef EXCLUDE_UV3
+        tex_vars.uv2and3.zw = v.texcoord3.xy;
+    #elif !defined(EXCLUDE_UV2)
+        tex_vars.uv2and3.zw = v.texcoord2.xy;
+    #endif
+    #ifdef EXCLUDE_UV2AND3
+        tex_vars.uv2and3 = 0;
+    #endif
+    tex_vars.posObject = v.vertex;
+    tex_vars.posWorld = mul(unity_ObjectToWorld, v.vertex);
+    tex_vars.normalObject = v.normal;
+    tex_vars.normalWorld = UnityObjectToWorldNormal(v.normal);
+    tex_vars.grabPos = ComputeGrabScreenPos(UnityObjectToClipPos(v.vertex));
+    #ifndef EXCLUDE_VERTEX_COLORS
+        tex_vars.color = v.color;
+    #else
+        tex_vars.color = 0;
+    #endif
 
+    // VStoHS
+    #if !(defined(TESSELLATION_DISABLED) && defined(GEOMETRY_DISABLED))
+        VStoHS_omega o;
+        o.vertex = v.vertex;
+        #ifndef EXCLUDE_TANGENT_BITANGENT
+            o.tangent = v.tangent;
+        #endif
+        o.normal.xyz = v.normal;
+        #ifndef EXCLUDE_UV0
+            o.uv0and1.xy = v.texcoord.xy;
+        #elif !defined(EXCLUDE_UV1)
+            // These stop the 'Output value isn't completely initialized' warnings.
+            // Alas #pragma warning (disable : 3578) doesn't work and these need to be filled in so no warnings are generated
+            // Filling these in with gauranteed used texcoord information won't cost an extra mov instruction
+            o.uv0and1.xy = v.texcoord1.xy; 
+        #endif
+        #ifndef EXCLUDE_UV1
+            o.uv0and1.zw = v.texcoord1.xy;
+        #elif !defined(EXCLUDE_UV0)
+            o.uv0and1.zw = v.texcoord.xy;
+        #endif
+        #ifndef EXCLUDE_UV2
+            o.uv2and3.xy = v.texcoord2.xy;
+        #elif !defined(EXCLUDE_UV3)
+            o.uv2and3.xy = v.texcoord3.xy;
+        #endif
+        #ifndef EXCLUDE_UV3
+            o.uv2and3.zw = v.texcoord3.xy;
+        #elif !defined(EXCLUDE_UV2)
+            o.uv2and3.zw = v.texcoord2.xy;
+        #endif
+        #ifndef EXCLUDE_VERTEX_COLORS
+            o.color = v.color;
+        #endif
+        // idk how tessellation will even handle a uint instanceID
+        UNITY_TRANSFER_INSTANCE_ID(v, o);
+
+        // Per-vertex tessellation adaptive culling
+        // Return 1-64 packed into normal.w depending on tess factor
+        // Return 0-1 packed into vertex.w depending on phong tesselation factor
+        #ifndef TESSELLATION_DISABLED
+
+            // Texture samples
+            float4 _TessellationMask_var = 1;
+            #ifdef PROP_TESSELLATIONMASK
+                // _TessellationMask could use its own sampler sometime later but eh
+                //KSOInlineSamplerState(_linear_repeat, _TessellationMask)
+                _TessellationMask_var = OMEGA_SAMPLE_TEX2D_LOD(_TessellationMask, _linear_repeat, tex_vars, 0.0);
+            #endif
+            float4 _PhongTessMask_var = 1;
+            #ifdef PROP_PHONGTESSMASK
+                //KSOInlineSamplerState(_linear_repeat, _PhongTessMask)
+                _PhongTessMask_var = OMEGA_SAMPLE_TEX2D_LOD(_PhongTessMask, _linear_repeat, tex_vars, 0.0);
+            #endif
+
+            //KSODuplicateTextureCheckStart
+            //KSODuplicateTextureCheck(_TessellationMask)
+            //KSODuplicateTextureCheck(_PhongTessMask)
+
+            // Per vertex tessellation strength
+            float tessScale = _TessellationMaskMin + (_TessellationMaskMax-_TessellationMaskMin) * _TessellationMask_var[_TessellationMaskChannel];
+            if (_CameraDistanceScaling)
+            {
+                float cameraDist = distance(_WorldSpaceStereoCameraCenterPos.xyz, tex_vars.posWorld.xyz);
+                tessScale *= saturate((cameraDist - _TessMinCameraDist) / (_TessMaxCameraDist - _TessMinCameraDist));
+            }
+            // Scale by NdotV according to _RimTessOnly
+            if (_RimTessOnly)
+            {
+                half3 viewDir = normalize(_WorldSpaceStereoCameraCenterPos.xyz - tex_vars.posWorld.xyz);
+                tessScale = lerp(tessScale, saturate(tessScale - abs(dot(viewDir, tex_vars.normalWorld)) - _RimTessBias), _RimTessIntensity);
+            }
+
+            o.normal.w = lerp(_TessellationFactorMin, _TessellationFactorMax, tessScale);
+
+            // Check for vert being outside the 4 clipping planes
+            UNITY_BRANCH
+            if (_TessFrustumCulling)
+            {
+                float4 planeTest;
+                planeTest.x = (dot(float4(tex_vars.posWorld.xyz,1), unity_CameraWorldClipPlanes[0]) > -_TessFrustumCullingRadius) ? 1 : 0;
+                planeTest.y = (dot(float4(tex_vars.posWorld.xyz,1), unity_CameraWorldClipPlanes[1]) > -_TessFrustumCullingRadius) ? 1 : 0;
+                planeTest.z = (dot(float4(tex_vars.posWorld.xyz,1), unity_CameraWorldClipPlanes[2]) > -_TessFrustumCullingRadius) ? 1 : 0;
+                planeTest.w = (dot(float4(tex_vars.posWorld.xyz,1), unity_CameraWorldClipPlanes[3]) > -_TessFrustumCullingRadius) ? 1 : 0;
+                o.normal.w = all(planeTest) ? o.normal.w : 0;
+            }
+
+            // Pack phong tessellation scale into vertex.w
+            UNITY_BRANCH
+            if (group_toggle_PhongTessellation)
+                o.vertex.w = _PhongTessMaskMin + (_PhongTessMaskMax -_PhongTessMaskMin) * _PhongTessMask_var[_PhongTessMaskChannel];
+        #endif
+    #else
+        // VStoPS
+        VStoPS_omega o;
+
+        #ifndef UNITY_PASS_META
+            UNITY_SETUP_INSTANCE_ID(v);
+            UNITY_INITIALIZE_OUTPUT(GStoPS_omega, o);
+            UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+            UNITY_TRANSFER_INSTANCE_ID(v, o);
+        #endif
+
+        // Texture samples
+        float4 _DisplacementMap_var = 1;
+        #ifdef PROP_DISPLACEMENTMAP
+            //KSOInlineSamplerState(_linear_repeat, _DisplacementMap)
+            _DisplacementMap_var = OMEGA_SAMPLE_TEX2D_LOD(_DisplacementMap, _linear_repeat, tex_vars, 0.0);
+        #endif
+
+        //KSODuplicateTextureCheckStart
+        //KSODuplicateTextureCheck(_DisplacementMap)
+
+        UNITY_BRANCH
+        if (group_toggle_Displacement)
+        {
+            float displacement = _DisplacementMapMin + (_DisplacementMapMax - _DisplacementMapMin) * _DisplacementMap_var[_DisplacementMapChannel];
+            v.normal.xyz = normalize(v.normal.xyz);
+            v.vertex.xyz += v.normal.xyz * displacement * _DisplacementIntensity;
+        }
+
+        #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+            #ifndef EXCLUDE_TANGENT_BITANGENT
+                #ifdef PROPGROUP_TOGGLE_PARALLAX
+                    UNITY_BRANCH
+                    if (group_toggle_Parallax) // batched mehses don't have pre-normalized tangent/normal, and parallax needs that for tangentViewDir
+                    {
+                        v.tangent.xyz = normalize(v.tangent.xyz);
+                        v.normal.xyz = normalize(v.normal.xyz);
+                    }
+                #endif
+            #endif
+            o.pos = UnityObjectToClipPos(v.vertex);
+        #elif defined(UNITY_PASS_META)
+            o.pos = UnityMetaVertexPosition(v.vertex, v.texcoord1.xy, v.texcoord2.xy, unity_LightmapST, unity_DynamicLightmapST);
+        #else
+            TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+        #endif
+
+        o.posWorld = mul(unity_ObjectToWorld, v.vertex);
+        #ifndef EXCLUDE_POSOBJECT
+            o.posObject = v.vertex;
+        #endif
+        o.normalWorld = UnityObjectToWorldNormal(v.normal);
+        #ifndef EXCLUDE_NORMALOBJECT
+            o.normalObject = v.normal.xyz;
+        #endif
+        #ifndef EXCLUDE_TANGENT_BITANGENT
+            o.tangentWorld = float4(UnityObjectToWorldDir(v.tangent.xyz), v.tangent.w);
+            o.bitangentWorld = cross(o.normalWorld, o.tangentWorld) * v.tangent.w;
+        #endif
+        #ifndef EXCLUDE_UV0
+            o.uv0and1.xy = v.texcoord.xy;
+        #elif !defined(EXCLUDE_UV1)
+            o.uv0and1.xy = v.texcoord1.xy; 
+        #endif
+        #ifndef EXCLUDE_UV1
+            o.uv0and1.zw = v.texcoord1.xy;
+        #elif !defined(EXCLUDE_UV0)
+            o.uv0and1.zw = v.texcoord.xy;
+        #endif
+        #ifndef EXCLUDE_UV2
+            o.uv2and3.xy = v.texcoord2.xy;
+        #elif !defined(EXCLUDE_UV3)
+            o.uv2and3.xy = v.texcoord3.xy;
+        #endif
+        #ifndef EXCLUDE_UV3
+            o.uv2and3.zw = v.texcoord3.xy;
+        #elif !defined(EXCLUDE_UV2)
+            o.uv2and3.zw = v.texcoord2.xy;
+        #endif
+        #ifndef EXCLUDE_VERTEX_COLORS
+            o.color = v.color;
+        #endif
+        #ifndef EXCLUDE_GRABPOS
+            o.grabPos = ComputeGrabScreenPos(o.pos);
+        #endif
+        #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+            #ifndef EXCLUDE_CENTROID_NORMAL
+                o.centroidNormalWorld = o.normalWorld;
+            #endif
+            #ifndef EXCLUDE_TANGENT_VIEWDIR
+                float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal.xyz, v.tangent.xyz) * v.tangent.w, v.normal.xyz);
+                o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
+            #endif
+            #ifndef EXCLUDE_SHADOW_COORDS
+                TRANSFER_SHADOW(o);
+            #endif
+            #ifndef EXCLUDE_FOG_COORDS
+                UNITY_TRANSFER_FOG(o,o.pos);
+            #endif
+        #endif
+        #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
+            o.vizUV = 0;
+            o.lightCoord = 0;
+            if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
+                o.vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.texcoord.xy, v.texcoord1.xy, v.texcoord2.xy, unity_EditorViz_Texture_ST);
+            else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
+            {
+                o.vizUV = v.texcoord1.xy * unity_LightmapST.xy + unity_LightmapST.zw;
+                o.lightCoord = mul(unity_EditorViz_WorldToLight, mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1)));
+            }
+        #endif
+    #endif
+
+    return o;
+}
+
+
+// Tessellation
+#ifndef TESSELLATION_DISABLED
+struct TessellationFactorsTri
+{
+    float edge[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+struct TessellationFactorsQuad
+{
+    float edge[4] : SV_TessFactor;
+    float inside[2] : SV_InsideTessFactor;
+};
+struct TessellationFactorsIsoline
+{
+    float edge[2] : SV_TessFactor;
+};
+#ifdef DOMAIN_QUAD
+TessellationFactorsQuad 
+#else
+TessellationFactorsTri 
+#endif
+patch_constant_omega (
+    #ifdef DOMAIN_QUAD
+    InputPatch<VStoHS_omega, 4> patch)
+    #else
+    InputPatch<VStoHS_omega, 3> patch)
+    #endif
+{
+    float edge0Factor = 1;
+    float edge1Factor = 1;
+    float edge2Factor = 1;
+    #ifdef DOMAIN_QUAD
+        float edge3Factor = 1;
+        float tessFactorInside0 = 1;
+        float tessFactorInside1 = 1;
+    #else
+        float tessFactorInside = 1;
+    #endif
+
+    UNITY_BRANCH
+    if (group_toggle_Tessellation)
+    {
+        // Edge factors are the average of the two associated vertices
+        // If one vertex is zero (culled), edge is just the one non-zero vertex factor for better frustum-edge popping reduction.
+        // Tri/Quad edge/vertex assocation is a little unintuitive because of vertex buffer packing, but these settings work.
+        #ifdef DOMAIN_QUAD
+            edge0Factor = 0.5 * ((patch[0].normal.w > 0 ? patch[0].normal.w : patch[3].normal.w)
+                               + (patch[3].normal.w > 0 ? patch[3].normal.w : patch[0].normal.w));
+
+            edge1Factor = 0.5 * ((patch[0].normal.w > 0 ? patch[0].normal.w : patch[1].normal.w)
+                               + (patch[1].normal.w > 0 ? patch[1].normal.w : patch[0].normal.w));
+
+            edge2Factor = 0.5 * ((patch[1].normal.w > 0 ? patch[1].normal.w : patch[2].normal.w)
+                               + (patch[2].normal.w > 0 ? patch[2].normal.w : patch[1].normal.w));
+                                    
+            edge3Factor = 0.5 * ((patch[2].normal.w > 0 ? patch[2].normal.w : patch[3].normal.w)
+                               + (patch[3].normal.w > 0 ? patch[3].normal.w : patch[2].normal.w));
+        #else
+            edge0Factor = 0.5 * ((patch[1].normal.w > 0 ? patch[1].normal.w : patch[2].normal.w)
+                               + (patch[2].normal.w > 0 ? patch[2].normal.w : patch[1].normal.w));
+                                    
+            edge1Factor = 0.5 * ((patch[2].normal.w > 0 ? patch[2].normal.w : patch[0].normal.w)
+                               + (patch[0].normal.w > 0 ? patch[0].normal.w : patch[2].normal.w));
+            
+            edge2Factor = 0.5 * ((patch[0].normal.w > 0 ? patch[0].normal.w : patch[1].normal.w)
+                               + (patch[1].normal.w > 0 ? patch[1].normal.w : patch[0].normal.w));
+
+            // If 2/3 vertices are frustum culled, one edge factor will be zero and the entire patch will be culled.
+            // This could be worked around by using the average of the other two edges, potentially making the entire
+            // patch's tess factors determined by one visible vertex.  However, the tessellation popping
+            // introduced by that is even worse than edges being averaged, and requires frustum bias anyway.
+            // So this extra computation is skipped for now
+            //if (edge0Factor == 0) edge0Factor = 0.5 * (edge1Factor + edge2Factor);
+            //if (edge1Factor == 0) edge1Factor = 0.5 * (edge0Factor + edge2Factor);
+            //if (edge2Factor == 0) edge2Factor = 0.5 * (edge0Factor + edge1Factor);
+        #endif
+
+        // Inside factors are the average of all non-zero verts for tris
+        // and the averge of specific non-zero edges for quads
+        float tessFactorsCount = 0;
+        #ifdef DOMAIN_QUAD
+            tessFactorInside0 = 0;
+            tessFactorInside1 = 0;
+            if (edge0Factor > 0)
+            {
+                tessFactorInside0 += edge0Factor;
+                tessFactorsCount += 1;
+            }
+            if (edge2Factor > 0)
+            {
+                tessFactorInside0 += edge2Factor;
+                tessFactorsCount += 1;
+            }
+            if (tessFactorsCount > 0)
+                tessFactorInside0 /= tessFactorsCount;
+
+            tessFactorsCount = 0;
+            if (edge1Factor > 0)
+            {
+                tessFactorInside1 += edge1Factor;
+                tessFactorsCount += 1;
+            }
+            if (edge3Factor > 0)
+            {
+                tessFactorInside1 += edge3Factor;
+                tessFactorsCount += 1;
+            }
+            if (tessFactorsCount > 0)
+                tessFactorInside1 /= tessFactorsCount;
+        #else
+            //float tessFactorInside = 0; // Never forget
+            tessFactorInside = 0;
+            if (patch[0].normal.w > 0)
+            {
+                tessFactorInside += patch[0].normal.w;
+                tessFactorsCount += 1;
+            }
+            if (patch[1].normal.w > 0)
+            {
+                tessFactorInside += patch[1].normal.w;
+                tessFactorsCount += 1;
+            }
+            if (patch[2].normal.w > 0)
+            {
+                tessFactorInside += patch[2].normal.w;
+                tessFactorsCount += 1;
+            }
+            if (tessFactorsCount > 0)
+                tessFactorInside /= tessFactorsCount;
+        #endif
+
+        // Scales edgefactors down given a min/max edge length.
+        // This exists as a safety net to mask out already small poly parts of a model, and to 
+        // cull skinned/scaled meshes that can't be regularly masked and change size often.
+        float3 vert0, vert1, vert2;
+        #ifdef DOMAIN_QUAD
+            float3 vert3; 
+        #endif
+        UNITY_BRANCH
+        if (_MinEdgeLengthEnabled)
+        {
+            if (_MinEdgeLengthSpace == 0) // Object space
+            {
+                vert0 = patch[0].vertex.xyz;
+                vert1 = patch[1].vertex.xyz;
+                vert2 = patch[2].vertex.xyz;
+                #ifdef DOMAIN_QUAD
+                    vert3 = patch[3].vertex.xyz;
+                #endif
+            }
+            else // World space
+            {
+                vert0 = mul(unity_ObjectToWorld, float4(patch[0].vertex.xyz, 1));
+                vert1 = mul(unity_ObjectToWorld, float4(patch[1].vertex.xyz, 1));
+                vert2 = mul(unity_ObjectToWorld, float4(patch[2].vertex.xyz, 1));
+                #ifdef DOMAIN_QUAD
+                    vert3 = mul(unity_ObjectToWorld, float4(patch[3].vertex.xyz, 1));
+                #endif
+            }
+
+            #ifdef DOMAIN_QUAD
+                float edgeLengthSq0 = dot(vert0-vert3, vert0-vert3);
+                float edgeLengthSq1 = dot(vert0-vert1, vert0-vert1);
+                float edgeLengthSq2 = dot(vert1-vert2, vert1-vert2);
+                float edgeLengthSq3 = dot(vert2-vert3, vert2-vert3);
+            #else
+                float edgeLengthSq0 = dot(vert1-vert2, vert1-vert2);
+                float edgeLengthSq1 = dot(vert0-vert2, vert0-vert2);
+                float edgeLengthSq2 = dot(vert0-vert1, vert0-vert1);
+            #endif
+            float minDistanceSq = _MinEdgeLength*_MinEdgeLength;
+            float maxDistanceSq = _MaxEdgeLength*_MaxEdgeLength;
+            // Scale down non-zero edge factors between their current values and _TessellationFactorMin
+            // depnding on _MaxEdgeLength and _MinEdgeLength
+            // Inverse square scaling because it's not worth 3 or 4 sqrts in HSpatch
+            float edge0DistanceFactor = saturate((edgeLengthSq0 - minDistanceSq) / (maxDistanceSq - minDistanceSq));
+            float edge1DistanceFactor = saturate((edgeLengthSq1 - minDistanceSq) / (maxDistanceSq - minDistanceSq));
+            float edge2DistanceFactor = saturate((edgeLengthSq2 - minDistanceSq) / (maxDistanceSq - minDistanceSq));
+            #ifdef DOMAIN_QUAD
+                float edge3DistanceFactor = saturate((edgeLengthSq3 - minDistanceSq) / (maxDistanceSq - minDistanceSq));
+            #endif
+            if (edge0Factor > 0) edge0Factor = lerp(_TessellationFactorMin, edge0Factor, edge0DistanceFactor);
+            if (edge1Factor > 0) edge1Factor = lerp(_TessellationFactorMin, edge1Factor, edge1DistanceFactor);
+            if (edge2Factor > 0) edge2Factor = lerp(_TessellationFactorMin, edge2Factor, edge2DistanceFactor);
+            #ifdef DOMAIN_QUAD
+                if (edge3Factor > 0) edge3Factor = lerp(_TessellationFactorMin, edge3Factor, edge3DistanceFactor);
+            #endif
+            // Scale down inside factor by the average of all edge distance factors in tris and opposite sides in quads
+            #ifdef DOMAIN_QUAD
+                float insideDistanceScale0 = 0.5 * edge0DistanceFactor + edge2DistanceFactor;
+                float insideDistanceScale1 = 0.5 * edge1DistanceFactor + edge3DistanceFactor;
+                if (tessFactorInside0 > 0) tessFactorInside0 = lerp(_TessellationFactorMin, tessFactorInside0, insideDistanceScale0);
+                if (tessFactorInside1 > 0) tessFactorInside1 = lerp(_TessellationFactorMin, tessFactorInside1, insideDistanceScale1);
+            #else
+                float insideDistanceScale = edge0DistanceFactor + edge1DistanceFactor + edge2DistanceFactor;
+                insideDistanceScale /= 3;
+                if (tessFactorInside > 0) tessFactorInside = lerp(_TessellationFactorMin, tessFactorInside, insideDistanceScale);
+            #endif
+        }
+        
+        // Patches can then be culled based on a makeshift NdotV and the _Cull setting
+        // This backface/frontface culling method is more forgiving than regular clip space culling because
+        // a bias factor can be introduced.
+        UNITY_BRANCH
+        if (_TessCullUnusedFaces && _Cull != 0)
+        {
+            // Use vertex world positions to get an average surface position and normal
+            vert0 = mul(unity_ObjectToWorld, float4(patch[0].vertex.xyz, 1));
+            vert1 = mul(unity_ObjectToWorld, float4(patch[1].vertex.xyz, 1));
+            vert2 = mul(unity_ObjectToWorld, float4(patch[2].vertex.xyz, 1));
+            float3 patchCenter = (vert0 + vert1 + vert2) / 3;
+            #ifdef DOMAIN_QUAD
+                vert3 = mul(unity_ObjectToWorld, float4(patch[3].vertex.xyz, 1));
+                patchCenter = (vert0 + vert1 + vert2 + vert3) / 4;
+            #endif
+            half3 patchNormal = normalize(cross(vert0-vert1,vert0-vert2));
+
+            half3 viewDir = normalize(_WorldSpaceStereoCameraCenterPos - patchCenter);
+            half NdotVsignScale = 1;
+            if (_Cull == 2) // Backface culling
+            {
+                NdotVsignScale = sign(dot(patchNormal, viewDir)+_TessUnusedFacesBias) > 0 ? 1 : 0;
+            }
+            else if (_Cull == 1) // Frontface culling
+            {
+                NdotVsignScale = sign(dot(patchNormal, viewDir)-_TessUnusedFacesBias) < 0 ? 1 : 0;
+            } 
+            // Only one edge factor has to be set to zero for the patch to cull
+            edge0Factor = lerp(0, edge0Factor, NdotVsignScale);
+        }
+
+    }
+
+    // Assign factors
+    #ifdef DOMAIN_QUAD
+        TessellationFactorsQuad f;
+    #else
+        TessellationFactorsTri f;
+    #endif
+    f.edge[0] = edge0Factor;
+    f.edge[1] = edge1Factor;
+    f.edge[2] = edge2Factor;
+    #ifdef DOMAIN_QUAD
+        f.edge[3] = edge3Factor;
+        f.inside[0] = tessFactorInside0;
+        f.inside[1] = tessFactorInside1;
+    #else
+        f.inside = tessFactorInside;
+    #endif
+	return f;
+}
+
+#ifdef DOMAIN_QUAD
+[UNITY_domain("quad")]
+#else
+[UNITY_domain("tri")]
+#endif
+//[UNITY_domain("isoline")]
+#ifdef DOMAIN_QUAD
+[UNITY_outputcontrolpoints(4)]
+#else
+[UNITY_outputcontrolpoints(3)]
+#endif
+//[UNITY_outputcontrolpoints(X)]
+//[outputtopology("point")] no use atm
+//[outputtopology("line")] only available with isoline domains
+#ifdef OUTPUT_TOPOLOGY_TRIANGLE_CCW
+[outputtopology("triangle_ccw")]
+#else
+[UNITY_outputtopology("triangle_cw")]
+#endif
+#if defined(_PARTITIONING_FRACTIONALEVEN)
+[UNITY_partitioning("fractional_even")]
+#elif defined(_PARTITIONING_FRACTIONALODD)
+[UNITY_partitioning("fractional_odd")]
+#else
+[UNITY_partitioning("integer")]
+#endif
+[UNITY_patchconstantfunc("patch_constant_omega")]
+[maxtessfactor(64.0)]
+VStoHS_omega hull_omega (
+    #ifdef DOMAIN_QUAD
+    InputPatch<VStoHS_omega, 4> patch,
+    #else
+    InputPatch<VStoHS_omega, 3> patch,
+    #endif
+    uint id : SV_OutputControlPointID)
+{
+    return patch[id];
+}
+
+#ifdef DOMAIN_QUAD
+[UNITY_domain("quad")]
+#else
+[UNITY_domain("tri")]
+#endif
+//[UNITY_domain("isoline")]
+#ifdef GEOMETRY_DISABLED
+VStoPS_omega
+#else
+VStoHS_omega
+#endif
+domain_omega (
+    #ifdef DOMAIN_QUAD
+    TessellationFactorsQuad factors, const OutputPatch<VStoHS_omega, 4> patch, float2 uv : SV_DomainLocation
+    #else
+    TessellationFactorsTri factors, const OutputPatch<VStoHS_omega, 3> patch, float3 uvw : SV_DomainLocation
+    #endif
+)
+{
+    // Interpolate result of tesselation, then pass it to GS or evaluate it for PS
+    VStoHS_omega v;
+
+    #ifdef DOMAIN_QUAD
+        #define DOMAIN_PROGRAM_INTERPOLATE(fieldName) v.fieldName = \
+            lerp( \
+                lerp(patch[0].fieldName, patch[1].fieldName, uv.x), \
+                lerp(patch[3].fieldName, patch[2].fieldName, uv.x), \
+                uv.y);
+    #else
+        #define DOMAIN_PROGRAM_INTERPOLATE(fieldName) v.fieldName = \
+            patch[0].fieldName * uvw.x + \
+            patch[1].fieldName * uvw.y + \
+            patch[2].fieldName * uvw.z;
+    #endif
+
+    DOMAIN_PROGRAM_INTERPOLATE(vertex)
+
+    // Phong Tessellation
+    UNITY_BRANCH
+    if (group_toggle_Tessellation && group_toggle_PhongTessellation)
+    {
+        float3 phPos0 = dot(patch[0].vertex.xyz - v.vertex.xyz, patch[0].normal.xyz) * patch[0].normal.xyz;
+        float3 phPos1 = dot(patch[1].vertex.xyz - v.vertex.xyz, patch[1].normal.xyz) * patch[1].normal.xyz;
+        float3 phPos2 = dot(patch[2].vertex.xyz - v.vertex.xyz, patch[2].normal.xyz) * patch[2].normal.xyz;
+        #ifdef DOMAIN_QUAD
+            float3 phPos3 = dot(patch[3].vertex.xyz - v.vertex.xyz, patch[3].normal.xyz) * patch[3].normal.xyz;
+        #endif
+
+        #ifdef DOMAIN_QUAD
+             float3 vecOffset = lerp( \
+                lerp(phPos0 * patch[0].vertex.w, phPos1 * patch[1].vertex.w, uv.x), \
+                lerp(phPos3 * patch[3].vertex.w, phPos2 * patch[2].vertex.w, uv.x), \
+                uv.y);
+        #else
+            float3 vecOffset = uvw.x * phPos0 * patch[0].vertex.w
+                            + uvw.y * phPos1 * patch[1].vertex.w
+                            + uvw.z * phPos2 * patch[2].vertex.w;
+        #endif
+        v.vertex.xyz += vecOffset;
+        v.vertex.w = 1; // Erase stored phong tessellation setting
+    }
+
+    DOMAIN_PROGRAM_INTERPOLATE(normal)
+    #ifndef EXCLUDE_TANGENT_BITANGENT
+        DOMAIN_PROGRAM_INTERPOLATE(tangent)
+    #endif
     #ifndef EXCLUDE_UV0AND1
-    if (texUV == 0)
-        var = tex.Sample (samplertex, i.uv0and1.xy * ST.xy + ST.zw);
-    else if (texUV == 1) 
-        var = tex.Sample (samplertex, i.uv0and1.zw * ST.xy + ST.zw);
-    else 
+        DOMAIN_PROGRAM_INTERPOLATE(uv0and1)
     #endif
     #ifndef EXCLUDE_UV2AND3
-    if (texUV == 2) 
-        var = tex.Sample (samplertex, i.uv2and3.xy * ST.xy + ST.zw);
-    else if (texUV == 3) 
-        var = tex.Sample (samplertex, i.uv2and3.zw * ST.xy + ST.zw);
-    else 
+        DOMAIN_PROGRAM_INTERPOLATE(uv2and3)
     #endif
-    if (texUV == 4) 
-        var = tex.Sample(samplertex, (tpWorldX + ST.wy) * ST.x) * tpWorldBlendFactor.x
-            + tex.Sample(samplertex, (tpWorldY + ST.yz) * ST.x) * tpWorldBlendFactor.y
-            + tex.Sample(samplertex, (tpWorldZ + ST.zw) * ST.x) * tpWorldBlendFactor.z;
-    else if (texUV == 5) 
-        var = tex.Sample(samplertex, (tpObjX + ST.wy) * ST.x) * tpObjBlendFactor.x
-            + tex.Sample(samplertex, (tpObjY + ST.yz) * ST.x) * tpObjBlendFactor.y
-            + tex.Sample(samplertex, (tpObjZ + ST.zw) * ST.x) * tpObjBlendFactor.z;
-    else if (texUV == 6) 
-        var = tex.Sample (samplertex, i.posWorld.xy * ST.xy + ST.zw); 
-    else if (texUV == 7) 
-        var = tex.Sample (samplertex, i.posWorld.yz * ST.xy + ST.zw); 
-    else if (texUV == 8) 
-        var = tex.Sample (samplertex, i.posWorld.zx * ST.xy + ST.zw); 
-    #ifndef EXCLUDE_POSOBJECT
-        else if (texUV == 9) 
-            var = tex.Sample (samplertex, i.posObject.xy * ST.xy + ST.zw); 
-        else if (texUV == 10) 
-            var = tex.Sample (samplertex, i.posObject.yz * ST.xy + ST.zw); 
-        else if (texUV == 11) 
-            var = tex.Sample (samplertex, i.posObject.zx * ST.xy + ST.zw); 
+    #ifndef EXCLUDE_VERTEX_COLORS
+        DOMAIN_PROGRAM_INTERPOLATE(color)
     #endif
-    #ifndef EXCLUDE_GRABPOS
-        else if (texUV == 12) 
-            var = tex.Sample (samplertex, stereoCorrectScreenUV01(i.grabPos) * ST.xy + ST.zw); 
-    #endif
-    else if (texUV == 13) 
-        var = tex.Sample (samplertex, panoUV * ST.xy + ST.zw); 
-    else // something went wrong, probably shadow or meta pass with texUV == 12
-        var = 0;
+    UNITY_TRANSFER_INSTANCE_ID(patch[0], v); // idk lmao
 
-    return var;
+    #ifdef GEOMETRY_DISABLED
+        // VStoPS
+        VStoPS_omega o;
+
+        #ifndef UNITY_PASS_META
+            UNITY_SETUP_INSTANCE_ID(v);
+            UNITY_INITIALIZE_OUTPUT(VStoPS_omega, o);
+            UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+            UNITY_TRANSFER_INSTANCE_ID(v, o);
+        #endif
+
+        // Texture samples struct
+        omega_texture_sampling_vars tex_vars;
+        #ifndef EXCLUDE_UV0AND1
+            tex_vars.uv0and1 = v.uv0and1;
+        #else
+            tex_vars.uv0and1 = 0;
+        #endif
+        #ifndef EXCLUDE_UV2AND3
+            tex_vars.uv2and3 = v.uv2and3;
+        #else
+            tex_vars.uv2and3 = 0;
+        #endif
+        tex_vars.posObject = v.vertex;
+        tex_vars.posWorld = mul(unity_ObjectToWorld, v.vertex);
+        tex_vars.normalObject = v.normal;
+        tex_vars.normalWorld = UnityObjectToWorldNormal(v.normal);
+        tex_vars.grabPos = ComputeGrabScreenPos(UnityObjectToClipPos(v.vertex));
+        #ifndef EXCLUDE_VERTEX_COLORS
+            tex_vars.color = v.color;
+        #else
+            tex_vars.color = 0;
+        #endif
+
+        // Texture samples
+        float4 _DisplacementMap_var = 1;
+        #ifdef PROP_DISPLACEMENTMAP
+            //KSOInlineSamplerState(_linear_repeat, _DisplacementMap)
+            _DisplacementMap_var = OMEGA_SAMPLE_TEX2D_LOD(_DisplacementMap, _linear_repeat, tex_vars, 0.0);
+        #endif
+
+        //KSODuplicateTextureCheckStart
+        //KSODuplicateTextureCheck(_DisplacementMap)
+
+        UNITY_BRANCH
+        if (group_toggle_Displacement)
+        {
+            float displacement = _DisplacementMapMin + (_DisplacementMapMax - _DisplacementMapMin) * _DisplacementMap_var[_DisplacementMapChannel];
+            v.normal.xyz = normalize(v.normal.xyz);
+            v.vertex.xyz += v.normal.xyz * displacement * _DisplacementIntensity;
+        }
+
+        #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+            #ifndef EXCLUDE_TANGENT_BITANGENT
+                #ifdef PROPGROUP_TOGGLE_PARALLAX
+                    UNITY_BRANCH
+                    if (group_toggle_Parallax) // batched mehses don't have pre-normalized tangent/normal, and parallax needs that for tangentViewDir
+                    {
+                        v.tangent.xyz = normalize(v.tangent.xyz);
+                        v.normal.xyz = normalize(v.normal.xyz);
+                    }
+                #endif
+            #endif
+            o.pos = UnityObjectToClipPos(v.vertex);
+        #elif defined(UNITY_PASS_META)
+            o.pos = UnityMetaVertexPosition(v.vertex, v.uv0and1.zw, v.uv2and3.xy, unity_LightmapST, unity_DynamicLightmapST);
+        #else
+            TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+        #endif
+
+        o.posWorld = mul(unity_ObjectToWorld, v.vertex);
+        #ifndef EXCLUDE_POSOBJECT
+            o.posObject = v.vertex;
+        #endif
+        o.normalWorld = UnityObjectToWorldNormal(v.normal);
+        #ifndef EXCLUDE_NORMALOBJECT
+            o.normalObject = v.normal.xyz;
+        #endif
+        #ifndef EXCLUDE_TANGENT_BITANGENT
+            o.tangentWorld = float4(UnityObjectToWorldDir(v.tangent.xyz), v.tangent.w);
+            o.bitangentWorld = cross(o.normalWorld, o.tangentWorld) * v.tangent.w;
+        #endif
+        #ifndef EXCLUDE_UV0AND1
+            o.uv0and1 = v.uv0and1;
+        #endif
+        #ifndef EXCLUDE_UV2AND3
+            o.uv2and3 = v.uv2and3;
+        #endif
+        #ifndef EXCLUDE_VERTEX_COLORS
+            o.color = v.color;
+        #endif
+        #ifndef EXCLUDE_GRABPOS
+            o.grabPos = ComputeGrabScreenPos(o.pos);
+        #endif
+        #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+            #ifndef EXCLUDE_CENTROID_NORMAL
+                o.centroidNormalWorld = o.normalWorld;
+            #endif
+            #ifndef EXCLUDE_TANGENT_VIEWDIR
+                float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal.xyz, v.tangent.xyz) * v.tangent.w, v.normal.xyz);
+                o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
+            #endif
+            #ifndef EXCLUDE_SHADOW_COORDS
+                TRANSFER_SHADOW(o);
+            #endif
+            #ifndef EXCLUDE_FOG_COORDS
+                UNITY_TRANSFER_FOG(o,o.pos);
+            #endif
+        #endif
+        #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
+            o.vizUV = 0;
+            o.lightCoord = 0;
+            if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
+                o.vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.uv0and1.xy, v.uv0and1.zw, v.uv2and3.xy, unity_EditorViz_Texture_ST);
+            else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
+            {
+                o.vizUV = v.uv0and1.zw * unity_LightmapST.xy + unity_LightmapST.zw;
+                o.lightCoord = mul(unity_EditorViz_WorldToLight, mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1)));
+            }
+        #endif
+    #endif
+
+    #ifdef GEOMETRY_DISABLED
+        return o;
+    #else
+        return v;
+    #endif
 }
-half4 omega_sample_texture2Dbias(Texture2D tex, SamplerState samplertex, fragment_input_omega i, float texUV, float4 ST,
-                             float2 tpWorldX, float2 tpWorldY, float2 tpWorldZ, float3 tpWorldBlendFactor,
-                             float2 tpObjX, float2 tpObjY, float2 tpObjZ, float3 tpObjBlendFactor, float2 panoUV, float bias)
+#endif
+
+// Geometry
+#ifndef GEOMETRY_DISABLED
+// Always expected to do vertex shader part if it is included
+// Could probably offload actual per-vertex stuff into VS and DS even when GS is included but eh
+[maxvertexcount(3)]
+void geom_omega(triangle VStoHS_omega IN[3], inout TriangleStream<GStoPS_omega> triStream)
 {
-    half4 var;
+    GStoPS_omega o[3];
 
-    #ifndef EXCLUDE_UV0AND1
-    if (texUV == 0)
-        var = tex.SampleBias (samplertex, i.uv0and1.xy * ST.xy + ST.zw, bias);
-    else if (texUV == 1) 
-        var = tex.SampleBias (samplertex, i.uv0and1.zw * ST.xy + ST.zw, bias);
-    else 
-    #endif
-    #ifndef EXCLUDE_UV2AND3
-    if (texUV == 2) 
-        var = tex.SampleBias (samplertex, i.uv2and3.xy * ST.xy + ST.zw, bias);
-    else if (texUV == 3) 
-        var = tex.SampleBias (samplertex, i.uv2and3.zw * ST.xy + ST.zw, bias);
-    else 
-    #endif
-    if (texUV == 4) 
-        var = tex.SampleBias(samplertex, (tpWorldX + ST.wy) * ST.x, bias) * tpWorldBlendFactor.x
-            + tex.SampleBias(samplertex, (tpWorldY + ST.yz) * ST.x, bias) * tpWorldBlendFactor.y
-            + tex.SampleBias(samplertex, (tpWorldZ + ST.zw) * ST.x, bias) * tpWorldBlendFactor.z;
-    else if (texUV == 5) 
-        var = tex.SampleBias(samplertex, (tpObjX + ST.wy) * ST.x, bias) * tpObjBlendFactor.x
-            + tex.SampleBias(samplertex, (tpObjY + ST.yz) * ST.x, bias) * tpObjBlendFactor.y
-            + tex.SampleBias(samplertex, (tpObjZ + ST.zw) * ST.x, bias) * tpObjBlendFactor.z;
-    else if (texUV == 6) 
-        var = tex.SampleBias (samplertex, i.posWorld.xy * ST.xy + ST.zw, bias); 
-    else if (texUV == 7) 
-        var = tex.SampleBias (samplertex, i.posWorld.yz * ST.xy + ST.zw, bias); 
-    else if (texUV == 8) 
-        var = tex.SampleBias (samplertex, i.posWorld.zx * ST.xy + ST.zw, bias); 
-    #ifndef EXCLUDE_POSOBJECT
-        else if (texUV == 9) 
-            var = tex.SampleBias (samplertex, i.posObject.xy * ST.xy + ST.zw, bias); 
-        else if (texUV == 10) 
-            var = tex.SampleBias (samplertex, i.posObject.yz * ST.xy + ST.zw, bias); 
-        else if (texUV == 11) 
-            var = tex.SampleBias (samplertex, i.posObject.zx * ST.xy + ST.zw, bias); 
-    #endif
-    #ifndef EXCLUDE_GRABPOS
-        else if (texUV == 12) 
-            var = tex.SampleBias (samplertex, stereoCorrectScreenUV01(i.grabPos) * ST.xy + ST.zw, bias); 
-    #endif
-    else if (texUV == 13) 
-        var = tex.SampleBias (samplertex, panoUV * ST.xy + ST.zw, bias); 
-    else // something went wrong, probably shadow or meta pass with texUV == 12
-        var = 0;
+    float3 barys[3];
+    barys[0] = float3(1,0,0);
+    barys[1] = float3(0,1,0);
+    barys[2] = float3(0,0,1);
 
-    return var;
+    float3 posWorld0 = mul(unity_ObjectToWorld, IN[0].vertex);
+    float3 posWorld1 = mul(unity_ObjectToWorld, IN[1].vertex);
+    float3 posWorld2 = mul(unity_ObjectToWorld, IN[2].vertex);
+    float3 originalSurfaceNormalWorldVec = cross(posWorld0 - posWorld1, posWorld0 - posWorld2);
+
+    UNITY_UNROLL
+    for(int i=0; i<3; i++)
+    {
+        // GStoPS - modified VStoPS
+        VStoHS_omega v = IN[i];
+
+        #ifndef UNITY_PASS_META
+            UNITY_SETUP_INSTANCE_ID(v);
+            UNITY_INITIALIZE_OUTPUT(GStoPS_omega, o[i]);
+            UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o[i]);
+            UNITY_TRANSFER_INSTANCE_ID(v, o[i]);
+        #endif
+
+        // Texture samples struct
+        omega_texture_sampling_vars tex_vars;
+        #ifndef EXCLUDE_UV0AND1
+            tex_vars.uv0and1 = v.uv0and1;
+        #else
+            tex_vars.uv0and1 = 0;
+        #endif
+        #ifndef EXCLUDE_UV2AND3
+            tex_vars.uv2and3 = v.uv2and3;
+        #else
+            tex_vars.uv2and3 = 0;
+        #endif
+        tex_vars.posObject = v.vertex;
+        tex_vars.posWorld = mul(unity_ObjectToWorld, v.vertex);
+        tex_vars.normalObject = v.normal;
+        tex_vars.normalWorld = UnityObjectToWorldNormal(v.normal);
+        tex_vars.grabPos = ComputeGrabScreenPos(UnityObjectToClipPos(v.vertex));
+        #ifndef EXCLUDE_VERTEX_COLORS
+            tex_vars.color = v.color;
+        #else
+            tex_vars.color = 0;
+        #endif
+
+        // Texture samples
+        float4 _DisplacementMap_var = 1;
+        #ifdef PROP_DISPLACEMENTMAP
+            //KSOInlineSamplerState(_linear_repeat, _DisplacementMap)
+            _DisplacementMap_var = OMEGA_SAMPLE_TEX2D_LOD(_DisplacementMap, _linear_repeat, tex_vars, 0.0);
+        #endif
+
+        //KSODuplicateTextureCheckStart
+        //KSODuplicateTextureCheck(_DisplacementMap)
+
+        UNITY_BRANCH
+        if (group_toggle_Displacement)
+        {
+            float displacement = _DisplacementMapMin + (_DisplacementMapMax - _DisplacementMapMin) * _DisplacementMap_var[_DisplacementMapChannel];
+            v.normal.xyz = normalize(v.normal.xyz);
+            v.vertex.xyz += v.normal.xyz * displacement * _DisplacementIntensity;
+        }
+
+        #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+            #ifndef EXCLUDE_TANGENT_BITANGENT
+                #ifdef PROPGROUP_TOGGLE_PARALLAX
+                    UNITY_BRANCH
+                    if (group_toggle_Parallax) // batched mehses don't have pre-normalized tangent/normal, and parallax needs that for tangentViewDir
+                    {
+                        v.tangent.xyz = normalize(v.tangent.xyz);
+                        v.normal.xyz = normalize(v.normal.xyz);
+                    }
+                #endif
+            #endif
+            o[i].pos = UnityObjectToClipPos(v.vertex);
+        #elif defined(UNITY_PASS_META)
+            o[i].pos = UnityMetaVertexPosition(v.vertex, v.uv0and1.zw, v.uv2and3.xy, unity_LightmapST, unity_DynamicLightmapST);
+        #else
+            TRANSFER_SHADOW_CASTER_NORMALOFFSET(o[i])
+        #endif
+
+        o[i].posWorld = mul(unity_ObjectToWorld, v.vertex);
+        #ifndef EXCLUDE_POSOBJECT
+            o[i].posObject = v.vertex;
+        #endif
+        o[i].normalWorld = UnityObjectToWorldNormal(v.normal);
+        #ifndef EXCLUDE_NORMALOBJECT
+            o[i].normalObject = v.normal.xyz;
+        #endif
+        #ifndef EXCLUDE_TANGENT_BITANGENT
+            o[i].tangentWorld = float4(UnityObjectToWorldDir(v.tangent.xyz), v.tangent.w);
+            o[i].bitangentWorld = cross(o[i].normalWorld, o[i].tangentWorld) * v.tangent.w;
+        #endif
+        #ifndef EXCLUDE_UV0AND1
+            o[i].uv0and1 = v.uv0and1;
+        #endif
+        #ifndef EXCLUDE_UV2AND3
+            o[i].uv2and3 = v.uv2and3;
+        #endif
+        #ifndef EXCLUDE_VERTEX_COLORS
+            o[i].color = v.color;
+        #endif
+        #ifndef EXCLUDE_GRABPOS
+            o[i].grabPos = ComputeGrabScreenPos(o[i].pos);
+        #endif
+        #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+            #ifndef EXCLUDE_CENTROID_NORMAL
+                o[i].centroidNormalWorld = o[i].normalWorld;
+            #endif
+            #ifndef EXCLUDE_TANGENT_VIEWDIR
+                float3x3 objectToTangent = float3x3(v.tangent.xyz, cross(v.normal.xyz, v.tangent.xyz) * v.tangent.w, v.normal.xyz);
+                o[i].tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
+            #endif
+            #ifndef EXCLUDE_SHADOW_COORDS
+                TRANSFER_SHADOW(o[i]);
+            #endif
+            #ifndef EXCLUDE_FOG_COORDS
+                UNITY_TRANSFER_FOG(o[i],o[i].pos);
+            #endif
+        #endif
+        #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
+            o[i].vizUV = 0;
+            o[i].lightCoord = 0;
+            if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
+                o[i].vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.uv0and1.xy, v.uv0and1.zw, v.uv2and3.xy, unity_EditorViz_Texture_ST);
+            else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
+            {
+                o[i].vizUV = v.uv0and1.zw * unity_LightmapST.xy + unity_LightmapST.zw;
+                o[i].lightCoord = mul(unity_EditorViz_WorldToLight, mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1)));
+            }
+        #endif 
+    }
+
+    // Do per-triangle geometry effects after each vertex has been displaced
+    if (group_toggle_Geometry)
+    {
+        float3 surfaceNormalWorldVec = cross(o[0].posWorld.xyz - o[1].posWorld.xyz, o[0].posWorld.xyz - o[2].posWorld.xyz);;
+        if (_GeometryFlattenNormals > 0)
+        {
+            UNITY_UNROLL
+            for(int i=0; i<3; i++)
+            {
+                o[i].normalWorld = lerp(o[i].normalWorld, normalize(surfaceNormalWorldVec), _GeometryFlattenNormals);
+            }
+        }
+        #ifndef EXCLUDE_TANGENT_BITANGENT
+            if (_GeometryDisplacedTangents)
+            {
+                // Make rotation matrix between old surface normal and new surface normal
+                // then multiply tangentWorld/bitangentWorld by the matrix, if they exist
+                // Courtesy of IQ https://iquilezles.org/www/articles/noacos/noacos.htm
+                // Could probably be done with normals flattening too, but idk of normalization is faster than all this
+                float3 v = cross(originalSurfaceNormalWorldVec, surfaceNormalWorldVec); // axis Vector
+                float c = dot(originalSurfaceNormalWorldVec, surfaceNormalWorldVec); // Cosine of the angle between them
+                float k = 1.0 / (1.0 + c); // simplified matrix scale
+                float3x3 rotMat = float3x3(v.x*v.x*k + c,   v.y*v.x*k - v.z, v.z*v.x*k + v.y,
+                                        v.x*v.y*k + v.z, v.y*v.y*k + c,   v.z*v.y*k - v.x,
+                                        v.x*v.z*k - v.y, v.y*v.z*k + v.x, v.z*v.z*k + c);
+                UNITY_UNROLL
+                for(int i=0; i<3; i++)
+                {
+                    //o[i].normalWorld.xyz = mul(rotMat, o[0].normalWorld.xyz);
+                    o[i].tangentWorld.xyz = mul(rotMat, o[0].tangentWorld.xyz);
+                    o[i].bitangentWorld.xyz = mul(rotMat, o[0].bitangentWorld.xyz);
+                }
+            }
+        #endif
+        #ifndef EXCLUDE_GSTOPS_COLORS
+            #ifdef UNITY_PASS_FORWARDBASE
+                if (group_toggle_GeometryForwardBase && _DebugWireframe)
+                {
+                    UNITY_UNROLL
+                    for(int i=0; i<3; i++)
+                    {
+                        o[i].color.rgb = barys[i];
+                    }
+                }
+            #endif
+        #endif
+    }
+
+    triStream.Append(o[0]);
+    triStream.Append(o[1]);
+    triStream.Append(o[2]);
+    triStream.RestartStrip();
 }
+#endif
 
-half4 frag_omega (fragment_input_omega i) : SV_Target
+// Fragment
+half4 frag_omega (
+#ifdef GEOMETRY_DISABLED
+    PSfromVS_omega i
+#else
+    PSfromGS_omega i
+#endif
+) : SV_Target
 {
     // Early discards, early opaque shadowcaster return, and instancing
     #ifdef UNITY_PASS_SHADOWCASTER
@@ -1759,9 +2805,12 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     #endif
     
     // Geometric specular antialiasing
-    #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
-        if ( dot( i.normalWorld, i.normalWorld ) >= 1.01 )
-            i.normalWorld = i.centroidNormalWorld;
+    #ifndef EXCLUDE_CENTROID_NORMAL
+        #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
+            UNITY_BRANCH
+            if (_GeometricSpecularAA && dot( i.normalWorld, i.normalWorld ) >= 1.01)
+                i.normalWorld = i.centroidNormalWorld;
+        #endif
     #endif
 
     // VFACE flipping
@@ -1787,43 +2836,38 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         #endif
     #endif
 
-    // Triplanar UVs
-    // Object Space
-    #ifndef EXCLUDE_NORMALOBJECT
-        float3 tpObjBlendFactor = normalize(abs(i.normalObject));
+    // Texture samples struct
+    omega_texture_sampling_vars tex_vars;
+    #ifndef EXCLUDE_UV0AND1
+        tex_vars.uv0and1 = i.uv0and1;
     #else
-        float3 tpObjBlendFactor = 1;
+        tex_vars.uv0and1 = 0;
     #endif
-    tpObjBlendFactor /= dot(tpObjBlendFactor, (float3)1);
-    float2 tpObjX = 0;
-    float2 tpObjY = 0;
-    float2 tpObjZ = 0;
-    if (_TriplanarUseVertexColors)
-    {
-    #ifndef EXCLUDE_VERTEX_COLORS
-        tpObjX = i.color.yz;
-        tpObjY = i.color.zx;
-        tpObjZ = i.color.xy;
+    #ifndef EXCLUDE_UV2AND3
+        tex_vars.uv2and3 = i.uv2and3;
+    #else
+        tex_vars.uv2and3 = 0;
     #endif
-    }
     #ifndef EXCLUDE_POSOBJECT
-    else
-    {
-        tpObjX = i.posObject.yz;
-        tpObjY = i.posObject.zx;
-        tpObjZ = i.posObject.xy;
-    }
+        tex_vars.posObject = i.posObject;
+    #else
+        tex_vars.posObject = 0;
     #endif
-
-    // World Space
-    float3 tpWorldBlendFactor = normalize(abs(i.normalWorld));
-    tpWorldBlendFactor /= dot(tpWorldBlendFactor, (float3)1);
-    float2 tpWorldX = i.posWorld.yz;
-    float2 tpWorldY = i.posWorld.zx;
-    float2 tpWorldZ = i.posWorld.xy;
-
-    // Panosphere UVs
-    float2 panoUV = PanosphereProjection(i.posWorld, _WorldSpaceCameraPos.xyz);
+    tex_vars.posWorld = i.posWorld;
+    #ifndef EXCLUDE_NORMALOBJECT
+        tex_vars.normalObject = i.normalObject;
+    #else
+        tex_vars.normalObject = 0;
+    #endif
+    tex_vars.normalWorld = i.normalWorld;
+    #ifndef EXCLUDE_GRABPOS
+        tex_vars.grabPos = i.grabPos;
+    #endif
+    #ifndef EXCLUDE_VERTEX_COLORS
+        tex_vars.color = i.color;
+    #else
+        tex_vars.color = 0;
+    #endif
 
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
         // Clearcoat first because it can affect viewDir and thus base layer parallax
@@ -1838,7 +2882,7 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
             #ifdef PROPGROUP_TOGGLE_CLEARCOAT
                 if (group_toggle_Clearcoat)
                     //KSOInlineSamplerState(_MainTex, _ClearcoatMask)
-                    OMEGA_SAMPLE_TEX2D(_ClearcoatMask_var, _ClearcoatMask, _MainTex);
+                    _ClearcoatMask_var = OMEGA_SAMPLE_TEX2D(_ClearcoatMask, _MainTex, tex_vars);
             #endif
         #endif
         fixed clearcoatMask = _ClearcoatMaskMin + _ClearcoatMask_var[_ClearcoatMaskChannel] * (_ClearcoatMaskMax - _ClearcoatMaskMin);
@@ -1859,7 +2903,7 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
                     fixed4 _ParallaxMap_var = 1;
                     #ifdef PROP_PARALLAXMAP
                         // KSOInlineSamplerState   ( _MainTex,  _ParallaxMap )
-                        OMEGA_SAMPLE_TEX2D(_ParallaxMap_var, _ParallaxMap, _MainTex);
+                        _ParallaxMap_var = OMEGA_SAMPLE_TEX2D(_ParallaxMap, _MainTex, tex_vars);
                     #endif
                     i.tangentViewDir = normalize(i.tangentViewDir);
                     i.tangentViewDir.xy /= (i.tangentViewDir.z + _ParallaxBias);
@@ -1899,16 +2943,16 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     fixed4 _MainTex_var = 1;
     UNITY_BRANCH
     if (_MainTex_TexelSize.x != 1)
-        OMEGA_SAMPLE_TEX2D(_MainTex_var, _MainTex, _MainTex);
+        _MainTex_var = OMEGA_SAMPLE_TEX2D(_MainTex, _MainTex, tex_vars);
     fixed4 _CoverageMap_var = 0;
     #ifdef PROP_COVERAGEMAP
         //KSOInlineSamplerState(_MainTex, _CoverageMap)
-        OMEGA_SAMPLE_TEX2D(_CoverageMap_var, _CoverageMap, _MainTex);
+        _CoverageMap_var = OMEGA_SAMPLE_TEX2D(_CoverageMap, _MainTex, tex_vars);
     #endif
     fixed4 _DetailMask_var = 1;
     #ifdef PROP_DETAILMASK
         //KSOInlineSamplerState(_MainTex, _DetailMask)
-        OMEGA_SAMPLE_TEX2D(_DetailMask_var, _DetailMask, _MainTex);
+        _DetailMask_var = OMEGA_SAMPLE_TEX2D(_DetailMask, _MainTex, tex_vars);
     #endif
     fixed _DetailAlbedoMapUV = _UVSec; // Temporary variables so the macro naming scheme works
     fixed _DetailAlbedoMapGreenUV = _UVSec;
@@ -1920,24 +2964,24 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     fixed4 _DetailAlbedoMapAlpha_var = 0;
     #ifdef PROP_DETAILALBEDOMAP
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMap)
-        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMap_var, _DetailAlbedoMap, _MainTex);
+        _DetailAlbedoMap_var = OMEGA_SAMPLE_TEX2D(_DetailAlbedoMap, _MainTex, tex_vars);
     #endif
     #ifdef PROP_DETAILALBEDOMAPGREEN
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapGreen)
-        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapGreen_var, _DetailAlbedoMapGreen, _MainTex);
+        _DetailAlbedoMapGreen_var = OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapGreen, _MainTex, tex_vars);
     #endif
     #ifdef PROP_DETAILALBEDOMAPBLUE
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
-        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapBlue_var, _DetailAlbedoMapBlue, _MainTex);
+        _DetailAlbedoMapBlue_var = OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapBlue, _MainTex, tex_vars);
     #endif
     #ifdef PROP_DETAILALBEDOMAPALPHA
         //KSOInlineSamplerState(_MainTex, _DetailAlbedoMapBlue)
-        OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapAlpha_var, _DetailAlbedoMapAlpha, _MainTex);
+        _DetailAlbedoMapAlpha_var = OMEGA_SAMPLE_TEX2D(_DetailAlbedoMapAlpha, _MainTex, tex_vars);
     #endif
     fixed4 _EmissionMap_var = 1;
     #ifdef PROP_EMISSIONMAP
         //KSOInlineSamplerState(_MainTex, _EmissionMap)
-        OMEGA_SAMPLE_TEX2D(_EmissionMap_var, _EmissionMap, _MainTex);
+        _EmissionMap_var = OMEGA_SAMPLE_TEX2D(_EmissionMap, _MainTex, tex_vars);
     #endif
 
     //KSODuplicateTextureCheckStart
@@ -2016,7 +3060,6 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         else emissionScale = _EmissionMap_var.rgb;
         o.Emission = _EmissionColor.rgb * lerp(emissionScale, o.Albedo.rgb * emissionScale, _EmissionTintByAlbedo) * _RealtimeGIIntensity;
         return UnityMetaFragment(o);
-
 #else // The rest of the frag is ForwardBase and ForwardAdd stuff
 
     // Alpha to Coverage sharpening
@@ -2062,22 +3105,22 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     fixed4 _MetallicGlossMap_var = 1;
     #ifdef PROP_METALLICGLOSSMAP
         //KSOInlineSamplerState(_MainTex, _MetallicGlossMap)
-        OMEGA_SAMPLE_TEX2D(_MetallicGlossMap_var, _MetallicGlossMap, _MainTex);
+        _MetallicGlossMap_var = OMEGA_SAMPLE_TEX2D(_MetallicGlossMap, _MainTex, tex_vars);
     #endif
     fixed4 _SpecGlossMap_var = 1;
     #ifdef PROP_SPECGLOSSMAP
         //KSOInlineSamplerState(_MainTex, _SpecGlossMap)
-        OMEGA_SAMPLE_TEX2D(_SpecGlossMap_var, _SpecGlossMap, _MainTex);
+        _SpecGlossMap_var = OMEGA_SAMPLE_TEX2D(_SpecGlossMap, _MainTex, tex_vars);
     #endif
     fixed4 _OcclusionMap_var = 1;
     #ifdef PROP_OCCLUSIONMAP
         //KSOInlineSamplerState(_MainTex, _OcclusionMap)
-        OMEGA_SAMPLE_TEX2D(_OcclusionMap_var, _OcclusionMap, _MainTex);
+        _OcclusionMap_var = OMEGA_SAMPLE_TEX2D(_OcclusionMap, _MainTex, tex_vars);
     #endif
     fixed4 _SpecularMap_var = 1;
     #ifdef PROP_SPECULARMAP
         //KSOInlineSamplerState(_MainTex, _SpecularMap)
-        OMEGA_SAMPLE_TEX2D(_SpecularMap_var, _SpecularMap, _MainTex);
+        _SpecularMap_var = OMEGA_SAMPLE_TEX2D(_SpecularMap, _MainTex, tex_vars);
     #endif
     fixed _DetailNormalMapUV = _UVSec;
     fixed _DetailNormalMapGreenUV = _UVSec;
@@ -2086,27 +3129,27 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     half4 _BumpMap_var = 0;
     #ifdef PROP_BUMPMAP
         //KSOInlineSamplerState(_MainTex, _BumpMap)
-        OMEGA_SAMPLE_TEX2D(_BumpMap_var, _BumpMap, _MainTex);
+        _BumpMap_var = OMEGA_SAMPLE_TEX2D(_BumpMap, _MainTex, tex_vars);
     #endif
     fixed4 _DetailNormalMap_var = 0;
     #ifdef PROP_DETAILNORMALMAP
         //KSOInlineSamplerState(_MainTex, _DetailNormalMap)
-        OMEGA_SAMPLE_TEX2D(_DetailNormalMap_var, _DetailNormalMap, _MainTex);
+        _DetailNormalMap_var = OMEGA_SAMPLE_TEX2D(_DetailNormalMap, _MainTex, tex_vars);
     #endif
     fixed4 _DetailNormalMapGreen_var = 0;
     #ifdef PROP_DETAILNORMALMAPGREEN
         //KSOInlineSamplerState(_MainTex, _DetailNormalMapGreen)
-        OMEGA_SAMPLE_TEX2D(_DetailNormalMapGreen_var, _DetailNormalMapGreen, _MainTex);
+        _DetailNormalMapGreen_var = OMEGA_SAMPLE_TEX2D(_DetailNormalMapGreen, _MainTex, tex_vars);
     #endif
     fixed4 _DetailNormalMapBlue_var = 0;
     #ifdef PROP_DETAILNORMALMAPBLUE
         //KSOInlineSamplerState(_MainTex, _DetailNormalMapBlue)
-        OMEGA_SAMPLE_TEX2D(_DetailNormalMapBlue_var, _DetailNormalMapBlue, _MainTex);
+        _DetailNormalMapBlue_var = OMEGA_SAMPLE_TEX2D(_DetailNormalMapBlue, _MainTex, tex_vars);
     #endif
     fixed4 _DetailNormalMapAlpha_var = 0;
     #ifdef PROP_DETAILNORMALMAPALPHA
         //KSOInlineSamplerState(_MainTex, _DetailNormalMapAlpha)
-        OMEGA_SAMPLE_TEX2D(_DetailNormalMapAlpha_var, _DetailNormalMapAlpha, _MainTex);
+        _DetailNormalMapAlpha_var = OMEGA_SAMPLE_TEX2D(_DetailNormalMapAlpha, _MainTex, tex_vars);
     #endif
     fixed4 _TranslucencyMap_var = 0;
     #ifdef PROP_TRANSLUCENCYMAP
@@ -2114,7 +3157,7 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
             UNITY_BRANCH
             if (group_toggle_SSSTransmission)
                 //KSOInlineSamplerState(_MainTex, _TranslucencyMap)
-                OMEGA_SAMPLE_TEX2D(_TranslucencyMap_var, _TranslucencyMap, _MainTex);
+                _TranslucencyMap_var = OMEGA_SAMPLE_TEX2D(_TranslucencyMap, _MainTex, tex_vars);
         #endif
     #endif
     fixed4 blurredWorldNormal_var = 0;
@@ -2123,7 +3166,7 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
         UNITY_BRANCH
         if (_DiffuseMode == 2) 
             //KSOInlineSamplerState(_MainTex, _BumpMap)
-            OMEGA_SAMPLE_TEX2D_BIAS(blurredWorldNormal_var, _BumpMap, _MainTex, _BumpBlurBias);
+            blurredWorldNormal_var = OMEGA_SAMPLE_TEX2D_BIAS(_BumpMap, _MainTex, tex_vars, _BumpBlurBias);
     #endif
     fixed4 _SpecularAnisotropyTangentMap_var = 1;
     //UNITY_BRANCH
@@ -2249,16 +3292,21 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     fixed RVdotL = max(0, dot(viewReflectDir, lightDir));
     half3 F0;
     half oneMinusReflectivity;
+    half3 diffColor;
+    // EnergyConservationBetweenDiffuseAndSpecular, happens regardless of PBR/non-PBR diffuse/specular modes
     if (_WorkflowMode == 0) // Metallic workflow
     {
         // ComputeFresnel0?
         F0 = lerp (unity_ColorSpaceDielectricSpec.rgb, albedo, metallic) * specular;
         oneMinusReflectivity = unity_ColorSpaceDielectricSpec.a - metallic * unity_ColorSpaceDielectricSpec.a;
+        //diffColor = albedo * (half3(1,1,1) - F0);
+        diffColor = albedo * oneMinusReflectivity;
     }
     else // Specular workflow
     {
         F0 = specular;
         oneMinusReflectivity = 1 - SpecularStrength(F0);
+        diffColor = albedo * oneMinusReflectivity;
     }
     // Set skin specular value (F0 = 0.028)
     // Skin specular isn't so much a separate mode as it is a preset for Specular workflow and a spec color
@@ -2267,7 +3315,20 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     {
         F0 = unity_ColorSpaceDielectricSpec.rgb * 0.7;
         oneMinusReflectivity = 1 - SpecularStrength(F0);
+        diffColor = albedo * oneMinusReflectivity;
     }
+    half smoothness = 1.0f - perceptualRoughness;
+    float roughness = max(PerceptualRoughnessToRoughness(perceptualRoughness), 0.002);
+    // Premultiplied transparency
+    UNITY_BRANCH
+    if (_Mode == 3) // _ALPHAPREMULTIPLY_ON
+    {
+        diffColor *= opacity;
+        opacity = 1-oneMinusReflectivity + opacity*oneMinusReflectivity;
+    }
+    half4 color = 0;
+    color.a = opacity;
+
     // Clearcoat - slightly roughen base layer and modify F0
     half cc_oneMinusReflectivity;
     #ifdef PROPGROUP_TOGGLE_CLEARCOAT
@@ -2292,18 +3353,6 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     half cc_LdotV = saturate(dot(lightDir, coatViewDir));
     half cc_LdotH = saturate(dot(lightDir, cc_halfDir));
     fixed cc_RVdotL = max(0, dot(cc_viewReflectDir, lightDir));
-    half smoothness = 1.0f - perceptualRoughness;
-    float roughness = max(PerceptualRoughnessToRoughness(perceptualRoughness), 0.002);
-    half3 diffColor = albedo * oneMinusReflectivity;
-    // Premultiplied transparency
-    UNITY_BRANCH
-    if (_Mode == 3) // _ALPHAPREMULTIPLY_ON
-    {
-        diffColor *= opacity;
-        opacity = 1-oneMinusReflectivity + opacity*oneMinusReflectivity;
-    }
-    half4 color = 0;
-    color.a = opacity;
     // Pre-Integrated skin variables
     half3 blurredWorldNormal = half3(0,0,1);
     fixed Curvature = 0;
@@ -2477,13 +3526,20 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
                     reflectionsSampleViewReflectDir = AngledAnisotropicModifiedNormal(normalDir, i.tangentWorld, i.bitangentWorld, viewDir, _ReflectionsAnisotropyAngle, _ReflectionsAnisotropy);
             #endif
 
+            // does reflection probe exist?
+            float testW=0; float testH=0;
+            unity_SpecCube0.GetDimensions(testW,testH); // Thanks AciiL
+
             UNITY_BRANCH
             if (_CubeMapMode == 0) // cubemap off
-                indirect_specular = UnityGI_IndirectSpecularModular(reflectionsSampleViewReflectDir, i.posWorld.xyz, perceptualRoughness);
+            {
+                if (testW>=16)
+                    indirect_specular = UnityGI_IndirectSpecularModular(reflectionsSampleViewReflectDir, i.posWorld.xyz, perceptualRoughness);
+                else if (_IndirectSpecFallback)
+                    indirect_specular = unity_IndirectSpecColor.rgb;
+            }
             else if (_CubeMapMode == 1) // fallback only
             {
-                float testW=0; float testH=0;
-                unity_SpecCube0.GetDimensions(testW,testH); // Thanks AciiL
                 if (testW<16)
                     indirect_specular = Unity_GlossyEnvironmentModular(UNITY_PASS_TEXCUBE(_CubeMap), _CubeMap_HDR, perceptualRoughness, reflectionsSampleViewReflectDir);
                 else indirect_specular = UnityGI_IndirectSpecularModular(reflectionsSampleViewReflectDir, i.posWorld.xyz, perceptualRoughness);
@@ -2493,7 +3549,13 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
             #ifdef PROPGROUP_TOGGLE_CLEARCOAT
                 UNITY_BRANCH
                 if (group_toggle_Clearcoat)
-                    clearcoat_indirect_specular = UnityGI_IndirectSpecularModular(cc_viewReflectDir, i.posWorld.xyz, CLEAR_COAT_PERCEPTUAL_ROUGHNESS);
+                {
+                    if (testW>=16)
+                        clearcoat_indirect_specular = UnityGI_IndirectSpecularModular(cc_viewReflectDir, i.posWorld.xyz, CLEAR_COAT_PERCEPTUAL_ROUGHNESS);
+                    else if (_IndirectSpecFallback)
+                        clearcoat_indirect_specular = unity_IndirectSpecColor.rgb;
+                }
+                    
             #endif
         }
         else indirect_specular = unity_IndirectSpecColor.rgb;
@@ -2542,6 +3604,15 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
             {
                 diffuse_term = diffColor * min(half3(1,1,1), indirect_diffuse + lightColor * direct_diffuse_occlusion); // wonky solution so light dosn't go HDR
             }
+            else if (_DiffuseMode == 4) // Oren-Nayer
+            {
+                float3 o_n_fraction = roughness / (roughness  + float3(0.33, 0.13, 0.09));
+                float3 oren_nayar = float3(1, 0, 0) + float3(-0.5, 0.17, 0.45) * o_n_fraction;
+                float oren_nayar_s = LdotV - NdotL * NdotV;
+                oren_nayar_s /= lerp(max(NdotL, NdotV), 1, step(oren_nayar_s, 0));
+                float3 directDiffuseTerm = NdotL * (oren_nayar.x + diffColor * oren_nayar.y + oren_nayar.z * oren_nayar_s);
+                diffuse_term = diffColor * (indirect_diffuse + lightColor * directDiffuseTerm * direct_diffuse_occlusion);
+            }
         }
     #endif
 
@@ -2556,8 +3627,11 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
             {
                 half power = _PhongSpecularPower;
                 if (_PhongSpecularUseRoughness)
-                    power = PerceptualRoughnessToSpecPower(roughness);
-                half specularTerm = pow(RVdotL, power);
+                    power = PerceptualRoughnessToSpecPower(perceptualRoughness);
+                float factor = RVdotL;
+                if (_Blinn) 
+                    factor = NdotH;
+                half specularTerm = pow(factor, power);
                 specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular);
                 specular_term = specularTerm * _PhongSpecularIntensity * lightColor * specular;
             }
@@ -2709,25 +3783,29 @@ half4 frag_omega (fragment_input_omega i) : SV_Target
     // Debug
     if (_DebugWorldNormals)
         #ifdef UNITY_PASS_FORWARDBASE
-            color.rgb = normalDir;
+            color = half4(normalDir, 1);
         #else
             color.rgb = 0;
+            color.a = 1;
         #endif
     if (_DebugOcclusion)
         #ifdef UNITY_PASS_FORWARDBASE
-            color.rgb = occlusion;
+            color = half4(occlusion, 1);
         #else
             color.rgb = 0;
+            color.a = 1;
         #endif
-    #ifndef EXCLUDE_VERTEX_COLORS
-        if (_DebugWireframe && group_toggle_Geometry && group_toggle_GeometryForwardBase)
+    #if !defined(GEOMETRY_DISABLED) && !defined(EXCLUDE_GSTOPS_COLORS)
+        if (group_toggle_Geometry && group_toggle_GeometryForwardBase && _DebugWireframe)
         {
             #ifdef UNITY_PASS_FORWARDBASE
                 float minBary = min(i.color.x, min(i.color.y, i.color.z));
                 float delta = abs(ddx(minBary)) + abs(ddy(minBary));
                 color.rgb = smoothstep(0, delta, minBary);
+                color.a = 1;
             #else
                 color.rgb = 0;
+                color.a = 1;
             #endif
         }
     #endif
