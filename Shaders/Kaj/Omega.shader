@@ -140,6 +140,9 @@ Shader "Kaj/Omega"
         [HideInInspector][Toggle(_COLOROVERLAY_ON)]group_toggle_Specular(";;_COLOROVERLAY_ON;Specular Highlights", Int) = 1
         [WideEnum(Phong,0, PBR,1, PBR Anisotropic,2, Skin,3)]_SpecularMode("Mode", Int) = 1
         _OcclusionDirectSpecular("Occlusion Strength", Range(0,1)) = 0
+        _DirectionalLightSpecularIntensity("Directional Lights", Range(0,1)) = 1
+        _PointLightSpecularIntensity("Point Lights", Range(0,1)) = 1
+        _SpotLightSpecularIntensity("Spot Lights", Range(0,1)) = 1
         [HideInInspector]group_PhongSpecular("Phong", Int) = 0
         [ToggleUI]_Blinn("Blinn-Phong Shape", Int) = 1
         [MinimumFloat(1)]_PhongSpecularPower("Power", Float) = 5.0
@@ -321,6 +324,7 @@ Shader "Kaj/Omega"
             [RangeMin]_DisplacementMapMin("Mask Min", Range(0,1)) = 0
         [UnIndent]
         _DisplacementIntensity("Displacement Intensity", Float) = 0.001
+        _DisplacementBias("Displacement Bias", Float) = 0
         [HideInInspector]end_Displacement("", Int) = 0
 
         [HideInInspector]group_Blending("Blending Options", Int) = 0
@@ -419,7 +423,9 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_DiffuseWrapAnimated("  _DiffuseWrap", Int) = 0
         [ToggleUILeft]_DiffuseWrapConserveEnergyAnimated("  _DiffuseWrapConserveEnergy", Int) = 0
         [ToggleUILeft]_DirectionalLightIntensityAnimated("  _DirectionalLightIntensity", Int) = 0
+        [ToggleUILeft]_DirectionalLightSpecularIntensityAnimated("  _DirectionalLightSpecularIntensity", Int) = 0
         [ToggleUILeft]_DirectLightIntensityAnimated("  _DirectLightIntensity", Int) = 0
+        [ToggleUILeft]_DisplacementBiasAnimated("  _DisplacementBias", Int) = 0
         [ToggleUILeft]_DisplacementIntensityAnimated("  _DisplacementIntensity", Int) = 0
         [ToggleUILeft]_DisplacementMap_STAnimated("  _DisplacementMap_ST", Int) = 0
         [ToggleUILeft]_DisplacementMap_TexelSizeAnimated("  _DisplacementMap Texture", Int) = 0
@@ -491,6 +497,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_PhongTessMaskMinAnimated("  _PhongTessMaskMin", Int) = 0
         [ToggleUILeft]_PhongTessMaskUVAnimated("  _PhongTessMaskUV", Int) = 0
         [ToggleUILeft]_PointLightIntensityAnimated("  _PointLightIntensity", Int) = 0
+        [ToggleUILeft]_PointLightSpecularIntensityAnimated("  _PointLightSpecularIntensity", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_STAnimated("  _PreIntSkinTex_ST", Int) = 0
         [ToggleUILeft]_PreIntSkinTex_TexelSizeAnimated("  _PreIntSkinTex Texture", Int) = 0
         [ToggleUILeft]_RealtimeGIIntensityAnimated("  _RealtimeGIIntensity", Int) = 0
@@ -521,6 +528,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_SpecularMinAnimated("  _SpecularMin", Int) = 0
         [ToggleUILeft]_SpecularModeAnimated("  _SpecularMode", Int) = 0
         [ToggleUILeft]_SpotLightIntensityAnimated("  _SpotLightIntensity", Int) = 0
+        [ToggleUILeft]_SpotLightSpecularIntensityAnimated("  _SpotLightSpecularIntensity", Int) = 0
         [ToggleUILeft]_SSSStylizedIndirectAnimated("  _SSSStylizedIndirect", Int) = 0
         [ToggleUILeft]_SSSStylizedIndrectScaleByTranslucencyAnimated("  _SSSStylizedIndrectScaleByTranslucency", Int) = 0
         [ToggleUILeft]_SSSTranslucencyMaxAnimated("  _SSSTranslucencyMax", Int) = 0
@@ -575,7 +583,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 37", Int) = 37
+        [KajLabel]_Version("Shader Version: 38", Int) = 38
     }
 
     CustomEditor "Kaj.ShaderEditor"

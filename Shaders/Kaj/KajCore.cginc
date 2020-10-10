@@ -375,8 +375,12 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_DisplacementMap);
 uniform float _DisplacementMapMax;
 uniform float _DisplacementMapMin;
 uniform float _DisplacementIntensity;
+uniform float _DisplacementBias;
 uniform float _GeometryFlattenNormals;
 uniform float _GeometryDisplacedTangents;
+uniform float _DirectionalLightSpecularIntensity;
+uniform float _PointLightSpecularIntensity;
+uniform float _SpotLightSpecularIntensity;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -1127,14 +1131,22 @@ half4 sampleAffine(sampler2D tex, float4 objPosition, float2 coord, float4 st)
 
 half3 switchDetailAlbedo(fixed4 tex, half3 albedo, float combineMode, fixed mask)
 {
-    UNITY_BRANCH
-    if (combineMode == 0)
-        return albedo * LerpWhiteTo (tex.rgb * unity_ColorSpaceDouble.rgb, mask);
-    else if (combineMode == 1)
-        return albedo * LerpWhiteTo (tex.rgb, mask);
-    else if (combineMode == 1)
-        return albedo + tex.rgb * mask;
-    else return lerp(albedo, tex.rgb, mask);
+    [forcecase]
+    switch (combineMode)
+    {
+        case 0:
+            return albedo * LerpWhiteTo (tex.rgb * unity_ColorSpaceDouble.rgb, mask);
+            break;
+        case 1:
+            return albedo * LerpWhiteTo (tex.rgb, mask);
+            break;
+        case 2:
+            return albedo + tex.rgb * mask;
+            break;
+        case 3:
+            return lerp(albedo, tex.rgb, mask);
+            break;
+    }
 }
 
 // Light intensity(?) function from poiyomi
@@ -1990,7 +2002,7 @@ vert_omega (appdata_full_omega v)
         {
             float displacement = _DisplacementMapMin + (_DisplacementMapMax - _DisplacementMapMin) * _DisplacementMap_var[_DisplacementMapChannel];
             v.normal.xyz = normalize(v.normal.xyz);
-            v.vertex.xyz += v.normal.xyz * displacement * _DisplacementIntensity;
+            v.vertex.xyz += v.normal.xyz * (displacement+_DisplacementBias) * _DisplacementIntensity;
         }
 
         #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
@@ -2301,13 +2313,9 @@ patch_constant_omega (
             half3 viewDir = normalize(_WorldSpaceStereoCameraCenterPos - patchCenter);
             half NdotVsignScale = 1;
             if (_Cull == 2) // Backface culling
-            {
                 NdotVsignScale = sign(dot(patchNormal, viewDir)+_TessUnusedFacesBias) > 0 ? 1 : 0;
-            }
             else if (_Cull == 1) // Frontface culling
-            {
                 NdotVsignScale = sign(dot(patchNormal, viewDir)-_TessUnusedFacesBias) < 0 ? 1 : 0;
-            } 
             // Only one edge factor has to be set to zero for the patch to cull
             edge0Factor = lerp(0, edge0Factor, NdotVsignScale);
         }
@@ -2498,7 +2506,7 @@ domain_omega (
         {
             float displacement = _DisplacementMapMin + (_DisplacementMapMax - _DisplacementMapMin) * _DisplacementMap_var[_DisplacementMapChannel];
             v.normal.xyz = normalize(v.normal.xyz);
-            v.vertex.xyz += v.normal.xyz * displacement * _DisplacementIntensity;
+            v.vertex.xyz += v.normal.xyz * (displacement+_DisplacementBias) * _DisplacementIntensity;
         }
 
         #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
@@ -2649,7 +2657,7 @@ void geom_omega(triangle VStoHS_omega IN[3], inout TriangleStream<GStoPS_omega> 
         {
             float displacement = _DisplacementMapMin + (_DisplacementMapMax - _DisplacementMapMin) * _DisplacementMap_var[_DisplacementMapChannel];
             v.normal.xyz = normalize(v.normal.xyz);
-            v.vertex.xyz += v.normal.xyz * displacement * _DisplacementIntensity;
+            v.vertex.xyz += v.normal.xyz * (displacement+_DisplacementBias) * _DisplacementIntensity;
         }
 
         #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
@@ -2730,9 +2738,7 @@ void geom_omega(triangle VStoHS_omega IN[3], inout TriangleStream<GStoPS_omega> 
         {
             UNITY_UNROLL
             for(int i=0; i<3; i++)
-            {
                 o[i].normalWorld = lerp(o[i].normalWorld, normalize(surfaceNormalWorldVec), _GeometryFlattenNormals);
-            }
         }
         #ifndef EXCLUDE_TANGENT_BITANGENT
             if (_GeometryDisplacedTangents)
@@ -2740,7 +2746,8 @@ void geom_omega(triangle VStoHS_omega IN[3], inout TriangleStream<GStoPS_omega> 
                 // Make rotation matrix between old surface normal and new surface normal
                 // then multiply tangentWorld/bitangentWorld by the matrix, if they exist
                 // Courtesy of IQ https://iquilezles.org/www/articles/noacos/noacos.htm
-                // Could probably be done with normals flattening too, but idk of normalization is faster than all this
+                // Could probably be done with normals flattening too, but this simply modifies an existing
+                // vector, rather than calculating a new one.
                 float3 v = cross(originalSurfaceNormalWorldVec, surfaceNormalWorldVec); // axis Vector
                 float c = dot(originalSurfaceNormalWorldVec, surfaceNormalWorldVec); // Cosine of the angle between them
                 float k = 1.0 / (1.0 + c); // simplified matrix scale
@@ -2795,9 +2802,7 @@ half4 frag_omega (
         UNITY_SETUP_INSTANCE_ID(i);
         UNITY_APPLY_DITHER_CROSSFADE(i.vpos.xy);
         if (_Mode == 0) // Opaque shadowcaster
-        {
             SHADOW_CASTER_FRAGMENT(i)
-        }
     #elif !defined(UNITY_PASS_META)
         UNITY_SETUP_INSTANCE_ID(i);
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
@@ -3498,13 +3503,13 @@ half4 frag_omega (
         }
     #endif
     // Direct light intensity scaling
-    #ifdef DIRECTIONAL
+    #if defined(DIRECTIONAL) || defined(DIRECTIONAL_COOKIE)
         lightColor *= _DirectionalLightIntensity;
     #endif
-    #ifdef POINT
+    #if defined(POINT) || defined(POINT_COOKIE)
         lightColor *= _PointLightIntensity;
     #endif
-    #ifdef SPOT
+    #if defined(SPOT)
         lightColor *= _SpotLightIntensity;
     #endif
     lightColor *= _DirectLightIntensity;
@@ -3563,55 +3568,52 @@ half4 frag_omega (
     #endif
 
 
-    // BRDF (apdapted from Unity Standard BRDF1)
     // Diffuse
     half3 diffuse_term = albedo; // Unlit
     #ifdef PROPGROUP_TOGGLE_DIFFUSE
         UNITY_BRANCH
         if (group_toggle_Diffuse)
         {
-            UNITY_BRANCH
-            if (_DiffuseMode == 0) // Lambert
+            [forcecase]
+            switch (_DiffuseMode)
             {
-                // simplify math
-                UNITY_BRANCH
-                if (_DiffuseWrap > 0)
-                {
-                    half wrappedDiffuse = 0;
-                    if (_DiffuseWrapConserveEnergy)
-                        wrappedDiffuse = saturate((dot(lightDir, normalDir) + _DiffuseWrap) / ((1 + _DiffuseWrap) * (1 + _DiffuseWrap)));
-                    else
-                        wrappedDiffuse = saturate((dot(lightDir, normalDir) + _DiffuseWrap) / ((1 + _DiffuseWrap)));
-                    diffuse_term = diffColor * (indirect_diffuse + lightColorAttenuationNoShadows * wrappedDiffuse * direct_diffuse_occlusion); // ignore received shadows completely?
-                }
-                else diffuse_term = diffColor * (indirect_diffuse + lightColor * NdotL);
-            }
-            else if (_DiffuseMode == 1) // PBR
-            {
-                half3 diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
-                diffuse_term = diffColor * (indirect_diffuse + lightColor * diffuseTerm * direct_diffuse_occlusion);
-            }
-            else if (_DiffuseMode == 2) // Skin
-            {
-                float NdotLBlurredUnclamped = dot(blurredWorldNormal, lightDir);
-                NdotLBlurredUnclamped = NdotLBlurredUnclamped * 0.5 + 0.5;
-                // Pre integrated skin lookup tex serves as the BRDF diffuse term
-                //KSOInlineSamplerState(_trilinear_clamp, _PreIntSkinTex)
-                half3 brdf = UNITY_SAMPLE_TEX2D_SAMPLER_LOD(_PreIntSkinTex, _trilinear_clamp, half2(NdotLBlurredUnclamped, Curvature), 0);
-                diffuse_term = diffColor * (indirect_diffuse + lightColor * brdf * direct_diffuse_occlusion);
-            }
-            else if (_DiffuseMode == 3) // Flat Lit
-            {
-                diffuse_term = diffColor * min(half3(1,1,1), indirect_diffuse + lightColor * direct_diffuse_occlusion); // wonky solution so light dosn't go HDR
-            }
-            else if (_DiffuseMode == 4) // Oren-Nayer
-            {
-                float3 o_n_fraction = roughness / (roughness  + float3(0.33, 0.13, 0.09));
-                float3 oren_nayar = float3(1, 0, 0) + float3(-0.5, 0.17, 0.45) * o_n_fraction;
-                float oren_nayar_s = LdotV - NdotL * NdotV;
-                oren_nayar_s /= lerp(max(NdotL, NdotV), 1, step(oren_nayar_s, 0));
-                float3 directDiffuseTerm = NdotL * (oren_nayar.x + diffColor * oren_nayar.y + oren_nayar.z * oren_nayar_s);
-                diffuse_term = diffColor * (indirect_diffuse + lightColor * directDiffuseTerm * direct_diffuse_occlusion);
+                case 0: // Lambert
+                    // simplify math
+                    UNITY_BRANCH
+                    if (_DiffuseWrap > 0)
+                    {
+                        half wrappedDiffuse = 0;
+                        if (_DiffuseWrapConserveEnergy)
+                            wrappedDiffuse = saturate((dot(lightDir, normalDir) + _DiffuseWrap) / ((1 + _DiffuseWrap) * (1 + _DiffuseWrap)));
+                        else
+                            wrappedDiffuse = saturate((dot(lightDir, normalDir) + _DiffuseWrap) / ((1 + _DiffuseWrap)));
+                        diffuse_term = diffColor * (indirect_diffuse + lightColorAttenuationNoShadows * wrappedDiffuse * direct_diffuse_occlusion); // ignore received shadows completely?
+                    }
+                    else diffuse_term = diffColor * (indirect_diffuse + lightColor * NdotL);
+                    break;
+                case 1: // PBR
+                    half3 diffuseTerm = DisneyDiffuse(NdotV, NdotL, LdotH, perceptualRoughness) * NdotL;
+                    diffuse_term = diffColor * (indirect_diffuse + lightColor * diffuseTerm * direct_diffuse_occlusion);
+                    break;
+                case 2: // Skin
+                    float NdotLBlurredUnclamped = dot(blurredWorldNormal, lightDir);
+                    NdotLBlurredUnclamped = NdotLBlurredUnclamped * 0.5 + 0.5;
+                    // Pre integrated skin lookup tex serves as the BRDF diffuse term
+                    //KSOInlineSamplerState(_trilinear_clamp, _PreIntSkinTex)
+                    half3 brdf = UNITY_SAMPLE_TEX2D_SAMPLER_LOD(_PreIntSkinTex, _trilinear_clamp, half2(NdotLBlurredUnclamped, Curvature), 0);
+                    diffuse_term = diffColor * (indirect_diffuse + lightColor * brdf * direct_diffuse_occlusion);
+                    break;
+                case 3: // Flat Lit
+                    diffuse_term = diffColor * min(half3(1,1,1), indirect_diffuse + lightColor * direct_diffuse_occlusion); // wonky solution so light dosn't go HDR
+                    break;
+                case 4: // Oren-Nayer
+                    float3 o_n_fraction = roughness / (roughness  + float3(0.33, 0.13, 0.09));
+                    float3 oren_nayar = float3(1, 0, 0) + float3(-0.5, 0.17, 0.45) * o_n_fraction;
+                    float oren_nayar_s = LdotV - NdotL * NdotV;
+                    oren_nayar_s /= lerp(max(NdotL, NdotV), 1, step(oren_nayar_s, 0));
+                    float3 directDiffuseTerm = NdotL * (oren_nayar.x + diffColor * oren_nayar.y + oren_nayar.z * oren_nayar_s);
+                    diffuse_term = diffColor * (indirect_diffuse + lightColor * directDiffuseTerm * direct_diffuse_occlusion);
+                    break;
             }
         }
     #endif
@@ -3622,45 +3624,48 @@ half4 frag_omega (
         UNITY_BRANCH
         if (group_toggle_Specular)
         {
-            UNITY_BRANCH
-            if (_SpecularMode == 0) // Phong
+            [forcecase]
+            switch (_SpecularMode)
             {
-                half power = _PhongSpecularPower;
-                if (_PhongSpecularUseRoughness)
-                    power = PerceptualRoughnessToSpecPower(perceptualRoughness);
-                float factor = RVdotL;
-                if (_Blinn) 
-                    factor = NdotH;
-                half specularTerm = pow(factor, power);
-                specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular);
-                specular_term = specularTerm * _PhongSpecularIntensity * lightColor * specular;
-            }
-            else if (_SpecularMode == 1 || _SpecularMode == 2 || _SpecularMode == 3) // PBR, Anisotropic, and Skin
-            {
-                float V = 0;
-                float D = 0;
+                case 0: // Phong
+                    half power = _PhongSpecularPower;
+                    if (_PhongSpecularUseRoughness)
+                        power = PerceptualRoughnessToSpecPower(perceptualRoughness);
+                    float factor = RVdotL;
+                    if (_Blinn) 
+                        factor = NdotH;
+                    half specularTermPhong = pow(factor, power);
+                    specularTermPhong = lerp(specularTermPhong, specularTermPhong * occlusion, _OcclusionDirectSpecular);
+                    specular_term = specularTermPhong * _PhongSpecularIntensity * lightColor * specular;
+                    break;
+                case 1: // PBR
+                case 2: // Anisotropic
+                case 3: // Skin
+                    float V = 0;
+                    float D = 0;
 
-                UNITY_BRANCH
-                if (_SpecularMode == 2)
-                {
-                    #ifndef EXCLUDE_TANGENT_BITANGENT
-                        V = SmithJointGGXAniso(TdotV, BdotV, NdotV, TdotL, BdotL, NdotL, roughnessT, roughnessB);
-                        D = GGXTerm_Aniso(TdotH, BdotH, roughnessT, roughnessB, NdotH);
+                    UNITY_BRANCH
+                    if (_SpecularMode == 2)
+                    {
+                        #ifndef EXCLUDE_TANGENT_BITANGENT
+                            V = SmithJointGGXAniso(TdotV, BdotV, NdotV, TdotL, BdotL, NdotL, roughnessT, roughnessB);
+                            D = GGXTerm_Aniso(TdotH, BdotH, roughnessT, roughnessB, NdotH);
+                        #endif
+                    }
+                    else
+                    {
+                        V = SmithJointGGXVisibilityTerm (NdotL, NdotV, roughness);
+                        D = GGXTerm (NdotH, roughness);
+                    }
+
+                    half3 specularTerm = V*D * UNITY_PI; // Torrance-Sparrow model, Fresnel is applied later
+                    #ifdef UNITY_COLORSPACE_GAMMA
+                        specularTerm = sqrt(max(1e-4h, specularTerm));
                     #endif
-                }
-                else
-                {
-                    V = SmithJointGGXVisibilityTerm (NdotL, NdotV, roughness);
-                    D = GGXTerm (NdotH, roughness);
-                }
-
-                half3 specularTerm = V*D * UNITY_PI; // Torrance-Sparrow model, Fresnel is applied later
-                #ifdef UNITY_COLORSPACE_GAMMA
-                    specularTerm = sqrt(max(1e-4h, specularTerm));
-                #endif
-                specularTerm = max(0, specularTerm * NdotL);
-                specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular);
-                specular_term = specularTerm * lightColor * FresnelTerm (F0, LdotH);
+                    specularTerm = max(0, specularTerm * NdotL);
+                    specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular);
+                    specular_term = specularTerm * lightColor * FresnelTerm (F0, LdotH);
+                    break;
             }
         }
     #endif
@@ -3692,27 +3697,29 @@ half4 frag_omega (
             UNITY_BRANCH
             if (group_toggle_Reflections)
             {
-                UNITY_BRANCH
-                if (_ReflectionsMode == 1 || _ReflectionsMode == 3) // PBR
+                [forcecase]
+                switch (_ReflectionsMode)
                 {
-                    half surfaceReduction;
-                    #ifdef UNITY_COLORSPACE_GAMMA
-                        surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
-                    #else
-                        surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
-                    #endif
-                    half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
-                    reflections_term = surfaceReduction * indirect_specular * FresnelLerp (F0, grazingTerm, NdotV) * _StandardFresnelIntensity;
-                }
-                else if (_ReflectionsMode == 2) // Skin aka Lazarov environmental
-                {
-                    const half4 c0 = { -1, -0.0275, -0.572, 0.022 };
-                    const half4 c1 = { 1, 0.0425, 1.04, -0.04 };
-                    half4 r = perceptualRoughness * c0 + c1;
-                    half a004 = min( r.x * r.x, exp2( -9.28 * NdotV ) ) * r.x + r.y;
-                    half2 AB = half2( -1.04, 1.04 ) * a004 + r.zw;
-                    half3 F_L = F0 * AB.x + AB.y;
-                    reflections_term = indirect_specular * F_L;
+                    case 1: // PBR
+                    case 3: // Anisotropic PBR
+                        half surfaceReduction;
+                        #ifdef UNITY_COLORSPACE_GAMMA
+                            surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]
+                        #else
+                            surfaceReduction = 1.0 / (roughness*roughness + 1.0);           // fade \in [0.5;1]
+                        #endif
+                        half grazingTerm = saturate(smoothness + (1-oneMinusReflectivity));
+                        reflections_term = surfaceReduction * indirect_specular * FresnelLerp (F0, grazingTerm, NdotV) * _StandardFresnelIntensity;
+                        break;
+                    case 2: // Skin aka Lazarov environmental
+                        const half4 c0 = { -1, -0.0275, -0.572, 0.022 };
+                        const half4 c1 = { 1, 0.0425, 1.04, -0.04 };
+                        half4 r = perceptualRoughness * c0 + c1;
+                        half a004 = min( r.x * r.x, exp2( -9.28 * NdotV ) ) * r.x + r.y;
+                        half2 AB = half2( -1.04, 1.04 ) * a004 + r.zw;
+                        half3 F_L = F0 * AB.x + AB.y;
+                        reflections_term = indirect_specular * F_L;
+                        break;
                 }
             }
         #endif
@@ -3766,7 +3773,15 @@ half4 frag_omega (
     #endif
 
     // Combine all brdf terms and rough conserve energy
-    color.rgb += diffuse_term + max(specular_term, clearcoat_specular_term) + max(reflections_term, clearcoat_reflections_term) + transmission_term + emission_term;
+    float3 specular_total = max(specular_term, clearcoat_specular_term);
+    #if defined(DIRECTIONAL) || defined(DIRECTIONAL_COOKIE)
+        specular_total *= _DirectionalLightSpecularIntensity;
+    #elif defined(POINT) || defined(POINT_COOKIE)
+        specular_total *= _PointLightSpecularIntensity;
+    #elif defined(SPOT)
+        specular_total *= _SpotLightSpecularIntensity;
+    #endif
+    color.rgb += diffuse_term + specular_total + max(reflections_term, clearcoat_reflections_term) + transmission_term + emission_term;
     if (!_HDREnabled) // Incorrect HDR limit - needs to affect indirect+direct light intensity
         color.rgb = saturate(color.rgb);
 
