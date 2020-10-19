@@ -1002,7 +1002,7 @@ namespace Kaj
 
             materialEditor.SetDefaultGUIWidths();
             afterShaderOptimizerButton = false;
-            DrawPropertiesGUIRecursive(materialEditor, props, 0, props.Length);
+            DrawPropertiesGUIRecursive(materialEditor, props, 0, props.Length, 0);
             materialEditor.RenderQueueField();
             materialEditor.EnableInstancingField();
             materialEditor.DoubleSidedGIField();
@@ -1011,8 +1011,11 @@ namespace Kaj
         // Recursive to easily deal with foldouts
         // the group header property can store a toggle value, and the end property stores whether or not the foldout is expanded
         // Any properties listed after the convention shader optimizer button are disabled when the optimizer is enabled
-        protected void DrawPropertiesGUIRecursive(MaterialEditor materialEditor, MaterialProperty[] props, int startIndex, int propCount)
+        protected void DrawPropertiesGUIRecursive(MaterialEditor materialEditor, MaterialProperty[] props, int startIndex, int propCount, int indentLevel)
         {
+            // Hard reset each indent level because [UnIndent] decorator doesn't affect hidden properties i.e. group headers
+            EditorGUI.indentLevel = indentLevel;
+
             for (var i=startIndex; i<startIndex+propCount; i++)
             {
                 // Check for groups and toggle groups
@@ -1046,7 +1049,7 @@ namespace Kaj
                     }
 
                     // Draw particle system styled header with indentation applied
-                    float indentPixels = EditorGUI.indentLevel * 13f;
+                    float indentPixels = indentLevel * 13f;
                     var rect = GUILayoutUtility.GetRect(0, 22f, foldoutStyle);
                     rect.width -= indentPixels;
                     rect.x += indentPixels;
@@ -1073,7 +1076,7 @@ namespace Kaj
                         // Toggle alignment from Thry's
                         Rect togglePropertyRect = new Rect(rect);
                         // Add 18 to skip foldout arrow, shift by indents because the original box rect is being used
-                        togglePropertyRect.x += 18 - ((EditorGUI.indentLevel) * 13);
+                        togglePropertyRect.x += 18 - ((indentLevel) * 13);
                         togglePropertyRect.y += 1;
                         float labelWidth = EditorGUIUtility.labelWidth;
                         EditorGUIUtility.labelWidth = 0;
@@ -1108,9 +1111,8 @@ namespace Kaj
                     if (expanded)
                     {
                         int originalIndentLevel = EditorGUI.indentLevel;
-                        EditorGUI.indentLevel++;
                         EditorGUILayout.Space();
-                        DrawPropertiesGUIRecursive(materialEditor, props, i+1, j-i-1);
+                        DrawPropertiesGUIRecursive(materialEditor, props, i+1, j-i-1, indentLevel+1);
                         EditorGUILayout.Space();
                         // Hard reset to original indent level because [UnIndent] decorators may need the hidden group end property, which isn't drawn
                         EditorGUI.indentLevel = originalIndentLevel;

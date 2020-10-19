@@ -17,7 +17,7 @@ sampler3D _DitherMaskLOD;                               // Built-in dither tex
 //sampler2D _DitherMaskLOD2D;                           // Built-in dither tex, defined in UNITY_APPLY_DITHER_CROSSFADE
 // Standard
 uniform half4 _Color;                                   // Standard shader color param, used by Enlighten during lightmapping too
-UNITY_DECLARE_TEX2D(_MainTex);                // Standard main texture
+UNITY_DECLARE_TEX2D(_MainTex);                          // Standard main texture
     uniform float4 _MainTex_ST;
     uniform float4 _MainTex_TexelSize;
 uniform half _Cutoff;                                   // Standard cutoff
@@ -128,25 +128,11 @@ uniform float4 _GroundColor;                            // Procedural ground col
 uniform float _Mapping;                                 // Panoramic skybox mode
 uniform float _ImageType;                               // Panoramic image type
 uniform float _Layout;                                  // Panoramic skybox layout
-// UCTS
-
-// Cubed
-
-// Noe
-
-// Xiexe
-
 // Poiyomi
 uniform float _ParallaxBias;                            // Catlike coding bias
 uniform float _DitheringEnabled;                        // Dithered transparency toggle
 UNITY_DECLARE_TEXCUBE(_CubeMap);                        // Fallback reflection probe
     uniform float4 _CubeMap_HDR;
-// Rero
-
-// Mochie
-
-// Arktoon
-
 // VRChat
 UNITY_DECLARE_TEX2D(_ReflectionTex0);                   // Mirror shader textures
 UNITY_DECLARE_TEX2D(_ReflectionTex1);                   // Mirror shader textures
@@ -246,6 +232,7 @@ uniform float _DiffuseMode;
 uniform float _SpecularMode;
 uniform float _ReflectionsMode;
 uniform float _VertexColorsEnabled;
+uniform float _VertexColorsTransparencyEnabled;
 uniform float _ReceiveShadows;
 uniform float _SSSTransmissionShadowCastingLightsOnly;
 uniform float _SSSTransmissionIgnoreShadowAttenuation;
@@ -267,14 +254,7 @@ uniform float _DebugWorldNormals;
 uniform float4 _AOColorBleed;
 uniform float _DebugOcclusion;
 uniform float _EmissionTintByAlbedo;
-uniform float _SpecularAnisotropy;
-uniform float _SpecularAnisotropyAngle;
-UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecularAnisotropyTangentMap);
-    uniform float4 _SpecularAnisotropyTangentMap_ST;
-    uniform float4 _SpecularAnisotropyTangentMap_TexelSize;
-    uniform float _SpecularAnisotropyTangentMapUV;
 uniform float _ReflectionsAnisotropy;
-uniform float _ReflectionsAnisotropyAngle;
 uniform float _SSSStylizedIndrectScaleByTranslucency;
 uniform float _ShadowsSmooth;
 uniform float _ShadowsSharp;
@@ -381,6 +361,30 @@ uniform float _GeometryDisplacedTangents;
 uniform float _DirectionalLightSpecularIntensity;
 uniform float _PointLightSpecularIntensity;
 uniform float _SpotLightSpecularIntensity;
+uniform float group_toggle_Anisotropy;
+uniform float _AnisotropyMode;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_AnisotropyMap);
+    uniform float4 _AnisotropyMap_ST;
+    uniform float4 _AnisotropyMap_TexelSize;
+    uniform float _AnisotropyMapUV;
+    uniform float _AnisotropyMapChannel;
+uniform float _AnisotropyMax;
+uniform float _AnisotropyMin;
+uniform float _GlossinessMode2;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_SpecGlossMap2);
+    uniform float4 _SpecGlossMap2_ST;
+    uniform float4 _SpecGlossMap2_TexelSize;
+    uniform float _SpecGlossMap2UV;
+    uniform float _SpecGlossMap2Channel;
+uniform float _Glossiness2;
+uniform float _Glossiness2Min;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_AnisotropyAngleMap);
+    uniform float4 _AnisotropyAngleMap_ST;
+    uniform float4 _AnisotropyAngleMap_TexelSize;
+    uniform float _AnisotropyAngleMapUV;
+    uniform float _AnisotropyAngleMapChannel;
+uniform float _AnisotropyAngleMax;
+uniform float _AnisotropyAngleMin;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -535,6 +539,21 @@ uniform float _SpotLightSpecularIntensity;
         #define PROP_DISPLACEMENTMAP
     #endif
 #endif
+#ifdef ANTI_FLICKER
+    #ifndef PROP_ANISOTROPYMAP
+        #define PROP_ANISOTROPYMAP
+    #endif
+#endif
+#ifdef GRAIN
+    #ifndef PROP_SPECGLOSSMAP2
+        #define PROP_SPECGLOSSMAP2
+    #endif
+#endif
+#ifdef BLOOM
+    #ifndef PROP_ANISOTROPYANGLEMAP
+        #define PROP_ANISOTROPYANGLEMAP
+    #endif
+#endif
 
 // Omega Shader culling preprocessor variable definitions + tessellation/geometry disabling variable definitions
 // A ton of convolued logic just to cull some appdata and interpolator values.  Probably not worth much
@@ -572,6 +591,7 @@ uniform float _SpotLightSpecularIntensity;
     // (if property is disabled and won't be re-enabled) foreach property needing a specific interpolator
     // Could be visually simplified but macro arguments cannot evaluate to other macro preprocessor variables
     #if PROP_VERTEXCOLORSENABLED == 0 && PROP_VERTEXCOLORSENABLEDANIMATED == 0 \
+        && PROP_VERTEXCOLORSTRANSPARENCYENABLED == 0 && PROP_VERTEXCOLORSTRANSPARENCYENABLEDANIMATED == 0 \
         && PROP_TRIPLANARUSEVERTEXCOLORS == 0  && PROP_TRIPLANARUSEVERTEXCOLORSANIMATED == 0
         #define EXCLUDE_VERTEX_COLORS
     #endif
@@ -650,6 +670,15 @@ uniform float _SpotLightSpecularIntensity;
     #if !defined(PROP_DISPLACEMENTMAP) && PROP_DISPLACEMENTMAP_TEXELSIZEANIMATED == 0
         #define DISPLACEMENTMAP_UNUSED 1
     #endif
+    #if !defined(PROP_ANISOTROPYMAP) && PROP_ANISOTROPYMAP_TEXELSIZEANIMATED == 0
+        #define ANISOTROPYMAP_UNUSED 1
+    #endif
+    #if !defined(PROP_SPECGLOSSMAP2) && PROP_SPECGLOSSMAP2_TEXELSIZEANIMATED == 0
+        #define SPECGLOSSMAP2_UNUSED 1
+    #endif
+    #if !defined(PROP_ANISOTROPYANGLEMAP) && PROP_ANISOTROPYANGLEMAP_TEXELSIZEANIMATED == 0
+        #define ANISOTROPYANGLEMAP_UNUSED 1
+    #endif
 
     #ifndef UNITY_PASS_META // Meta pass needs UV1 and UV2 for lightmaps
 
@@ -680,6 +709,9 @@ uniform float _SpotLightSpecularIntensity;
             && ((PROP_TESSELLATIONMASKUV != 0 && PROP_TESSELLATIONMASKUVANIMATED == 0) || TESSELLATIONMASK_UNUSED) \
             && ((PROP_PHONGTESSMASKUV != 0 && PROP_PHONGTESSMASKUVANIMATED == 0) || PHONGTESSMASK_UNUSED) \
             && ((PROP_DISPLACEMENTMAPUV != 0 && PROP_DISPLACEMENTMAPUVANIMATED == 0) || DISPLACEMENTMAP_UNUSED) \
+            && ((PROP_ANISOTROPYMAPUV != 0 && PROP_ANISOTROPYMAPUVANIMATED == 0) || ANISOTROPYMAP_UNUSED) \
+            && ((PROP_SPECGLOSSMAP2UV != 0 && PROP_SPECGLOSSMAP2UVANIMATED == 0) || SPECGLOSSMAP2_UNUSED) \
+            && ((PROP_ANISOTROPYANGLEMAPUV != 0 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0) || ANISOTROPYANGLEMAP_UNUSED) \
             && (PROP_MODE != 1 || (PROP_ALPHATOMASK == 0 && PROP_ALPHATOMASKANIMATED == 0))
             #define EXCLUDE_UV0
         #endif
@@ -699,6 +731,9 @@ uniform float _SpotLightSpecularIntensity;
             && PROP_TESSELLATIONMASKUV != 1 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
             && PROP_PHONGTESSMASKUV != 1 && PROP_PHONGTESSMASKUVANIMATED == 0 \
             && PROP_DISPLACEMENTMAPUV != 1 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
+            && PROP_ANISOTROPYMAPUV != 1 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
+            && PROP_SPECGLOSSMAP2UV != 1 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
+            && PROP_ANISOTROPYANGLEMAPUV != 1 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
             && !defined(LIGHTMAP_ON)
             #define EXCLUDE_UV1
         #endif
@@ -718,6 +753,9 @@ uniform float _SpotLightSpecularIntensity;
             && PROP_TESSELLATIONMASKUV != 2 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
             && PROP_PHONGTESSMASKUV != 2 && PROP_PHONGTESSMASKUVANIMATED == 0 \
             && PROP_DISPLACEMENTMAPUV != 2 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
+            && PROP_ANISOTROPYMAPUV != 2 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
+            && PROP_SPECGLOSSMAP2UV != 2 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
+            && PROP_ANISOTROPYANGLEMAPUV != 2 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
             && !defined(DYNAMICLIGHTMAP_ON)
             #define EXCLUDE_UV2
         #endif
@@ -736,7 +774,10 @@ uniform float _SpotLightSpecularIntensity;
             && PROP_TRANSLUCENCYMAPUV != 3 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
             && PROP_TESSELLATIONMASKUV != 3 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
             && PROP_PHONGTESSMASKUV != 3 && PROP_PHONGTESSMASKUVANIMATED == 0 \
-            && PROP_DISPLACEMENTMAPUV != 3 && PROP_DISPLACEMENTMAPUVANIMATED == 0
+            && PROP_DISPLACEMENTMAPUV != 3 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
+            && PROP_ANISOTROPYMAPUV != 3 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
+            && PROP_SPECGLOSSMAP2UV != 3 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
+            && PROP_ANISOTROPYANGLEMAPUV != 3 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0
             #define EXCLUDE_UV3
         #endif
     #endif
@@ -769,6 +810,9 @@ uniform float _SpotLightSpecularIntensity;
         && PROP_TESSELLATIONMASKUV != 12 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
         && PROP_PHONGTESSMASKUV != 12 && PROP_PHONGTESSMASKUVANIMATED == 0 \
         && PROP_DISPLACEMENTMAPUV != 12 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
+        && PROP_ANISOTROPYMAPUV != 12 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
+        && PROP_SPECGLOSSMAP2UV != 12 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
+        && PROP_ANISOTROPYANGLEMAPUV != 12 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
         && (PROP_MODE == 0 || (PROP_DITHERINGENABLED == 0 && PROP_DITHERINGENABLEDANIMATED == 0))
         #define EXCLUDE_GRABPOS
     #endif
@@ -788,7 +832,10 @@ uniform float _SpotLightSpecularIntensity;
         && PROP_TRANSLUCENCYMAPUV != 5 && PROP_TRANSLUCENCYMAPUVANIMATED == 0 \
         && PROP_TESSELLATIONMASKUV != 5 && PROP_TESSELLATIONMASKUVANIMATED == 0 \
         && PROP_PHONGTESSMASKUV != 5 && PROP_PHONGTESSMASKUVANIMATED == 0 \
-        && PROP_DISPLACEMENTMAPUV != 5 && PROP_DISPLACEMENTMAPUVANIMATED == 0
+        && PROP_DISPLACEMENTMAPUV != 5 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
+        && PROP_ANISOTROPYMAPUV != 5 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
+        && PROP_SPECGLOSSMAP2UV != 5 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
+        && PROP_ANISOTROPYANGLEMAPUV != 5 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0
         #define EXCLUDE_NORMALOBJECT
     #endif
 
@@ -808,6 +855,9 @@ uniform float _SpotLightSpecularIntensity;
         && (PROP_TESSELLATIONMASKUV < 9 || PROP_TESSELLATIONMASKUV > 11 ) && PROP_TESSELLATIONMASKUVANIMATED == 0 \
         && (PROP_PHONGTESSMASKUV < 9 || PROP_PHONGTESSMASKUV > 11) && PROP_PHONGTESSMASKUVANIMATED == 0 \
         && (PROP_DISPLACEMENTMAPUV < 9 || PROP_DISPLACEMENTMAPUV > 11) && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
+        && (PROP_ANISOTROPYMAPUV < 9 || PROP_ANISOTROPYMAPUV > 11) && PROP_ANISOTROPYMAPUVANIMATED == 0 \
+        && (PROP_SPECGLOSSMAP2UV < 9 || PROP_SPECGLOSSMAP2UV > 11) && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
+        && (PROP_ANISOTROPYANGLEMAPUV < 9 || PROP_ANISOTROPYANGLEMAPUV > 11) && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
         && (PROPGROUP_TOGGLE_SSSTRANSMISSION == 0 && PROPGROUP_TOGGLE_SSSTRANSMISSIONANIMATED == 0)
         #define EXCLUDE_POSOBJECT
     #endif
@@ -825,7 +875,8 @@ uniform float _SpotLightSpecularIntensity;
         && !defined(PROP_DETAILNORMALMAPBLUE) && PROP_DETAILNORMALMAPBLUE_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_DETAILNORMALMAPALPHA) && PROP_DETAILNORMALMAPALPHA_TEXELSIZEANIMATED == 0 \
         && PROP_SPECULARMODE != 2 && PROP_SPECULARMODEANIMATED == 0 \
-        && PROP_REFLECTIONSMODE != 3 && PROP_REFLECTIONSMODEANIMATED == 0
+        && PROP_REFLECTIONSMODE != 3 && PROP_REFLECTIONSMODEANIMATED == 0 \
+        && PROPGROUP_TOGGLE_ANISOTROPY == 0 && PROPGROUP_TOGGLE_ANISOTROPYANIMATED == 0
         #define EXCLUDE_TANGENT_BITANGENT
     #endif
 
@@ -1143,7 +1194,7 @@ half3 switchDetailAlbedo(fixed4 tex, half3 albedo, float combineMode, fixed mask
         case 2:
             return albedo + tex.rgb * mask;
             break;
-        case 3:
+        default:
             return lerp(albedo, tex.rgb, mask);
             break;
     }
@@ -1255,6 +1306,7 @@ half3 AngledAnisotropicModifiedNormal(half3 normalWorld, half3 tangentWorld, hal
     if (reflectionsAngle >= 0)
         rotatedBitangent = lerp(bitangentWorld, -tangentWorld, reflectionsAngle);
     else rotatedBitangent = lerp(bitangentWorld, tangentWorld, -reflectionsAngle);
+
     float3 anisoIblNormalWS = GetAnisotropicModifiedNormal(rotatedBitangent, normalWorld, viewDir, anisotropy);
     return reflect(-viewDir, anisoIblNormalWS);
 }
@@ -1846,7 +1898,7 @@ VStoHS_omega
 vert_omega (appdata_full_omega v)
 {
     // Texture samples struct
-    omega_texture_sampling_vars tex_vars;
+    omega_texture_sampling_vars tex_vars = (omega_texture_sampling_vars)0;
     #ifndef EXCLUDE_UV0
         tex_vars.uv0and1.xy = v.texcoord.xy;
     #elif !defined(EXCLUDE_UV1)
@@ -1856,9 +1908,6 @@ vert_omega (appdata_full_omega v)
         tex_vars.uv0and1.zw = v.texcoord1.xy;
     #elif !defined(EXCLUDE_UV0)
         tex_vars.uv0and1.zw = v.texcoord.xy;
-    #endif
-    #ifdef EXCLUDE_UV0AND1
-        tex_vars.uv0and1 = 0;
     #endif
     #ifndef EXCLUDE_UV2
         tex_vars.uv2and3.xy = v.texcoord2.xy;
@@ -1870,9 +1919,6 @@ vert_omega (appdata_full_omega v)
     #elif !defined(EXCLUDE_UV2)
         tex_vars.uv2and3.zw = v.texcoord2.xy;
     #endif
-    #ifdef EXCLUDE_UV2AND3
-        tex_vars.uv2and3 = 0;
-    #endif
     tex_vars.posObject = v.vertex;
     tex_vars.posWorld = mul(unity_ObjectToWorld, v.vertex);
     tex_vars.normalObject = v.normal;
@@ -1880,8 +1926,6 @@ vert_omega (appdata_full_omega v)
     tex_vars.grabPos = ComputeGrabScreenPos(UnityObjectToClipPos(v.vertex));
     #ifndef EXCLUDE_VERTEX_COLORS
         tex_vars.color = v.color;
-    #else
-        tex_vars.color = 0;
     #endif
 
     // VStoHS
@@ -2366,6 +2410,7 @@ patch_constant_omega (
 [UNITY_partitioning("fractional_odd")]
 #else
 [UNITY_partitioning("integer")]
+//[UNITY_partitioning("pow2")] // doesn't work afaik
 #endif
 [UNITY_patchconstantfunc("patch_constant_omega")]
 [maxtessfactor(64.0)]
@@ -2469,16 +2514,12 @@ domain_omega (
         #endif
 
         // Texture samples struct
-        omega_texture_sampling_vars tex_vars;
+        omega_texture_sampling_vars tex_vars = (omega_texture_sampling_vars)0;
         #ifndef EXCLUDE_UV0AND1
             tex_vars.uv0and1 = v.uv0and1;
-        #else
-            tex_vars.uv0and1 = 0;
         #endif
         #ifndef EXCLUDE_UV2AND3
             tex_vars.uv2and3 = v.uv2and3;
-        #else
-            tex_vars.uv2and3 = 0;
         #endif
         tex_vars.posObject = v.vertex;
         tex_vars.posWorld = mul(unity_ObjectToWorld, v.vertex);
@@ -2487,8 +2528,6 @@ domain_omega (
         tex_vars.grabPos = ComputeGrabScreenPos(UnityObjectToClipPos(v.vertex));
         #ifndef EXCLUDE_VERTEX_COLORS
             tex_vars.color = v.color;
-        #else
-            tex_vars.color = 0;
         #endif
 
         // Texture samples
@@ -2620,16 +2659,12 @@ void geom_omega(triangle VStoHS_omega IN[3], inout TriangleStream<GStoPS_omega> 
         #endif
 
         // Texture samples struct
-        omega_texture_sampling_vars tex_vars;
+        omega_texture_sampling_vars tex_vars = (omega_texture_sampling_vars)0;
         #ifndef EXCLUDE_UV0AND1
             tex_vars.uv0and1 = v.uv0and1;
-        #else
-            tex_vars.uv0and1 = 0;
         #endif
         #ifndef EXCLUDE_UV2AND3
             tex_vars.uv2and3 = v.uv2and3;
-        #else
-            tex_vars.uv2and3 = 0;
         #endif
         tex_vars.posObject = v.vertex;
         tex_vars.posWorld = mul(unity_ObjectToWorld, v.vertex);
@@ -2638,8 +2673,6 @@ void geom_omega(triangle VStoHS_omega IN[3], inout TriangleStream<GStoPS_omega> 
         tex_vars.grabPos = ComputeGrabScreenPos(UnityObjectToClipPos(v.vertex));
         #ifndef EXCLUDE_VERTEX_COLORS
             tex_vars.color = v.color;
-        #else
-            tex_vars.color = 0;
         #endif
 
         // Texture samples
@@ -2841,28 +2874,28 @@ half4 frag_omega (
         #endif
     #endif
 
+    // Normalization
+    i.normalWorld = normalize(i.normalWorld);
+    #ifndef EXCLUDE_TANGENT_BITANGENT
+        i.tangentWorld = normalize(i.tangentWorld);
+        i.bitangentWorld = normalize(i.bitangentWorld);
+    #endif
+    
+
     // Texture samples struct
-    omega_texture_sampling_vars tex_vars;
+    omega_texture_sampling_vars tex_vars = (omega_texture_sampling_vars)0;
     #ifndef EXCLUDE_UV0AND1
         tex_vars.uv0and1 = i.uv0and1;
-    #else
-        tex_vars.uv0and1 = 0;
     #endif
     #ifndef EXCLUDE_UV2AND3
         tex_vars.uv2and3 = i.uv2and3;
-    #else
-        tex_vars.uv2and3 = 0;
     #endif
     #ifndef EXCLUDE_POSOBJECT
         tex_vars.posObject = i.posObject;
-    #else
-        tex_vars.posObject = 0;
     #endif
     tex_vars.posWorld = i.posWorld;
     #ifndef EXCLUDE_NORMALOBJECT
         tex_vars.normalObject = i.normalObject;
-    #else
-        tex_vars.normalObject = 0;
     #endif
     tex_vars.normalWorld = i.normalWorld;
     #ifndef EXCLUDE_GRABPOS
@@ -2870,8 +2903,6 @@ half4 frag_omega (
     #endif
     #ifndef EXCLUDE_VERTEX_COLORS
         tex_vars.color = i.color;
-    #else
-        tex_vars.color = 0;
     #endif
 
     #if defined(UNITY_PASS_FORWARDBASE) || defined(UNITY_PASS_FORWARDADD)
@@ -2915,19 +2946,19 @@ half4 frag_omega (
                     half2 parallaxOffset = i.tangentViewDir.xy * _Parallax * (_ParallaxMap_var[_ParallaxMapChannel] - 0.5f);
                     #ifndef EXCLUDE_UV0
                         if (_ParallaxUV0)
-                            i.uv0and1.xy += parallaxOffset;
+                            tex_vars.uv0and1.xy += parallaxOffset;
                     #endif
                     #ifndef EXCLUDE_UV1
                         if (_ParallaxUV1)
-                            i.uv0and1.zw += parallaxOffset;
+                            tex_vars.uv0and1.zw += parallaxOffset;
                     #endif
                     #ifndef EXCLUDE_UV2
                         if (_ParallaxUV2)
-                            i.uv2and3.xy += parallaxOffset;
+                            tex_vars.uv2and3.xy += parallaxOffset;
                     #endif
                     #ifndef EXCLUDE_UV3
                         if (_ParallaxUV3)
-                            i.uv2and3.zw += parallaxOffset;
+                            tex_vars.uv2and3.zw += parallaxOffset;
                     #endif
 
                     // Triplanar parallax goes here
@@ -3035,7 +3066,7 @@ half4 frag_omega (
     #endif
     opacity *= _Color.a;
     #ifndef EXCLUDE_VERTEX_COLORS
-        if (_VertexColorsEnabled)
+        if (_VertexColorsTransparencyEnabled)
             opacity *= i.color.a;
     #endif
 
@@ -3068,16 +3099,21 @@ half4 frag_omega (
 #else // The rest of the frag is ForwardBase and ForwardAdd stuff
 
     // Alpha to Coverage sharpening
-    #ifndef EXCLUDE_UV0AND1
-        UNITY_BRANCH
-        if (_Mode == 1 && _AlphaToMask) // _ALPHATEST_ON
-        {
-            // Cutout mode with A2C is always sharpened
-            // Needs to be corrected if coverage map is used instead and for different UV sets
-            opacity *= 1 + max(0, CalcMipLevel(i.uv0and1.xy * _MainTex_TexelSize.zw)) * 0.25;
-            opacity = saturate((opacity - _Cutoff) / max(fwidth(opacity), 0.0001) + 0.5);
-        }
-    #endif
+    UNITY_BRANCH
+    if (_Mode == 1 && _AlphaToMask) // _ALPHATEST_ON
+    {
+        // Cutout mode with A2C is always sharpened
+        // SM 4.1+ specific mip calculation to preserve mip coverage
+        // Not necessary if 'Mips preserve coverage' is enabled on transparency texture, this could be a separate option tbh
+        #ifdef PROP_COVERAGEMAP
+            //KSOInlineSamplerState(sampler_MainTex, _CoverageMap)
+            float miplevel = _CoverageMap.CalculateLevelOfDetail(sampler_MainTex, (float2)0);
+        #else
+            float miplevel = _MainTex.CalculateLevelOfDetail(sampler_MainTex, (float2)0);
+        #endif
+        opacity *= 1 + max(0, miplevel) * 0.25;
+        opacity = saturate((opacity - _Cutoff) / max(fwidth(opacity), 0.0001) + 0.5);
+    }
     // Clipping
     UNITY_BRANCH
     if (_Mode >= 1 && _Mode <= 3) // _ALPHATEST_ON _ALPHABLEND_ON _ALPHAPREMULTIPLY_ON
@@ -3173,11 +3209,22 @@ half4 frag_omega (
             //KSOInlineSamplerState(_MainTex, _BumpMap)
             blurredWorldNormal_var = OMEGA_SAMPLE_TEX2D_BIAS(_BumpMap, _MainTex, tex_vars, _BumpBlurBias);
     #endif
-    fixed4 _SpecularAnisotropyTangentMap_var = 1;
-    //UNITY_BRANCH
-    //if (_SpecularMode == 2 && _SpecularAnisotropyTangentMap_TexelSize.x != 1)
-        ////KSOInlineSamplerState(_MainTex, _SpecularAnisotropyTangentMap)
-        //OMEGA_SAMPLE_TEX2D(_SpecularAnisotropyTangentMap_var, _SpecularAnisotropyTangentMap, _MainTex);
+    // Anisotropy textures
+    fixed4 _AnisotropyMap_var = 1;
+    #ifdef PROP_ANISOTROPYMAP
+        //KSOInlineSamplerState(_MainTex, _AnisotropyMap)
+        _AnisotropyMap_var = OMEGA_SAMPLE_TEX2D(_AnisotropyMap, _MainTex, tex_vars);
+    #endif
+    fixed4 _SpecGlossMap2_var = 1;
+    #ifdef PROP_SPECGLOSSMAP2
+        //KSOInlineSamplerState(_MainTex, _SpecGlossMap2)
+        _SpecGlossMap2_var = OMEGA_SAMPLE_TEX2D(_SpecGlossMap2, _MainTex, tex_vars);
+    #endif
+    fixed4 _AnisotropyAngleMap_var = 1;
+    #ifdef PROP_ANISOTROPYANGLEMAP
+        //KSOInlineSamplerState(_MainTex, _AnisotropyAngleMap)
+        _AnisotropyAngleMap_var = OMEGA_SAMPLE_TEX2D(_AnisotropyAngleMap, _MainTex, tex_vars);
+    #endif
 
     // Duplicate texture checks, second bumpmap bias sample always done separately
     //KSODuplicateTextureCheck(_MetallicGlossMap)
@@ -3190,6 +3237,9 @@ half4 frag_omega (
     //KSODuplicateTextureCheck(_DetailNormalMapBlue)
     //KSODuplicateTextureCheck(_DetailNormalMapAlpha)
     //KSODuplicateTextureCheck(_TranslucencyMap)
+    //KSODuplicateTextureCheck(_AnisotropyMap)
+    //KSODuplicateTextureCheck(_SpecGlossMap2)
+    //KSODuplicateTextureCheck(_AnisotropyAngleMap)
 
     // Assign shading variables
     // Map textures to PBR variables and filter them
@@ -3387,22 +3437,20 @@ half4 frag_omega (
         Curvature = saturate(Curvature + _CurvatureBias);
     }
     // Anisotropic variables
-    // Two roughness params from a single anisotropy parameter
-    // Would be better to have full independent roughness control in the future
     float roughnessT = roughness;
-    float roughnessB = lerp(0.002, roughness, 1-_SpecularAnisotropy);
-    // Use tangent map if it exists
-    //UNITY_BRANCH
-    //if (_SpecularAnisotropyTangentMap_TexelSize.x != 1)
-    //{
-        //_SpecularAnisotropyTangentMap_var.xyz = UnpackNormal(_SpecularAnisotropyTangentMap_var);
-        // blend with unmultiplied tangent space normal (from normal map?)
-        // perturb tangent then recalculate bitangent?
-        // rotate tanget and bitangent
-        // tangentDirectionMap = mul(tangentToWorld, float3(normalLocalAniso.rg, 0.0)).xyz; ?
-    //}
+    float roughnessB;
+    float anisotropyScale = _AnisotropyMin + (_AnisotropyMax - _AnisotropyMin) * _AnisotropyMap_var[_AnisotropyMapChannel];
+    if (_AnisotropyMode == 0) // Anisotropy Scale
+        roughnessB = lerp(0.002, roughness, 1-anisotropyScale);
+    else // Second Glossiness Map
+    {
+        roughnessB = _Glossiness2Min + (_Glossiness2 - _Glossiness2Min) * _SpecGlossMap2_var[_SpecGlossMap2Channel];
+        if (_GlossinessMode2 == 1) roughnessB = 1.0 - roughnessB;
+        roughnessB = max(0.002, roughnessB * roughnessB); // sqr to make percentual roughness into second roughness
+    }
     // Rotate tangent/bitangent via the tangentToWorld matrix
-    half anisotropyTheta = radians((_SpecularAnisotropyAngle * 2 - 1) * 90);
+    float anisotropyangle = _AnisotropyAngleMin + (_AnisotropyAngleMax - _AnisotropyAngleMin) * _AnisotropyAngleMap_var[_AnisotropyAngleMapChannel];
+    half anisotropyTheta = radians((anisotropyangle * 2 - 1) * 90);
     half3 rotatedTangent = half3(cos(anisotropyTheta), sin(anisotropyTheta), 0);
     #ifndef EXCLUDE_TANGENT_BITANGENT
         rotatedTangent = normalize(mul(rotatedTangent, tangentToWorld));
@@ -3527,8 +3575,8 @@ half4 frag_omega (
             half3 reflectionsSampleViewReflectDir = viewReflectDir;
             #ifndef EXCLUDE_TANGENT_BITANGENT
                 UNITY_BRANCH
-                if (_ReflectionsMode == 3) // Anisotropic reflections indirect specular
-                    reflectionsSampleViewReflectDir = AngledAnisotropicModifiedNormal(normalDir, i.tangentWorld, i.bitangentWorld, viewDir, _ReflectionsAnisotropyAngle, _ReflectionsAnisotropy);
+                if (group_toggle_Anisotropy) // Anisotropic reflections indirect specular
+                    reflectionsSampleViewReflectDir = AngledAnisotropicModifiedNormal(normalDir, i.tangentWorld, i.bitangentWorld, viewDir, anisotropyangle, _ReflectionsAnisotropy);
             #endif
 
             // does reflection probe exist?
@@ -3639,13 +3687,12 @@ half4 frag_omega (
                     specular_term = specularTermPhong * _PhongSpecularIntensity * lightColor * specular;
                     break;
                 case 1: // PBR
-                case 2: // Anisotropic
                 case 3: // Skin
                     float V = 0;
                     float D = 0;
 
                     UNITY_BRANCH
-                    if (_SpecularMode == 2)
+                    if (group_toggle_Anisotropy)
                     {
                         #ifndef EXCLUDE_TANGENT_BITANGENT
                             V = SmithJointGGXAniso(TdotV, BdotV, NdotV, TdotL, BdotL, NdotL, roughnessT, roughnessB);
@@ -3701,7 +3748,6 @@ half4 frag_omega (
                 switch (_ReflectionsMode)
                 {
                     case 1: // PBR
-                    case 3: // Anisotropic PBR
                         half surfaceReduction;
                         #ifdef UNITY_COLORSPACE_GAMMA
                             surfaceReduction = 1.0-0.28*roughness*perceptualRoughness;      // 1-0.28*x^3 as approximation for (1/(x^4+1))^(1/2.2) on the domain [0;1]

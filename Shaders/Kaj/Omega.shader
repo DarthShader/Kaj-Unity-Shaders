@@ -22,12 +22,13 @@ Shader "Kaj/Omega"
             [Enum(Kaj.UVMapping)]_MainTexUV ("UV Set", Int) = 0
         [UnIndent]
         [ToggleUI]_AlbedoTransparencyEnabled("Albedo Alpha is Transparency", Int) = 1
-        [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo and Transparency", Int) = 0
+        [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo", Int) = 0
         [KeywordTex(_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A)]_CoverageMap (";;_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A;Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_CoverageMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_CoverageMapChannel("Channel to Sample", Int) = 0
         [UnIndent]
+        [ToggleUI]_VertexColorsTransparencyEnabled("Vertex Color Transparency", Int) = 0
         _Cutoff("Cutoff", Range(0,1)) = 0.5
         [Indent]
             [ToggleUI]_AlphaToMask ("Alpha To Coverage", Int) = 0
@@ -45,7 +46,7 @@ Shader "Kaj/Omega"
             [Enum(Kaj.UVMapping)]_EmissionMapUV ("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_EmissionMapChannel("Channel(s) to Sample", Int) = 4
             _EmissionTintByAlbedo("Tint by Albedo", Range(0,1)) = 0
-            _RealtimeGIIntensity("Realtime GI Intensity", Range(0,1)) = 1
+            [MinimumFloat(0)]_RealtimeGIIntensity("Realtime GI Intensity", Float) = 1
         [HideInInspector]end_Main("", Int) = 1
 
         [HideInInspector]group_StandardSettings("Standard Settings", Int) = 0
@@ -138,7 +139,7 @@ Shader "Kaj/Omega"
         [HideInInspector]end_Diffuse("", Int) = 0
 
         [HideInInspector][Toggle(_COLOROVERLAY_ON)]group_toggle_Specular(";;_COLOROVERLAY_ON;Specular Highlights", Int) = 1
-        [WideEnum(Phong,0, PBR,1, PBR Anisotropic,2, Skin,3)]_SpecularMode("Mode", Int) = 1
+        [WideEnum(Phong,0, PBR,1, Skin,3)]_SpecularMode("Mode", Int) = 1
         _OcclusionDirectSpecular("Occlusion Strength", Range(0,1)) = 0
         _DirectionalLightSpecularIntensity("Directional Lights", Range(0,1)) = 1
         _PointLightSpecularIntensity("Point Lights", Range(0,1)) = 1
@@ -149,22 +150,42 @@ Shader "Kaj/Omega"
         _PhongSpecularIntensity("Intensity", Range(0,1)) = 1
         [ToggleUI]_PhongSpecularUseRoughness("Use PBR Roughness for Power", Int) = 0
         [HideInInspector]end_PhongSpecular("", Int) = 0
-        [HideInInspector]group_PBRAnisotropicSpecular("PBR Anisotropic", Int) = 0
-        _SpecularAnisotropy("Anisotropy", Range(0,1)) = 0
-        _SpecularAnisotropyAngle("Angle", Range(0,1)) = 0.5
-        [HideInInspector]end_PBRAnisotropicSpecular("", Int) = 0
         [HideInInspector]end_Specular("", Int) = 0
 
         [HideInInspector][Toggle(_MAPPING_6_FRAMES_LAYOUT)]group_toggle_Reflections(";;_MAPPING_6_FRAMES_LAYOUT;Reflections", Int) = 1
-        [WideEnum(PBR,1, Skin,2, PBR Anisotropic,3)]_ReflectionsMode("Mode", Int) = 1
+        [WideEnum(PBR,1, Skin,2)]_ReflectionsMode("Mode", Int) = 1
         [HideInInspector]group_PBRReflections("PBR", Int) = 0
         _StandardFresnelIntensity("Fresnel Intensity", Range(0,1)) = 1.0
         [HideInInspector]end_PBRReflections("", Int) = 0
-        [HideInInspector]group_PBRAnisotropicReflections("PBR Anisotropic", Int) = 0
-        _ReflectionsAnisotropy("Anisotropy", Range(0,1)) = 0
-        _ReflectionsAnisotropyAngle("Angle", Range(0,1)) = 0.5
-        [HideInInspector]end_PBRAnisotropicReflections("", Int) = 0
         [HideInInspector]end_Reflections("", Int) = 0
+
+        [HideInInspector][ToggleUI]group_toggle_Anisotropy("Anisotropy", Int) = 0
+        _ReflectionsAnisotropy("Reflections Anisotropy", Range(0,1)) = 0
+        [WideEnum(Anisotropy Scale,0, Second Glossiness Map,1)]_AnisotropyMode("Specular Mode", Int) = 0
+        [Space(10)]
+        [KeywordTex(ANTI_FLICKER)]_AnisotropyMap(";;ANTI_FLICKER;Anisotropy Map", 2D) = "white" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_AnisotropyMapUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_AnisotropyMapChannel("Channel to Sample", Int) = 0
+            [RangeMax]_AnisotropyMax("Anisotropy Max", Range(0.0, 1.0)) = 0.5
+            [RangeMin]_AnisotropyMin("Anisotropy Min", Range(0.0, 1.0)) = 0.0
+        [UnIndent]
+        [WideEnum(Roughness, 0, Smoothness, 1)]_GlossinessMode2("Glossiness Mode", Int) = 1
+        [KeywordTex(GRAIN)]_SpecGlossMap2(";;GRAIN;Second Glossiness Map", 2D) = "white" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_SpecGlossMap2UV ("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_SpecGlossMap2Channel("Channel to Sample", Int) = 0
+            [RangeMax]_Glossiness2("Glossiness Max", Range(0.0, 1.0)) = 0.5
+            [RangeMin]_Glossiness2Min("Glossiness Min", Range(0.0, 1.0)) = 0.0
+        [UnIndent]
+        [KeywordTex(BLOOM)]_AnisotropyAngleMap(";;BLOOM;Angle Map", 2D) = "white" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_AnisotropyAngleMapUV("UV Set", Int) = 0
+            [Enum(Red,0,Green,1,Blue,2,Alpha,3)]_AnisotropyAngleMapChannel("Channel to Sample", Int) = 0
+            [RangeMax]_AnisotropyAngleMax("Angle Max", Range(0.0, 1.0)) = 0.5
+            [RangeMin]_AnisotropyAngleMin("Angle Min", Range(0.0, 1.0)) = 0.0
+        [UnIndent]
+        [HideInInspector]end_Anisotropy("", Int) = 0
 
         [HideInInspector][Toggle(_DETAIL_MULX2)]group_toggle_Clearcoat(";;_DETAIL_MULX2;Clearcoat", Int) = 0
         [KeywordTex(_COLORCOLOR_ON)]_ClearcoatMask(";;_COLORCOLOR_ON;Clearcoat Mask", 2D) = "white" {}
@@ -302,8 +323,8 @@ Shader "Kaj/Omega"
         [ToggleUI]_RimTessOnly("Rim-Only Tessellation", Int) = 0
         [Indent]
             _RimTessBias("Bias", Range(0,1)) = 0
+            _RimTessIntensity("Rim-Only Intensity", Range(0,1)) = 1
         [UnIndent]
-        _RimTessIntensity("Rim-Only Intensity", Range(0,1)) = 1
         [HideInInspector][ToggleUI]group_toggle_PhongTessellation("Phong Tessellation", Int) = 0
         [KeywordTex(EFFECT_HUE_VARIATION)]_PhongTessMask(";;EFFECT_HUE_VARIATION;Phong Tessellation Mask", 2D) = "white" {}
         [Indent]
@@ -360,6 +381,19 @@ Shader "Kaj/Omega"
         [Header(Animated Properties)]
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
         [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
+        [ToggleUILeft]_AnisotropyAngleMap_STAnimated("  _AnisotropyAngleMap_ST", Int) = 0
+        [ToggleUILeft]_AnisotropyAngleMap_TexelSizeAnimated("  _AnisotropyAngleMap_TexelSize", Int) = 0
+        [ToggleUILeft]_AnisotropyAngleMapChannelAnimated("  _AnisotropyAngleMapChannel", Int) = 0
+        [ToggleUILeft]_AnisotropyAngleMapUVAnimated("  _AnisotropyAngleMapUV", Int) = 0
+        [ToggleUILeft]_AnisotropyAngleMaxAnimated("  _AnisotropyAngleMax", Int) = 0
+        [ToggleUILeft]_AnisotropyAngleMinAnimated("  _AnisotropyAngleMin", Int) = 0
+        [ToggleUILeft]_AnisotropyMap_STAnimated("  _AnisotropyMap_ST", Int) = 0
+        [ToggleUILeft]_AnisotropyMap_TexelSizeAnimated("  _AnisotropyMap_TexelSize", Int) = 0
+        [ToggleUILeft]_AnisotropyMapChannelAnimated("  _AnisotropyMapChannel", Int) = 0
+        [ToggleUILeft]_AnisotropyMapUVAnimated("  _AnisotropyMapUV", Int) = 0
+        [ToggleUILeft]_AnisotropyMaxAnimated("  _AnisotropyMax", Int) = 0
+        [ToggleUILeft]_AnisotropyMinAnimated("  _AnisotropyMin", Int) = 0
+        [ToggleUILeft]_AnisotropyModeAnimated("  _AnisotropyMode", Int) = 0
         [ToggleUILeft]_AOColorBleedAnimated("  _AOColorBleed", Int) = 0
         [ToggleUILeft]_BlinnAnimated("  _Blinn", Int) = 0
         [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
@@ -449,8 +483,11 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_GeometricSpecularAAAnimated("  _GeometricSpecularAA", Int) = 0
         [ToggleUILeft]_GeometryDisplacedTangentsAnimated("  _GeometryDisplacedTangents", Int) = 0
         [ToggleUILeft]_GeometryFlattenNormalsAnimated("  _GeometryFlattenNormals",  Int) = 0
+        [ToggleUILeft]_Glossiness2Animated("  _Glossiness2", Int) = 0
+        [ToggleUILeft]_Glossiness2MinAnimated("  _Glossiness2Min", Int) = 0
         [ToggleUILeft]_GlossinessAnimated("  _Glossiness", Int) = 0
         [ToggleUILeft]_GlossinessMinAnimated("  _GlossinessMin", Int) = 0
+        [ToggleUILeft]_GlossinessMode2Animated("  _GlossinessMode2", Int) = 0
         [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
         [ToggleUILeft]_GlossyReflectionsAnimated("  _GlossyReflections", Int) = 0
         [ToggleUILeft]_HDREnabledAnimated("  _HDREnabled", Int) = 0
@@ -467,9 +504,9 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_MetallicGlossMapChannelAnimated("  _MetallicGlossMapChannel", Int) = 0
         [ToggleUILeft]_MetallicGlossMapUVAnimated("  _MetallicGlossMapUV", Int) = 0
         [ToggleUILeft]_MetallicMinAnimated("  _MetallicMin", Int) = 0
-        [ToggleUILeft]_MinEdgeLengthSpaceAnimated("  _MinEdgeLengthSpace", Int) = 0
         [ToggleUILeft]_MinEdgeLengthAnimated("  _MinEdgeLength", Int) = 0
-        [ToggleUILeft]_MinEdgeLengthEnabled("  _MinEdgeLengthEnabled", Int) = 0
+        [ToggleUILeft]_MinEdgeLengthEnabledAnimated("  _MinEdgeLengthEnabled", Int) = 0
+        [ToggleUILeft]_MinEdgeLengthSpaceAnimated("  _MinEdgeLengthSpace", Int) = 0
         [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
         [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
         [ToggleUILeft]_OcclusionMap_STAnimated("  _OcclusionMap_ST", Int) = 0
@@ -504,7 +541,6 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_RealtimeLightmapIntensityAnimated("  _RealtimeLightmapIntensity", Int) = 0
         [ToggleUILeft]_ReceiveFogAnimated("  _ReceiveFog", Int) = 0
         [ToggleUILeft]_ReceiveShadowsAnimated("  _ReceiveShadows", Int) = 0
-        [ToggleUILeft]_ReflectionsAnisotropyAngleAnimated("  _ReflectionsAnisotropyAngle", Int) = 0
         [ToggleUILeft]_ReflectionsAnisotropyAnimated("  _ReflectionsAnisotropy", Int) = 0
         [ToggleUILeft]_ReflectionsIntensityAnimated("  _ReflectionsIntensity", Int) = 0
         [ToggleUILeft]_ReflectionsModeAnimated("  _ReflectionsMode", Int) = 0
@@ -514,12 +550,14 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_ShadowsSharpAnimated("  _ShadowsSharp", Int) = 0
         [ToggleUILeft]_ShadowsSmoothAnimated("  _ShadowsSmooth", Int) = 0
         [ToggleUILeft]_SpecColorAnimated("  _SpecColor", Int) = 0
+        [ToggleUILeft]_SpecGlossMap2_STAnimated("  _SpecGlossMap2_ST", Int) = 0
+        [ToggleUILeft]_SpecGlossMap2_TexelSizeAnimated("  _SpecGlossMap2_TexelSize", Int) = 0
+        [ToggleUILeft]_SpecGlossMap2ChannelAnimated("  _SpecGlossMap2Channel", Int) = 0
+        [ToggleUILeft]_SpecGlossMap2UVAnimated("  _SpecGlossMap2UV", Int) = 0
         [ToggleUILeft]_SpecGlossMap_STAnimated("  _SpecGlossMap_ST", Int) = 0
         [ToggleUILeft]_SpecGlossMap_TexelSizeAnimated("  _SpecGlossMap Texture", Int) = 0
         [ToggleUILeft]_SpecGlossMapChannelAnimated("  _SpecGlossMapChannel", Int) = 0
         [ToggleUILeft]_SpecGlossMapUVAnimated("  _SpecGlossMapUV", Int) = 0
-        [ToggleUILeft]_SpecularAnisotropyAngleAnimated("  _SpecularAnisotropyAngle", Int) = 0
-        [ToggleUILeft]_SpecularAnisotropyAnimated("  _SpecularAnisotropy", Int) = 0
         [ToggleUILeft]_SpecularMap_STAnimated("  _SpecularMap_ST", Int) = 0
         [ToggleUILeft]_SpecularMap_TexelSizeAnimated("  _SpecularMap Texture", Int) = 0
         [ToggleUILeft]_SpecularMapChannelAnimated("  _SpecularMapChannel", Int) = 0
@@ -562,8 +600,10 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_UVSecAnimated("  _UVSec", Int) = 0
         [ToggleUILeft]_VertDisplacementTessFactorAnimated("  _VertDisplacementTessFactor", Int) = 0
         [ToggleUILeft]_VertexColorsEnabledAnimated("  _VertexColorsEnabled", Int) = 0
+        [ToggleUILeft]_VertexColorsTransparencyEnabledAnimated("  _VertexColorsTransparencyEnabled", Int) = 0
         [ToggleUILeft]_VertexLightIntensityAnimated("  _VertexLightIntensity", Int) = 0
         [ToggleUILeft]_WorkflowModeAnimated("  _WorkflowMode", Int) = 0
+        [ToggleUILeft]group_toggle_AnisotropyAnimated("  group_toggle_Anisotropy", Int) = 0
         [ToggleUILeft]group_toggle_ClearcoatAnimated("  group_toggle_Clearcoat", Int) = 0
         [ToggleUILeft]group_toggle_DiffuseAnimated("  group_toggle_Diffuse", Int) = 0
         [ToggleUILeft]group_toggle_DisplacementAnimated("  group_toggle_Displacement", Int) = 0
@@ -583,7 +623,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 38", Int) = 38
+        [KajLabel]_Version("Shader Version: 39", Int) = 39
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -664,6 +704,9 @@ Shader "Kaj/Omega"
             #pragma shader_feature BILLBOARD_FACE_CAMERA_POS
             #pragma shader_feature EFFECT_HUE_VARIATION
             #pragma shader_feature ETC1_EXTERNAL_ALPHA
+            #pragma shader_feature ANTI_FLICKER
+            #pragma shader_feature GRAIN
+            #pragma shader_feature BLOOM
             // These keywords are used to switch tessellation and geometry program attributes
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
@@ -723,6 +766,9 @@ Shader "Kaj/Omega"
             #pragma shader_feature BILLBOARD_FACE_CAMERA_POS
             #pragma shader_feature EFFECT_HUE_VARIATION
             #pragma shader_feature ETC1_EXTERNAL_ALPHA
+            #pragma shader_feature ANTI_FLICKER
+            #pragma shader_feature GRAIN
+            #pragma shader_feature BLOOM
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
             #pragma shader_feature _TERRAIN_NORMAL_MAP
@@ -794,7 +840,6 @@ Shader "Kaj/Omega"
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
             #pragma shader_feature _TERRAIN_NORMAL_MAP
-
 
             #pragma vertex vert_omega
             #pragma hull hull_omega
