@@ -385,6 +385,17 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_AnisotropyAngleMap);
     uniform float _AnisotropyAngleMapChannel;
 uniform float _AnisotropyAngleMax;
 uniform float _AnisotropyAngleMin;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_BentNormalMap);
+    uniform float4 _BentNormalMap_ST;
+    uniform float4 _BentNormalMap_TexelSize;
+    uniform float _BentNormalMapUV;
+    uniform float _BentNormalMapChannel;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_AlternateBumpMap);
+    uniform float4 _AlternateBumpMap_ST;
+    uniform float4 _AlternateBumpMap_TexelSize;
+    uniform float _AlternateBumpMapUV;
+uniform float _NormalMapsSpace;
+uniform float _IdentityNormalsAndTangents;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -554,6 +565,16 @@ uniform float _AnisotropyAngleMin;
         #define PROP_ANISOTROPYANGLEMAP
     #endif
 #endif
+#ifdef AUTO_KEY_VALUE
+    #ifndef PROP_BENTNORMALMAP
+        #define PROP_BENTNORMALMAP
+    #endif
+#endif
+#ifdef DITHERING
+    #ifndef PROP_ALTERNATEBUMPMAP
+        #define PROP_ALTERNATEBUMPMAP
+    #endif
+#endif
 
 // Omega Shader culling preprocessor variable definitions + tessellation/geometry disabling variable definitions
 // A ton of convolued logic just to cull some appdata and interpolator values.  Probably not worth much
@@ -679,6 +700,13 @@ uniform float _AnisotropyAngleMin;
     #if !defined(PROP_ANISOTROPYANGLEMAP) && PROP_ANISOTROPYANGLEMAP_TEXELSIZEANIMATED == 0
         #define ANISOTROPYANGLEMAP_UNUSED 1
     #endif
+    #if !defined(PROP_BENTNORMALMAP) && PROP_BENTNORMALMAP_TEXELSIZEANIMATED == 0
+        #define BENTNORMALMAP_UNUSED 1
+    #endif
+    #if !defined(PROP_ALTERNATEBUMPMAP) && PROP_ALTERNATEBUMPMAP_TEXELSIZEANIMATED == 0
+        #define ALTERNATEBUMPMAP_UNUSED 1
+    #endif
+
 
     #ifndef UNITY_PASS_META // Meta pass needs UV1 and UV2 for lightmaps
 
@@ -712,6 +740,8 @@ uniform float _AnisotropyAngleMin;
             && ((PROP_ANISOTROPYMAPUV != 0 && PROP_ANISOTROPYMAPUVANIMATED == 0) || ANISOTROPYMAP_UNUSED) \
             && ((PROP_SPECGLOSSMAP2UV != 0 && PROP_SPECGLOSSMAP2UVANIMATED == 0) || SPECGLOSSMAP2_UNUSED) \
             && ((PROP_ANISOTROPYANGLEMAPUV != 0 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0) || ANISOTROPYANGLEMAP_UNUSED) \
+            && ((PROP_BENTNORMALMAPUV != 0 && PROP_BENTNORMALMAPUVANIMATED == 0) || BENTNORMALMAP_UNUSED) \
+            && ((PROP_ALTERNATEBUMPMAPUV != 0 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0) || ALTERNATEBUMPMAP_UNUSED) \
             && (PROP_MODE != 1 || (PROP_ALPHATOMASK == 0 && PROP_ALPHATOMASKANIMATED == 0))
             #define EXCLUDE_UV0
         #endif
@@ -734,6 +764,8 @@ uniform float _AnisotropyAngleMin;
             && PROP_ANISOTROPYMAPUV != 1 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
             && PROP_SPECGLOSSMAP2UV != 1 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
             && PROP_ANISOTROPYANGLEMAPUV != 1 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
+            && PROP_BENTNORMALMAPUV != 1 && PROP_BENTNORMALMAPUVANIMATED == 0 \
+            && PROP_ALTERNATEBUMPMAPUV != 1 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
             && !defined(LIGHTMAP_ON)
             #define EXCLUDE_UV1
         #endif
@@ -756,6 +788,8 @@ uniform float _AnisotropyAngleMin;
             && PROP_ANISOTROPYMAPUV != 2 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
             && PROP_SPECGLOSSMAP2UV != 2 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
             && PROP_ANISOTROPYANGLEMAPUV != 2 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
+            && PROP_BENTNORMALMAPUV != 2 && PROP_BENTNORMALMAPUVANIMATED == 0 \
+            && PROP_ALTERNATEBUMPMAPUV != 2 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
             && !defined(DYNAMICLIGHTMAP_ON)
             #define EXCLUDE_UV2
         #endif
@@ -777,7 +811,9 @@ uniform float _AnisotropyAngleMin;
             && PROP_DISPLACEMENTMAPUV != 3 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
             && PROP_ANISOTROPYMAPUV != 3 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
             && PROP_SPECGLOSSMAP2UV != 3 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
-            && PROP_ANISOTROPYANGLEMAPUV != 3 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0
+            && PROP_ANISOTROPYANGLEMAPUV != 3 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
+            && PROP_BENTNORMALMAPUV != 3 && PROP_BENTNORMALMAPUVANIMATED == 0 \
+            && PROP_ALTERNATEBUMPMAPUV != 3 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0
             #define EXCLUDE_UV3
         #endif
     #endif
@@ -813,6 +849,8 @@ uniform float _AnisotropyAngleMin;
         && PROP_ANISOTROPYMAPUV != 12 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
         && PROP_SPECGLOSSMAP2UV != 12 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
         && PROP_ANISOTROPYANGLEMAPUV != 12 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
+        && PROP_BENTNORMALMAPUV != 12 && PROP_BENTNORMALMAPUVANIMATED == 0 \
+        && PROP_ALTERNATEBUMPMAPUV != 12 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
         && (PROP_MODE == 0 || (PROP_DITHERINGENABLED == 0 && PROP_DITHERINGENABLEDANIMATED == 0))
         #define EXCLUDE_GRABPOS
     #endif
@@ -835,7 +873,9 @@ uniform float _AnisotropyAngleMin;
         && PROP_DISPLACEMENTMAPUV != 5 && PROP_DISPLACEMENTMAPUVANIMATED == 0 \
         && PROP_ANISOTROPYMAPUV != 5 && PROP_ANISOTROPYMAPUVANIMATED == 0 \
         && PROP_SPECGLOSSMAP2UV != 5 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
-        && PROP_ANISOTROPYANGLEMAPUV != 5 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0
+        && PROP_ANISOTROPYANGLEMAPUV != 5 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
+        && PROP_BENTNORMALMAPUV != 5 && PROP_BENTNORMALMAPUVANIMATED == 0 \
+        && PROP_ALTERNATEBUMPMAPUV != 5 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0
         #define EXCLUDE_NORMALOBJECT
     #endif
 
@@ -858,6 +898,8 @@ uniform float _AnisotropyAngleMin;
         && (PROP_ANISOTROPYMAPUV < 9 || PROP_ANISOTROPYMAPUV > 11) && PROP_ANISOTROPYMAPUVANIMATED == 0 \
         && (PROP_SPECGLOSSMAP2UV < 9 || PROP_SPECGLOSSMAP2UV > 11) && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
         && (PROP_ANISOTROPYANGLEMAPUV < 9 || PROP_ANISOTROPYANGLEMAPUV > 11) && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
+        && (PROP_BENTNORMALMAPUV < 9 || PROP_BENTNORMALMAPUV > 11) && PROP_BENTNORMALMAPUVANIMATED == 0 \
+        && (PROP_ALTERNATEBUMPMAPUV < 9 || PROP_ALTERNATEBUMPMAPUV > 11) && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
         && (PROPGROUP_TOGGLE_SSSTRANSMISSION == 0 && PROPGROUP_TOGGLE_SSSTRANSMISSIONANIMATED == 0)
         #define EXCLUDE_POSOBJECT
     #endif
@@ -870,6 +912,8 @@ uniform float _AnisotropyAngleMin;
 
     #if defined(EXCLUDE_TANGENT_VIEWDIR) \
         && !defined(PROP_BUMPMAP) && PROP_BUMPMAP_TEXELSIZEANIMATED == 0 \
+        && !defined(PROP_BENTNORMALMAP) && PROP_BENTNORMALMAP_TEXELSIZEANIMATED == 0 \
+        && !defined(PROP_ALTERNATEBUMPMAP) && PROP_ALTERNATEBUMPMAP_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_DETAILNORMALMAP) && PROP_DETAILNORMALMAP_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_DETAILNORMALMAPGREEN) && PROP_DETAILNORMALMAPGREEN_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_DETAILNORMALMAPBLUE) && PROP_DETAILNORMALMAPBLUE_TEXELSIZEANIMATED == 0 \
@@ -3126,7 +3170,7 @@ half4 frag_omega (
                 half dither = ditherBayer(stereoCorrectScreenUV(i.grabPos));
                 // hack because opacity with vertex color imprecision makes dithering visible at full white
                 // I tried saturating in case it was forced centroid interpolation on COLOR semantic data
-                // but that didn't help, so adding this bias to prevent the glitch effect
+                // but that didn't help, so adding this bias to prevent the glitch effect.
                 dither -= 0.01; 
                 UNITY_BRANCH
                 if (_AlphaToMask)
@@ -3209,7 +3253,6 @@ half4 frag_omega (
             //KSOInlineSamplerState(_MainTex, _BumpMap)
             blurredWorldNormal_var = OMEGA_SAMPLE_TEX2D_BIAS(_BumpMap, _MainTex, tex_vars, _BumpBlurBias);
     #endif
-    // Anisotropy textures
     fixed4 _AnisotropyMap_var = 1;
     #ifdef PROP_ANISOTROPYMAP
         //KSOInlineSamplerState(_MainTex, _AnisotropyMap)
@@ -3224,6 +3267,16 @@ half4 frag_omega (
     #ifdef PROP_ANISOTROPYANGLEMAP
         //KSOInlineSamplerState(_MainTex, _AnisotropyAngleMap)
         _AnisotropyAngleMap_var = OMEGA_SAMPLE_TEX2D(_AnisotropyAngleMap, _MainTex, tex_vars);
+    #endif
+    fixed4 _BentNormalMap_var = 0;
+    #ifdef PROP_BENTNORMALMAP
+        //KSOInlineSamplerState(_MainTex, _BentNormalMap)
+        _BentNormalMap_var = OMEGA_SAMPLE_TEX2D(_BentNormalMap, _MainTex, tex_vars);
+    #endif
+    fixed4 _AlternateBumpMap_var = 0;
+    #ifdef PROP_ALTERNATEBUMPMAP
+        //KSOInlineSamplerState(_MainTex, _AlternateBumpMap)
+        _AlternateBumpMap_var = OMEGA_SAMPLE_TEX2D(_AlternateBumpMap, _MainTex, tex_vars);
     #endif
 
     // Duplicate texture checks, second bumpmap bias sample always done separately
@@ -3240,6 +3293,8 @@ half4 frag_omega (
     //KSODuplicateTextureCheck(_AnisotropyMap)
     //KSODuplicateTextureCheck(_SpecGlossMap2)
     //KSODuplicateTextureCheck(_AnisotropyAngleMap)
+    //KSODuplicateTextureCheck(_BentNormalMap)
+    //KSODuplicateTextureCheck(_AlternateBumpMap)
 
     // Assign shading variables
     // Map textures to PBR variables and filter them
@@ -3294,9 +3349,12 @@ half4 frag_omega (
     #endif
     // Normals
     half3 blendedNormal = half3(0,0,1);
-    #ifdef PROP_BUMPMAP
+    #ifdef PROP_ALTERNATEBUMPMAP
+        blendedNormal = _AlternateBumpMap_var.rgb * 2 - 1; // always assume alt bump map is on RGB channels
+    #elif defined(PROP_BUMPMAP)
         blendedNormal = UnpackScaleNormal(_BumpMap_var, _BumpScale);
     #endif
+    // Detail normals always assumed to be Unity-NormalMap texture type
     #ifdef PROP_DETAILNORMALMAP
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, UnpackScaleNormal(_DetailNormalMap_var, _DetailNormalMapScale)), _DetailMask_var.r);
     #endif
@@ -3309,11 +3367,26 @@ half4 frag_omega (
     #ifdef PROP_DETAILNORMALMAPALPHA
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, UnpackScaleNormal(_DetailNormalMapAlpha_var, _DetailNormalMapScaleAlpha)), _DetailMask_var.a);
     #endif
+    fixed3 normalDir = i.normalWorld;
     #ifndef EXCLUDE_TANGENT_BITANGENT
         float3x3 tangentToWorld = float3x3(i.tangentWorld, i.bitangentWorld, i.normalWorld);
-        fixed3 normalDir = normalize(mul(blendedNormal, tangentToWorld));
-    #else
-        fixed3 normalDir = i.normalWorld;
+        switch (_NormalMapsSpace)
+        {
+            case 0: // Tangent
+                normalDir = normalize(mul(blendedNormal, tangentToWorld));
+                break;
+            case 1: // Object
+                if (_IdentityNormalsAndTangents)
+                    // same as tangent space transformation lol
+                    // the bitangent sign might need to be changed though
+                    normalDir = normalize(mul(blendedNormal, tangentToWorld));
+                else
+                    normalDir = mul(unity_ObjectToWorld, float4(blendedNormal, 1));
+                break;
+            case 2: // World
+                normalDir = normalize(blendedNormal);
+                break;
+        }
     #endif
     fixed translucency = 0;
     #ifdef PROPGROUP_TOGGLE_SSSTRANSMISSION

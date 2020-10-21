@@ -82,6 +82,21 @@ Shader "Kaj/Omega"
         [UnIndent]
         [HideInInspector]end_StandardSettings("", Int) = 1
 
+        [HideInInspector]group_advanced_normals("Extra Normal Maps", Int) = 0
+        //[Normal][KeywordTex(AUTO_KEY_VALUE)]_BentNormalMap(";;AUTO_KEY_VALUE;Bent Normal Map", 2D) = "bump" {}
+        [Indent]
+            //[Enum(Kaj.UVMapping)]_BentNormalMapUV ("UV Set", Int) = 0
+            //[Enum(Red,0,Green,1,Blue,2,Alpha,3)]_BentNormalMapChannel("Channel to Sample", Int) = 0
+        [UnIndent]
+        [KeywordTex(DITHERING)]_AlternateBumpMap(";;DITHERING;Default-Texture Normal Map", 2D) = "gray" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_AlternateBumpMapUV ("UV Set", Int) = 0
+        [UnIndent]
+        [HelpBox]_NormalMapSettingsTooltip("Normal map space must be consistent across all normal maps.  Special normals & tangents must be created for skinned meshes with object space normal maps.", Int) = 0
+        [WideEnum(Tangent Space,0, Object Space,1, World Space,2)]_NormalMapsSpace("Normal Maps Type", Int) = 0
+        [ToggleUI]_IdentityNormalsAndTangents("Custom Normals & Tangets for Skinned Meshes", Int) = 0
+        [HideInInspector]end_advanced_normals("", Int) = 0
+
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
         [ToggleUI]_HDREnabled("HDR Enabled", Int) = 1
         [ToggleUI]_FlippedNormalBackfaces("Backfaces use Flipped Normals (Cull Front/Off)", Int) = 1
@@ -381,6 +396,9 @@ Shader "Kaj/Omega"
         [Header(Animated Properties)]
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
         [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
+        [ToggleUILeft]_AlternateBumpMap_STAnimated("  _AlternateBumpMap_ST", Int) = 0
+        [ToggleUILeft]_AlternateBumpMap_TexelSizeAnimated("  _AlternateBumpMap_TexelSize", Int) = 0
+        [ToggleUILeft]_AlternateBumpMapUVAnimated("  _AlternateBumpMapUV", Int) = 0
         [ToggleUILeft]_AnisotropyAngleMap_STAnimated("  _AnisotropyAngleMap_ST", Int) = 0
         [ToggleUILeft]_AnisotropyAngleMap_TexelSizeAnimated("  _AnisotropyAngleMap_TexelSize", Int) = 0
         [ToggleUILeft]_AnisotropyAngleMapChannelAnimated("  _AnisotropyAngleMapChannel", Int) = 0
@@ -395,6 +413,10 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_AnisotropyMinAnimated("  _AnisotropyMin", Int) = 0
         [ToggleUILeft]_AnisotropyModeAnimated("  _AnisotropyMode", Int) = 0
         [ToggleUILeft]_AOColorBleedAnimated("  _AOColorBleed", Int) = 0
+        [ToggleUILeft]_BentNormalMap_STAnimated("  _BentNormalMap_ST", Int) = 0
+        [ToggleUILeft]_BentNormalMap_TexelSizeAnimated("  _BentNormalMap_TexelSize", Int) = 0
+        [ToggleUILeft]_BentNormalMapChannelAnimated("  _BentNormalMapChannel", Int) = 0
+        [ToggleUILeft]_BentNormalMapUVAnimated("  _BentNormalMapUV", Int) = 0
         [ToggleUILeft]_BlinnAnimated("  _Blinn", Int) = 0
         [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
         [ToggleUILeft]_BumpBlurBiasAnimated("  _BumpBlurBias", Int) = 0
@@ -507,6 +529,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_MinEdgeLengthAnimated("  _MinEdgeLength", Int) = 0
         [ToggleUILeft]_MinEdgeLengthEnabledAnimated("  _MinEdgeLengthEnabled", Int) = 0
         [ToggleUILeft]_MinEdgeLengthSpaceAnimated("  _MinEdgeLengthSpace", Int) = 0
+        [ToggleUILeft]_NormalMapsSpaceAnimated("  _NormalMapsSpace", Int) = 0
         [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
         [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
         [ToggleUILeft]_OcclusionMap_STAnimated("  _OcclusionMap_ST", Int) = 0
@@ -623,7 +646,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 39", Int) = 39
+        [KajLabel]_Version("Shader Version: 40", Int) = 40
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -707,6 +730,8 @@ Shader "Kaj/Omega"
             #pragma shader_feature ANTI_FLICKER
             #pragma shader_feature GRAIN
             #pragma shader_feature BLOOM
+            #pragma shader_feature AUTO_KEY_VALUE
+            #pragma shader_feature DITHERING
             // These keywords are used to switch tessellation and geometry program attributes
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
@@ -769,6 +794,8 @@ Shader "Kaj/Omega"
             #pragma shader_feature ANTI_FLICKER
             #pragma shader_feature GRAIN
             #pragma shader_feature BLOOM
+            #pragma shader_feature AUTO_KEY_VALUE
+            #pragma shader_feature DITHERING
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
             #pragma shader_feature _TERRAIN_NORMAL_MAP
