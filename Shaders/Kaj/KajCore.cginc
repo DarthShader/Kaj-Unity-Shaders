@@ -389,13 +389,18 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_BentNormalMap);
     uniform float4 _BentNormalMap_ST;
     uniform float4 _BentNormalMap_TexelSize;
     uniform float _BentNormalMapUV;
-    uniform float _BentNormalMapChannel;
 UNITY_DECLARE_TEX2D_NOSAMPLER(_AlternateBumpMap);
     uniform float4 _AlternateBumpMap_ST;
     uniform float4 _AlternateBumpMap_TexelSize;
     uniform float _AlternateBumpMapUV;
 uniform float _NormalMapsSpace;
 uniform float _IdentityNormalsAndTangents;
+uniform float _OcclusionIndirectSpecular;
+UNITY_DECLARE_TEX2D_NOSAMPLER(_AlternateBentNormalMap);
+    uniform float4 _AlternateBentNormalMap_ST;
+    uniform float4 _AlternateBentNormalMap_TexelSize;
+    uniform float _AlternateBentNormalMapUV;
+uniform float _HemiOctahedronEncodedNormals;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -575,6 +580,11 @@ uniform float _IdentityNormalsAndTangents;
         #define PROP_ALTERNATEBUMPMAP
     #endif
 #endif
+#ifdef DEPTH_OF_FIELD
+    #ifndef PROP_ALTERNATEBENTNORMALMAP
+        #define PROP_ALTERNATEBENTNORMALMAP
+    #endif
+#endif
 
 // Omega Shader culling preprocessor variable definitions + tessellation/geometry disabling variable definitions
 // A ton of convolued logic just to cull some appdata and interpolator values.  Probably not worth much
@@ -706,6 +716,9 @@ uniform float _IdentityNormalsAndTangents;
     #if !defined(PROP_ALTERNATEBUMPMAP) && PROP_ALTERNATEBUMPMAP_TEXELSIZEANIMATED == 0
         #define ALTERNATEBUMPMAP_UNUSED 1
     #endif
+    #if !defined(PROP_ALTERNATEBENTNORMALMAP) && PROP_ALTERNATEBENTNORMALMAP_TEXELSIZEANIMATED == 0
+        #define ALTERNATEBENTNORMALMAP_UNUSED 1
+    #endif
 
 
     #ifndef UNITY_PASS_META // Meta pass needs UV1 and UV2 for lightmaps
@@ -742,6 +755,7 @@ uniform float _IdentityNormalsAndTangents;
             && ((PROP_ANISOTROPYANGLEMAPUV != 0 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0) || ANISOTROPYANGLEMAP_UNUSED) \
             && ((PROP_BENTNORMALMAPUV != 0 && PROP_BENTNORMALMAPUVANIMATED == 0) || BENTNORMALMAP_UNUSED) \
             && ((PROP_ALTERNATEBUMPMAPUV != 0 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0) || ALTERNATEBUMPMAP_UNUSED) \
+            && ((PROP_ALTERNATEBENTNORMALMAPUV != 0 && PROP_ALTERNATEBENTNORMALMAPUVANIMATED == 0) || ALTERNATEBENTNORMALMAP_UNUSED) \
             && (PROP_MODE != 1 || (PROP_ALPHATOMASK == 0 && PROP_ALPHATOMASKANIMATED == 0))
             #define EXCLUDE_UV0
         #endif
@@ -766,6 +780,7 @@ uniform float _IdentityNormalsAndTangents;
             && PROP_ANISOTROPYANGLEMAPUV != 1 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
             && PROP_BENTNORMALMAPUV != 1 && PROP_BENTNORMALMAPUVANIMATED == 0 \
             && PROP_ALTERNATEBUMPMAPUV != 1 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
+            && PROP_ALTERNATEBENTNORMALMAPUV != 1 && PROP_ALTERNATEBENTNORMALMAPUVANIMATED == 0 \
             && !defined(LIGHTMAP_ON)
             #define EXCLUDE_UV1
         #endif
@@ -790,6 +805,7 @@ uniform float _IdentityNormalsAndTangents;
             && PROP_ANISOTROPYANGLEMAPUV != 2 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
             && PROP_BENTNORMALMAPUV != 2 && PROP_BENTNORMALMAPUVANIMATED == 0 \
             && PROP_ALTERNATEBUMPMAPUV != 2 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
+            && PROP_ALTERNATEBENTNORMALMAPUV != 2 && PROP_ALTERNATEBENTNORMALMAPUVANIMATED == 0 \
             && !defined(DYNAMICLIGHTMAP_ON)
             #define EXCLUDE_UV2
         #endif
@@ -813,7 +829,8 @@ uniform float _IdentityNormalsAndTangents;
             && PROP_SPECGLOSSMAP2UV != 3 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
             && PROP_ANISOTROPYANGLEMAPUV != 3 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
             && PROP_BENTNORMALMAPUV != 3 && PROP_BENTNORMALMAPUVANIMATED == 0 \
-            && PROP_ALTERNATEBUMPMAPUV != 3 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0
+            && PROP_ALTERNATEBUMPMAPUV != 3 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
+            && PROP_ALTERNATEBENTNORMALMAPUV != 3 && PROP_ALTERNATEBENTNORMALMAPUVANIMATED == 0
             #define EXCLUDE_UV3
         #endif
     #endif
@@ -851,6 +868,7 @@ uniform float _IdentityNormalsAndTangents;
         && PROP_ANISOTROPYANGLEMAPUV != 12 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
         && PROP_BENTNORMALMAPUV != 12 && PROP_BENTNORMALMAPUVANIMATED == 0 \
         && PROP_ALTERNATEBUMPMAPUV != 12 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
+        && PROP_ALTERNATEBENTNORMALMAPUV != 12 && PROP_ALTERNATEBENTNORMALMAPUVANIMATED == 0 \
         && (PROP_MODE == 0 || (PROP_DITHERINGENABLED == 0 && PROP_DITHERINGENABLEDANIMATED == 0))
         #define EXCLUDE_GRABPOS
     #endif
@@ -875,7 +893,8 @@ uniform float _IdentityNormalsAndTangents;
         && PROP_SPECGLOSSMAP2UV != 5 && PROP_SPECGLOSSMAP2UVANIMATED == 0 \
         && PROP_ANISOTROPYANGLEMAPUV != 5 && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
         && PROP_BENTNORMALMAPUV != 5 && PROP_BENTNORMALMAPUVANIMATED == 0 \
-        && PROP_ALTERNATEBUMPMAPUV != 5 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0
+        && PROP_ALTERNATEBUMPMAPUV != 5 && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
+        && PROP_ALTERNATEBENTNORMALMAPUV != 5 && PROP_ALTERNATEBENTNORMALMAPUVANIMATED == 0
         #define EXCLUDE_NORMALOBJECT
     #endif
 
@@ -900,6 +919,7 @@ uniform float _IdentityNormalsAndTangents;
         && (PROP_ANISOTROPYANGLEMAPUV < 9 || PROP_ANISOTROPYANGLEMAPUV > 11) && PROP_ANISOTROPYANGLEMAPUVANIMATED == 0 \
         && (PROP_BENTNORMALMAPUV < 9 || PROP_BENTNORMALMAPUV > 11) && PROP_BENTNORMALMAPUVANIMATED == 0 \
         && (PROP_ALTERNATEBUMPMAPUV < 9 || PROP_ALTERNATEBUMPMAPUV > 11) && PROP_ALTERNATEBUMPMAPUVANIMATED == 0 \
+        && (PROP_ALTERNATEBENTNORMALMAPUV < 9 || PROP_ALTERNATEBENTNORMALMAPUV > 11) && PROP_ALTERNATEBENTNORMALMAPUVANIMATED == 0 \
         && (PROPGROUP_TOGGLE_SSSTRANSMISSION == 0 && PROPGROUP_TOGGLE_SSSTRANSMISSIONANIMATED == 0)
         #define EXCLUDE_POSOBJECT
     #endif
@@ -914,6 +934,7 @@ uniform float _IdentityNormalsAndTangents;
         && !defined(PROP_BUMPMAP) && PROP_BUMPMAP_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_BENTNORMALMAP) && PROP_BENTNORMALMAP_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_ALTERNATEBUMPMAP) && PROP_ALTERNATEBUMPMAP_TEXELSIZEANIMATED == 0 \
+        && !defined(PROP_ALTERNATEBENTNORMALMAP) && PROP_ALTERNATEBENTNORMALMAP_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_DETAILNORMALMAP) && PROP_DETAILNORMALMAP_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_DETAILNORMALMAPGREEN) && PROP_DETAILNORMALMAPGREEN_TEXELSIZEANIMATED == 0 \
         && !defined(PROP_DETAILNORMALMAPBLUE) && PROP_DETAILNORMALMAPBLUE_TEXELSIZEANIMATED == 0 \
@@ -2165,8 +2186,6 @@ vert_omega (appdata_full_omega v)
             #endif
         #endif
         #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
-            o.vizUV = 0;
-            o.lightCoord = 0;
             if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
                 o.vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.texcoord.xy, v.texcoord1.xy, v.texcoord2.xy, unity_EditorViz_Texture_ST);
             else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
@@ -2650,8 +2669,6 @@ domain_omega (
             #endif
         #endif
         #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
-            o.vizUV = 0;
-            o.lightCoord = 0;
             if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
                 o.vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.uv0and1.xy, v.uv0and1.zw, v.uv2and3.xy, unity_EditorViz_Texture_ST);
             else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
@@ -2795,8 +2812,6 @@ void geom_omega(triangle VStoHS_omega IN[3], inout TriangleStream<GStoPS_omega> 
             #endif
         #endif
         #if defined(UNITY_PASS_META) && defined(EDITOR_VISUALIZATION)
-            o[i].vizUV = 0;
-            o[i].lightCoord = 0;
             if (unity_VisualizationMode == EDITORVIZ_TEXTURE)
                 o[i].vizUV = UnityMetaVizUV(unity_EditorViz_UVIndex, v.uv0and1.xy, v.uv0and1.zw, v.uv2and3.xy, unity_EditorViz_Texture_ST);
             else if (unity_VisualizationMode == EDITORVIZ_SHOWLIGHTMASK)
@@ -3278,6 +3293,11 @@ half4 frag_omega (
         //KSOInlineSamplerState(_MainTex, _AlternateBumpMap)
         _AlternateBumpMap_var = OMEGA_SAMPLE_TEX2D(_AlternateBumpMap, _MainTex, tex_vars);
     #endif
+    fixed4 _AlternateBentNormalMap_var = 0;
+    #ifdef PROP_ALTERNATEBENTNORMALMAP
+        //KSOInlineSamplerState(_MainTex, _AlternateBentNormalMap)
+        _AlternateBentNormalMap_var = OMEGA_SAMPLE_TEX2D(_AlternateBentNormalMap, _MainTex, tex_vars);
+    #endif
 
     // Duplicate texture checks, second bumpmap bias sample always done separately
     //KSODuplicateTextureCheck(_MetallicGlossMap)
@@ -3295,6 +3315,7 @@ half4 frag_omega (
     //KSODuplicateTextureCheck(_AnisotropyAngleMap)
     //KSODuplicateTextureCheck(_BentNormalMap)
     //KSODuplicateTextureCheck(_AlternateBumpMap)
+    //KSODuplicateTextureCheck(_AlternateBentNormalMap)
 
     // Assign shading variables
     // Map textures to PBR variables and filter them
@@ -3309,7 +3330,7 @@ half4 frag_omega (
             occlusion = _OcclusionMap_var[_OcclusionMapChannel];
         else occlusion = _OcclusionMap_var.rgb;
     #endif
-    occlusion = lerp(1, occlusion, _OcclusionStrength);
+    //occlusion = lerp(1, occlusion, _OcclusionStrength);
     if (_DiffuseMode == 2) // Color bleed only available on Skin diffuse, may change later. Occlusion tint is also a thing
         occlusion = pow(occlusion, 1 - _AOColorBleed);
     fixed perceptualRoughness = 1;
@@ -3350,7 +3371,7 @@ half4 frag_omega (
     // Normals
     half3 blendedNormal = half3(0,0,1);
     #ifdef PROP_ALTERNATEBUMPMAP
-        blendedNormal = _AlternateBumpMap_var.rgb * 2 - 1; // always assume alt bump map is on RGB channels
+        blendedNormal = _AlternateBumpMap_var.rgb * 2 - 1;
     #elif defined(PROP_BUMPMAP)
         blendedNormal = UnpackScaleNormal(_BumpMap_var, _BumpScale);
     #endif
@@ -3367,7 +3388,12 @@ half4 frag_omega (
     #ifdef PROP_DETAILNORMALMAPALPHA
         blendedNormal = lerp(blendedNormal, BlendNormals(blendedNormal, UnpackScaleNormal(_DetailNormalMapAlpha_var, _DetailNormalMapScaleAlpha)), _DetailMask_var.a);
     #endif
-    fixed3 normalDir = i.normalWorld;
+    UNITY_BRANCH
+    if (_HemiOctahedronEncodedNormals)
+    {
+        // todo
+    }
+    half3 normalDir = i.normalWorld;
     #ifndef EXCLUDE_TANGENT_BITANGENT
         float3x3 tangentToWorld = float3x3(i.tangentWorld, i.bitangentWorld, i.normalWorld);
         switch (_NormalMapsSpace)
@@ -3387,6 +3413,28 @@ half4 frag_omega (
                 normalDir = normalize(blendedNormal);
                 break;
         }
+        #ifdef PROP_BENTNORMALMAP
+            half3 bentNormalDir = UnpackNormal(_BentNormalMap_var);
+        #elif defined(PROP_ALTERNATEBENTNORMALMAP)
+            half3 bentNormalDir = _AlternateBentNormalMap_var.rgb * 2 - 1;
+        #endif
+        #if defined(PROP_BENTNORMALMAP) || defined(PROP_ALTERNATEBENTNORMALMAP)
+            switch (_NormalMapsSpace)
+            {
+                case 0: // Tangent
+                    bentNormalDir = normalize(mul(bentNormalDir, tangentToWorld));
+                    break;
+                case 1: // Object
+                    if (_IdentityNormalsAndTangents)
+                        bentNormalDir = normalize(mul(bentNormalDir, tangentToWorld));
+                    else
+                        bentNormalDir = mul(unity_ObjectToWorld, float4(bentNormalDir, 1));
+                    break;
+                case 2: // World
+                    bentNormalDir = normalize(bentNormalDir);
+                    break;
+            }
+        #endif
     #endif
     fixed translucency = 0;
     #ifdef PROPGROUP_TOGGLE_SSSTRANSMISSION
@@ -3394,15 +3442,13 @@ half4 frag_omega (
             translucency = _SSSTranslucencyMin + _TranslucencyMap_var[_TranslucencyMapChannel] * (_SSSTranslucencyMax - _SSSTranslucencyMin);
     #endif
     // Common vars
+    float2 lightmapUV = 0;
     #ifndef EXCLUDE_UV0AND1
-        float2 lightmapUV = i.uv0and1.zw * unity_LightmapST.xy + unity_LightmapST.zw;
-    #else
-        float2 lightmapUV = 0;
+        lightmapUV = i.uv0and1.zw * unity_LightmapST.xy + unity_LightmapST.zw;
     #endif
+    float2 dynamicLightmapUV = 0;
     #ifndef EXCLUDE_UV2AND3
-        float2 dynamicLightmapUV = i.uv2and3.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
-    #else
-        float2 dynamicLightmapUV = 0;
+        dynamicLightmapUV = i.uv2and3.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
     #endif
     fixed3 lightDir = getLightDirection(i.posWorld.xyz, lightmapUV); 
     #ifdef UNITY_PASS_FORWARDBASE
@@ -3557,7 +3603,10 @@ half4 frag_omega (
         #endif
         #if UNITY_SHOULD_SAMPLE_SH
             half3 indirect_diffuse_normal = normalDir;
-            if (_DiffuseMode == 3) // Flat lit light, vertex lights are sampled with regular normal
+            #if defined(PROP_BENTNORMALMAP) || defined(PROP_ALTERNATEBENTNORMALMAP)
+                indirect_diffuse_normal = bentNormalDir;
+            #endif
+            if (_DiffuseMode == 3) // Flat lit diffuse
                 indirect_diffuse_normal = 0;
             indirect_diffuse = VertexLightsDiffuse(indirect_diffuse_normal, i.posWorld.xyz) * _VertexLightIntensity;
             indirect_diffuse += ShadeSHPerPixelModular(indirect_diffuse_normal, i.posWorld.xyz) * _LightProbeIntensity;
@@ -3566,7 +3615,7 @@ half4 frag_omega (
                 #ifdef PROPGROUP_TOGGLE_SSSTRANSMISSION
                     if (group_toggle_SSSTransmission && _SSSStylizedIndirect > 0)
                     {
-                        half3 stylized_transmission_normal = UnityObjectToWorldNormal(i.posObject.xyz); // probably needs to be normalized
+                        half3 stylized_transmission_normal = UnityObjectToWorldNormal(i.posObject.xyz);
                         half3 stylized_indirect_diffuse_transmission = VertexLightsDiffuse(stylized_transmission_normal, i.posWorld.xyz) * _VertexLightIntensity;
                         stylized_indirect_diffuse_transmission += ShadeSHPerPixelModular(stylized_transmission_normal, i.posWorld.xyz) * _LightProbeIntensity;
                         indirect_diffuse = lerp(indirect_diffuse, stylized_indirect_diffuse_transmission, 
@@ -3614,7 +3663,7 @@ half4 frag_omega (
             #endif
         #endif
     #endif
-    indirect_diffuse *= occlusion;
+    indirect_diffuse *= lerp(1, occlusion, _OcclusionStrength);
     // Fake directional light
     #ifdef UNITY_PASS_FORWARDBASE
         if (_FakeLightToggle)
@@ -3685,7 +3734,12 @@ half4 frag_omega (
             #endif
         }
         else indirect_specular = unity_IndirectSpecColor.rgb;
-        indirect_specular *= occlusion * _ReflectionsIntensity;
+        half3 indirect_specular_occlusion = lerp(1, occlusion, _OcclusionIndirectSpecular);
+        #if defined(PROP_BENTNORMALMAP) || defined(PROP_ALTERNATEBENTNORMALMAP)
+            indirect_specular *= lerp(max(dot(viewReflectDir, bentNormalDir), 0), 1, indirect_specular_occlusion) * _ReflectionsIntensity;
+        #else
+            indirect_specular *= indirect_specular_occlusion * _ReflectionsIntensity;
+        #endif
     #endif
 
 
@@ -3804,7 +3858,7 @@ half4 frag_omega (
                 specularTerm = sqrt(max(1e-4h, specularTerm));
             #endif
             specularTerm = max(0, specularTerm * cc_NdotL);
-            specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular); // eh
+            //specularTerm = lerp(specularTerm, specularTerm * occlusion, _OcclusionDirectSpecular); // eh
             clearcoat_specular_term = specularTerm * lightColor * FresnelTerm (CLEAR_COAT_F0, cc_LdotH) * clearcoatMask;
         }
     #endif

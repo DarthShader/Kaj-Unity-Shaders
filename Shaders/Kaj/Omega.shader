@@ -10,6 +10,8 @@ Shader "Kaj/Omega"
         [OverrideTagToggle(ForceNoShadowCasting)] _ForceNoShadowCasting ("ForceNoShadowCasting", Int) = 0
         [OverrideTagToggle(CanUseSpriteAtlas)] _CanUseSpriteAtlas ("CanUseSpriteAtlas", Int) = 1
 
+        // Keyword to remind users in the VRChat SDK that this material hasn't been locked.  Inelegant but it works.
+        [HideInInspector] _ForgotToLockMaterial(";;YOU_FORGOT_TO_LOCK_THIS_MATERIAL;", Int) = 1
         [ShaderOptimizerLockButton] _ShaderOptimizerEnabled ("", Int) = 0
         [HelpBox(3)] _LockTooltip("ALWAYS LOCK YOUR MATERIALS BEFORE BUILDING VRCHAT AVATARS AND WORLDS", Int) = 0
 
@@ -20,8 +22,8 @@ Shader "Kaj/Omega"
         [MainTexture]_MainTex ("Albedo", 2D) = "white" { }
         [Indent]
             [Enum(Kaj.UVMapping)]_MainTexUV ("UV Set", Int) = 0
+            [Enum(RGB,0, RGBA,1)]_AlbedoTransparencyEnabled("Channels to Sample", Int) = 1
         [UnIndent]
-        [ToggleUI]_AlbedoTransparencyEnabled("Albedo Alpha is Transparency", Int) = 1
         [ToggleUI]_VertexColorsEnabled("Vertex Color Albedo", Int) = 0
         [KeywordTex(_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A)]_CoverageMap (";;_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A;Coverage (Transparency) Map", 2D) = "white" {}
         [Indent]
@@ -70,7 +72,10 @@ Shader "Kaj/Omega"
         [Indent]
             [Enum(Kaj.UVMapping)]_OcclusionMapUV("UV Set", Int) = 0
             [Enum(Red,0,Green,1,Blue,2,Alpha,3,RGB,4)]_OcclusionMapChannel("Channel(s) to Sample", Int) = 4
-            _OcclusionStrength("Occlusion Strength", Range(0.0, 1.0)) = 1.0
+            _OcclusionStrength("Indirect Diffuse Strength", Range(0.0, 1.0)) = 1.0
+            _OcclusionDirectDiffuse("Direct Diffuse Strength", Range(0,1)) = 0
+            _OcclusionDirectSpecular("Specular Strength", Range(0,1)) = 0
+            _OcclusionIndirectSpecular("Reflections Strength", Range(0,1)) = 0
         [UnIndent]
         _SpecColor("Specular Color", Color) = (1,1,1,1)
         [KeywordTex(_SPECGLOSSMAP)]_SpecularMap(";;_SPECGLOSSMAP;Specular Map", 2D) = "white" {}
@@ -83,18 +88,24 @@ Shader "Kaj/Omega"
         [HideInInspector]end_StandardSettings("", Int) = 1
 
         [HideInInspector]group_advanced_normals("Extra Normal Maps", Int) = 0
-        //[Normal][KeywordTex(AUTO_KEY_VALUE)]_BentNormalMap(";;AUTO_KEY_VALUE;Bent Normal Map", 2D) = "bump" {}
+        [WideEnum(Tangent Space,0, Object Space,1, World Space,2)]_NormalMapsSpace("Normal Maps Mode", Int) = 0
+        //[ToggleUI]_HemiOctahedronEncodedNormals("Hemi-octahedron encoded normal maps", Int) = 0
+        [Space(10)]
+        [Normal][KeywordTex(AUTO_KEY_VALUE)]_BentNormalMap(";;AUTO_KEY_VALUE;Bent Normal Map", 2D) = "bump" {}
         [Indent]
-            //[Enum(Kaj.UVMapping)]_BentNormalMapUV ("UV Set", Int) = 0
-            //[Enum(Red,0,Green,1,Blue,2,Alpha,3)]_BentNormalMapChannel("Channel to Sample", Int) = 0
+            [Enum(Kaj.UVMapping)]_BentNormalMapUV ("UV Set", Int) = 0
         [UnIndent]
-        [KeywordTex(DITHERING)]_AlternateBumpMap(";;DITHERING;Default-Texture Normal Map", 2D) = "gray" {}
+        [KeywordTex(DITHERING)]_AlternateBumpMap(";;DITHERING;Default-Texture Normal Map (RGB)", 2D) = "gray" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_AlternateBumpMapUV ("UV Set", Int) = 0
         [UnIndent]
-        [HelpBox]_NormalMapSettingsTooltip("Normal map space must be consistent across all normal maps.  Special normals & tangents must be created for skinned meshes with object space normal maps.", Int) = 0
-        [WideEnum(Tangent Space,0, Object Space,1, World Space,2)]_NormalMapsSpace("Normal Maps Type", Int) = 0
+        [KeywordTex(DEPTH_OF_FIELD)]_AlternateBentNormalMap(";;DEPTH_OF_FIELD;Default-Texture Bent Normal Map (RGB)", 2D) = "bump" {}
+        [Indent]
+            [Enum(Kaj.UVMapping)]_AlternateBentNormalMapUV ("UV Set", Int) = 0
+        [UnIndent]
+        [HelpBox]_NormalMapSettingsTooltip("Special normals & tangents must be created for skinned meshes with object space normal maps.  This will make shading appear correct but will break many effects that rely on mesh normals.", Int) = 0
         [ToggleUI]_IdentityNormalsAndTangents("Custom Normals & Tangets for Skinned Meshes", Int) = 0
+
         [HideInInspector]end_advanced_normals("", Int) = 0
 
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
@@ -137,7 +148,6 @@ Shader "Kaj/Omega"
 
         [HideInInspector][Toggle(_COLORADDSUBDIFF_ON)]group_toggle_Diffuse(";;_COLORADDSUBDIFF_ON;Diffuse Shading", Int) = 1
         [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3,Oren Nayer,4)]_DiffuseMode("Mode", Int) = 1
-        _OcclusionDirectDiffuse("Occlusion Strength", Range(0,1)) = 0
         [HideInInspector]group_Lambert("Lambert", Int) = 0
         _DiffuseWrap("Wrap Factor", Range(0,1)) = 0
         [ToggleUI]_DiffuseWrapConserveEnergy("Wrap Conserves Energy", Int) = 0
@@ -155,7 +165,6 @@ Shader "Kaj/Omega"
 
         [HideInInspector][Toggle(_COLOROVERLAY_ON)]group_toggle_Specular(";;_COLOROVERLAY_ON;Specular Highlights", Int) = 1
         [WideEnum(Phong,0, PBR,1, Skin,3)]_SpecularMode("Mode", Int) = 1
-        _OcclusionDirectSpecular("Occlusion Strength", Range(0,1)) = 0
         _DirectionalLightSpecularIntensity("Directional Lights", Range(0,1)) = 1
         _PointLightSpecularIntensity("Point Lights", Range(0,1)) = 1
         _SpotLightSpecularIntensity("Spot Lights", Range(0,1)) = 1
@@ -396,6 +405,9 @@ Shader "Kaj/Omega"
         [Header(Animated Properties)]
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
         [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
+        [ToggleUILeft]_AlternateBentNormalMapUVAnimated("  _AlternateBentNormalMapUV", Int) = 0
+        [ToggleUILeft]_AlternateBentNormalMap_STAnimated("  _AlternateBentNormalMap_ST", Int) = 0
+        [ToggleUILeft]_AlternateBentNormalMap_TexelSizeAnimated("  _AlternateBentNormalMap_TexelSize", Int) = 0
         [ToggleUILeft]_AlternateBumpMap_STAnimated("  _AlternateBumpMap_ST", Int) = 0
         [ToggleUILeft]_AlternateBumpMap_TexelSizeAnimated("  _AlternateBumpMap_TexelSize", Int) = 0
         [ToggleUILeft]_AlternateBumpMapUVAnimated("  _AlternateBumpMapUV", Int) = 0
@@ -415,7 +427,6 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_AOColorBleedAnimated("  _AOColorBleed", Int) = 0
         [ToggleUILeft]_BentNormalMap_STAnimated("  _BentNormalMap_ST", Int) = 0
         [ToggleUILeft]_BentNormalMap_TexelSizeAnimated("  _BentNormalMap_TexelSize", Int) = 0
-        [ToggleUILeft]_BentNormalMapChannelAnimated("  _BentNormalMapChannel", Int) = 0
         [ToggleUILeft]_BentNormalMapUVAnimated("  _BentNormalMapUV", Int) = 0
         [ToggleUILeft]_BlinnAnimated("  _Blinn", Int) = 0
         [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
@@ -513,6 +524,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
         [ToggleUILeft]_GlossyReflectionsAnimated("  _GlossyReflections", Int) = 0
         [ToggleUILeft]_HDREnabledAnimated("  _HDREnabled", Int) = 0
+        [ToggleUILeft]_HemiOctahedronEncodedNormalsAnimated("  _HemiOctahedronEncodedNormals", Int) = 0
         [ToggleUILeft]_IndirectLightIntensityAnimated("  _IndirectLightIntensity", Int) = 0
         [ToggleUILeft]_IndirectSpecFallbackAnimated("  _IndirectSpecFallback", Int) = 0
         [ToggleUILeft]_LightmapIntensityAnimated("  _LightmapIntensity", Int) = 0
@@ -532,6 +544,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_NormalMapsSpaceAnimated("  _NormalMapsSpace", Int) = 0
         [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
         [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
+        [ToggleUILeft]_OcclusionIndirectSpecularAnimated("  _OcclusionIndirectSpecular", Int) = 0
         [ToggleUILeft]_OcclusionMap_STAnimated("  _OcclusionMap_ST", Int) = 0
         [ToggleUILeft]_OcclusionMap_TexelSizeAnimated("  _OcclusionMap Texture", Int) = 0
         [ToggleUILeft]_OcclusionMapChannelAnimated("  _OcclusionMapChannel", Int) = 0
@@ -646,7 +659,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 40", Int) = 40
+        [KajLabel]_Version("Shader Version: 41", Int) = 41
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -732,6 +745,7 @@ Shader "Kaj/Omega"
             #pragma shader_feature BLOOM
             #pragma shader_feature AUTO_KEY_VALUE
             #pragma shader_feature DITHERING
+            #pragma shader_feature DEPTH_OF_FIELD
             // These keywords are used to switch tessellation and geometry program attributes
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
@@ -796,6 +810,7 @@ Shader "Kaj/Omega"
             #pragma shader_feature BLOOM
             #pragma shader_feature AUTO_KEY_VALUE
             #pragma shader_feature DITHERING
+            #pragma shader_feature DEPTH_OF_FIELD
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
             #pragma shader_feature _TERRAIN_NORMAL_MAP
