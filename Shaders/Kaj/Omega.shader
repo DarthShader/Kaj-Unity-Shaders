@@ -40,6 +40,7 @@ Shader "Kaj/Omega"
         [Normal][KeywordTex(_NORMALMAP)]_BumpMap(";;_NORMALMAP;Normal Map", 2D) = "bump" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_BumpMapUV ("UV Set", Int) = 0
+            [Enum(Tangent Space,0, Object Space,1, World Space,2)]_BumpMapSpace("Space", Int) = 0
             _BumpScale("Normals Scale", Float) = 1.0
         [UnIndent]
         [HDR]_EmissionColor("Emission Color", Color) = (1,1,1,1)
@@ -88,24 +89,21 @@ Shader "Kaj/Omega"
         [HideInInspector]end_StandardSettings("", Int) = 1
 
         [HideInInspector]group_advanced_normals("Extra Normal Maps", Int) = 0
-        [WideEnum(Tangent Space,0, Object Space,1, World Space,2)]_NormalMapsSpace("Normal Maps Mode", Int) = 0
-        //[ToggleUI]_HemiOctahedronEncodedNormals("Hemi-octahedron encoded normal maps", Int) = 0
-        [Space(10)]
-        [Normal][KeywordTex(AUTO_KEY_VALUE)]_BentNormalMap(";;AUTO_KEY_VALUE;Bent Normal Map", 2D) = "bump" {}
+        [KeywordTex(AUTO_KEY_VALUE)]_BentNormalMap(";;AUTO_KEY_VALUE;Bent Normal Map", 2D) = "bump" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_BentNormalMapUV ("UV Set", Int) = 0
+            [Enum(RGorAG DXTnm,0, RGB,1, AG Hemi Octahedron,2)]_BentNormalMapEncoding("Normals Encoding", Int) = 0
+            [Enum(Tangent Space,0, Object Space,1, World Space,2)]_BentNormalMapSpace("Normals Space", Int) = 0
         [UnIndent]
-        [KeywordTex(DITHERING)]_AlternateBumpMap(";;DITHERING;Default-Texture Normal Map (RGB)", 2D) = "gray" {}
+        [KeywordTex(DITHERING)]_AlternateBumpMap(";;DITHERING;Default-Texture Normal Map", 2D) = "bump" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_AlternateBumpMapUV ("UV Set", Int) = 0
+            [Enum(RGorAG DXTnm,0, RGB,1, AG Hemi Octahedron,2)]_AlternateBumpMapEncoding("Normals Encoding", Int) = 0
+            [Enum(Tangent Space,0, Object Space,1, World Space,2)]_AlternateBumpMapSpace("Normals Space", Int) = 0
+            _AlternateBumpScale("Normals Scale", Float) = 1.0
         [UnIndent]
-        [KeywordTex(DEPTH_OF_FIELD)]_AlternateBentNormalMap(";;DEPTH_OF_FIELD;Default-Texture Bent Normal Map (RGB)", 2D) = "bump" {}
-        [Indent]
-            [Enum(Kaj.UVMapping)]_AlternateBentNormalMapUV ("UV Set", Int) = 0
-        [UnIndent]
-        [HelpBox]_NormalMapSettingsTooltip("Special normals & tangents must be created for skinned meshes with object space normal maps.  This will make shading appear correct but will break many effects that rely on mesh normals.", Int) = 0
+        [HelpBox]_NormalMapSettingsTooltip("Special normals & tangents must be created for skinned meshes with object space normal maps.  This will break tangent space normals and many effects that rely on mesh normals.", Int) = 0
         [ToggleUI]_IdentityNormalsAndTangents("Custom Normals & Tangets for Skinned Meshes", Int) = 0
-
         [HideInInspector]end_advanced_normals("", Int) = 0
 
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
@@ -290,6 +288,7 @@ Shader "Kaj/Omega"
         [UnIndent]
         [Space(10)]
         [Enum(Kaj.UVMapping)]_UVSec ("Detail Textures UV Set", Int) = 0
+        [Enum(Tangent Space,0, Object Space,1, World Space,2)]_DetailNormalsSpace("Detail Normals Space", Int) = 0
         [WideEnum(Multiply x2,0,Multiply,1,Add,2,Lerp,3)]_DetailAlbedoCombineMode("Albedo Combine Mode", Int) = 0
         [HideInInspector]end_Details("", Int) = 0
 
@@ -405,12 +404,15 @@ Shader "Kaj/Omega"
         [Header(Animated Properties)]
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
         [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
-        [ToggleUILeft]_AlternateBentNormalMapUVAnimated("  _AlternateBentNormalMapUV", Int) = 0
         [ToggleUILeft]_AlternateBentNormalMap_STAnimated("  _AlternateBentNormalMap_ST", Int) = 0
         [ToggleUILeft]_AlternateBentNormalMap_TexelSizeAnimated("  _AlternateBentNormalMap_TexelSize", Int) = 0
+        [ToggleUILeft]_AlternateBentNormalMapUVAnimated("  _AlternateBentNormalMapUV", Int) = 0
         [ToggleUILeft]_AlternateBumpMap_STAnimated("  _AlternateBumpMap_ST", Int) = 0
         [ToggleUILeft]_AlternateBumpMap_TexelSizeAnimated("  _AlternateBumpMap_TexelSize", Int) = 0
+        [ToggleUILeft]_AlternateBumpMapEncodingAnimated("  _AlternateBumpMapEncoding", Int) = 0
+        [ToggleUILeft]_AlternateBumpMapSpaceAnimated("  _AlternateBumpMapSpace", Int) = 0
         [ToggleUILeft]_AlternateBumpMapUVAnimated("  _AlternateBumpMapUV", Int) = 0
+        [ToggleUILeft]_AlternateBumpScaleAnimated("  _AlternateBumpScale", Int) = 0
         [ToggleUILeft]_AnisotropyAngleMap_STAnimated("  _AnisotropyAngleMap_ST", Int) = 0
         [ToggleUILeft]_AnisotropyAngleMap_TexelSizeAnimated("  _AnisotropyAngleMap_TexelSize", Int) = 0
         [ToggleUILeft]_AnisotropyAngleMapChannelAnimated("  _AnisotropyAngleMapChannel", Int) = 0
@@ -427,12 +429,15 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_AOColorBleedAnimated("  _AOColorBleed", Int) = 0
         [ToggleUILeft]_BentNormalMap_STAnimated("  _BentNormalMap_ST", Int) = 0
         [ToggleUILeft]_BentNormalMap_TexelSizeAnimated("  _BentNormalMap_TexelSize", Int) = 0
+        [ToggleUILeft]_BentNormalMapEncodingAnimated("  _BentNormalMapEncoding", Int) = 0
+        [ToggleUILeft]_BentNormalMapSpaceAnimated("  _BentNormalMapSpace", Int) = 0
         [ToggleUILeft]_BentNormalMapUVAnimated("  _BentNormalMapUV", Int) = 0
         [ToggleUILeft]_BlinnAnimated("  _Blinn", Int) = 0
         [ToggleUILeft]_BlurStrengthAnimated("  _BlurStrength", Int) = 0
         [ToggleUILeft]_BumpBlurBiasAnimated("  _BumpBlurBias", Int) = 0
         [ToggleUILeft]_BumpMap_STAnimated("  _BumpMap_ST", Int) = 0
         [ToggleUILeft]_BumpMap_TexelSizeAnimated("  _BumpMap Texture", Int) = 0
+        [ToggleUILeft]_BumpMapSpaceAnimated("  _BumpMapSpace", Int) = 0
         [ToggleUILeft]_BumpMapUVAnimated("  _BumpMapUV", Int) = 0
         [ToggleUILeft]_BumpScaleAnimated("  _BumpScale", Int) = 0
         [ToggleUILeft]_CameraDistanceScalingAnimated("  _CameraDistanceScaling", Int) = 0
@@ -486,6 +491,7 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_DetailNormalMapScaleAnimated("  _DetailNormalMapScale", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleBlueAnimated("  _DetailNormalMapScaleBlue", Int) = 0
         [ToggleUILeft]_DetailNormalMapScaleGreenAnimated("  _DetailNormalMapScaleGreen", Int) = 0
+        [ToggleUILeft]_DetailNormalsSpaceAnimated("  _DetailNormalsSpace", Int) = 0
         [ToggleUILeft]_DiffuseModeAnimated("  _DiffuseMode", Int) = 0
         [ToggleUILeft]_DiffuseWrapAnimated("  _DiffuseWrap", Int) = 0
         [ToggleUILeft]_DiffuseWrapConserveEnergyAnimated("  _DiffuseWrapConserveEnergy", Int) = 0
@@ -524,7 +530,6 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_GlossinessModeAnimated("  _GlossinessMode", Int) = 0
         [ToggleUILeft]_GlossyReflectionsAnimated("  _GlossyReflections", Int) = 0
         [ToggleUILeft]_HDREnabledAnimated("  _HDREnabled", Int) = 0
-        [ToggleUILeft]_HemiOctahedronEncodedNormalsAnimated("  _HemiOctahedronEncodedNormals", Int) = 0
         [ToggleUILeft]_IndirectLightIntensityAnimated("  _IndirectLightIntensity", Int) = 0
         [ToggleUILeft]_IndirectSpecFallbackAnimated("  _IndirectSpecFallback", Int) = 0
         [ToggleUILeft]_LightmapIntensityAnimated("  _LightmapIntensity", Int) = 0
@@ -541,7 +546,6 @@ Shader "Kaj/Omega"
         [ToggleUILeft]_MinEdgeLengthAnimated("  _MinEdgeLength", Int) = 0
         [ToggleUILeft]_MinEdgeLengthEnabledAnimated("  _MinEdgeLengthEnabled", Int) = 0
         [ToggleUILeft]_MinEdgeLengthSpaceAnimated("  _MinEdgeLengthSpace", Int) = 0
-        [ToggleUILeft]_NormalMapsSpaceAnimated("  _NormalMapsSpace", Int) = 0
         [ToggleUILeft]_OcclusionDirectDiffuseAnimated("  _OcclusionDirectDiffuse", Int) = 0
         [ToggleUILeft]_OcclusionDirectSpecularAnimated("  _OcclusionDirectSpecular", Int) = 0
         [ToggleUILeft]_OcclusionIndirectSpecularAnimated("  _OcclusionIndirectSpecular", Int) = 0
@@ -659,7 +663,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 41", Int) = 41
+        [KajLabel]_Version("Shader Version: 42", Int) = 42
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -745,7 +749,6 @@ Shader "Kaj/Omega"
             #pragma shader_feature BLOOM
             #pragma shader_feature AUTO_KEY_VALUE
             #pragma shader_feature DITHERING
-            #pragma shader_feature DEPTH_OF_FIELD
             // These keywords are used to switch tessellation and geometry program attributes
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
@@ -810,7 +813,6 @@ Shader "Kaj/Omega"
             #pragma shader_feature BLOOM
             #pragma shader_feature AUTO_KEY_VALUE
             #pragma shader_feature DITHERING
-            #pragma shader_feature DEPTH_OF_FIELD
             #pragma shader_feature _ _SUNDISK_NONE _SUNDISK_SIMPLE
             #pragma shader_feature _SUNDISK_HIGH_QUALITY
             #pragma shader_feature _TERRAIN_NORMAL_MAP
