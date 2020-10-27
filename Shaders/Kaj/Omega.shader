@@ -144,12 +144,129 @@ Shader "Kaj/Omega"
         [UnIndent]
         [HideInInspector]end_Lighting("", Int) = 0
 
+        [HideInInspector]group_ShaderLights("Shader Lights", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_ShaderLight0("Shader Light 0", Int) = 0
+            [ShaderLight(_ShaderLight0)]
+            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight0Mode("Mode", Int) = 0
+            [ToggleUI]_ShaderLight0Specular("Specular Highlights", Int) = 1
+            [KajVector3]_ShaderLight0Position("Position", Vector) = (0,0,0,0)
+            [KajVector3]_ShaderLight0Direction("Direction", Vector) = (1,0,0,0)
+            [MinimumFloat(0)]_ShaderLight0Angle("Angle", Float) = 30
+            [MinimumFloat(0)]_ShaderLight0Range("Range", Float) = 10
+            _ShaderLight0Color("Color", Color) = (1,1,1,1)
+            [MinimumFloat(0)]_ShaderLight0Intensity("Intensity", Float) = 1
+        [HideInInspector]end_ShaderLight0("", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_ShaderLight1("Shader Light 1", Int) = 0
+            [ShaderLight(_ShaderLight1)]
+            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight1Mode("Mode", Int) = 0
+            [ToggleUI]_ShaderLight1Specular("Specular Highlights", Int) = 1
+            [KajVector3]_ShaderLight1Position("Position", Vector) = (0,0,0,0)
+            [KajVector3]_ShaderLight1Direction("Direction", Vector) = (1,0,0,0)
+            [MinimumFloat(0)]_ShaderLight1Angle("Angle", Float) = 30
+            [MinimumFloat(0)]_ShaderLight1Range("Range", Float) = 10
+            _ShaderLight1Color("Color", Color) = (1,1,1,1)
+            [MinimumFloat(0)]_ShaderLight1Intensity("Intensity", Float) = 1
+        [HideInInspector]end_ShaderLight1("", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_ShaderLight2("Shader Light 2", Int) = 0
+            [ShaderLight(_ShaderLight2)]
+            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight2Mode("Mode", Int) = 0
+            [ToggleUI]_ShaderLight2Specular("Specular Highlights", Int) = 1
+            [KajVector3]_ShaderLight2Position("Position", Vector) = (0,0,0,0)
+            [KajVector3]_ShaderLight2Direction("Direction", Vector) = (1,0,0,0)
+            [MinimumFloat(0)]_ShaderLight2Angle("Angle", Float) = 30
+            [MinimumFloat(0)]_ShaderLight2Range("Range", Float) = 10
+            _ShaderLight2Color("Color", Color) = (1,1,1,1)
+            [MinimumFloat(0)]_ShaderLight2Intensity("Intensity", Float) = 1
+        [HideInInspector]end_ShaderLight2("", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_ShaderLight3("Shader Light 3", Int) = 0
+            [ShaderLight(_ShaderLight3)]
+            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
+            [ToggleUI]_ShaderLight3Specular("Specular Highlights", Int) = 1
+            [KajVector3]_ShaderLight3Position("Position", Vector) = (0,0,0,0)
+            [KajVector3]_ShaderLight3Direction("Direction", Vector) = (1,0,0,0)
+            [MinimumFloat(0)]_ShaderLight3Angle("Angle", Float) = 30
+            [MinimumFloat(0)]_ShaderLight3Range("Range", Float) = 10
+            _ShaderLight3Color("Color", Color) = (1,1,1,1)
+            [MinimumFloat(0)]_ShaderLight3Intensity("Intensity", Float) = 1
+        [HideInInspector]end_ShaderLight3("", Int) = 0
+        [HideInInspector][ToggleUI]group_toggle_ShaderLight4("Shader Light 4", Int) = 0
+            [ShaderLight(_ShaderLight4)]
+            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
+            [ToggleUI]_ShaderLight4Specular("Specular Highlights", Int) = 1
+            [KajVector3]_ShaderLight4Position("Position", Vector) = (0,0,0,0)
+            [KajVector3]_ShaderLight4Direction("Direction", Vector) = (1,0,0,0)
+            [MinimumFloat(0)]_ShaderLight4Angle("Angle", Float) = 30
+            [MinimumFloat(0)]_ShaderLight4Range("Range", Float) = 10
+            _ShaderLight4Color("Color", Color) = (1,1,1,1)
+            [MinimumFloat(0)]_ShaderLight4Intensity("Intensity", Float) = 1
+        [HideInInspector]end_ShaderLight4("", Int) = 0
+        [HideInInspector]group_OptimizerSettings("Optimizer Settings", Int) = 0
+        [Header(Animated Properties)]
+        [ToggleUILeft]group_toggle_ShaderLight0Animated("  _ShaderLight0", Int) = 0
+        [Indent]
+            [ToggleUILeft]_ShaderLight0ModeAnimated("  Mode", Int) = 0
+            [ToggleUILeft]_ShaderLight0SpecularAnimated("  Specular Highlights", Int) = 0
+            [ToggleUILeft]_ShaderLight0PositionAnimated("  Position", Int) = 0
+            [ToggleUILeft]_ShaderLight0DirectionAnimated("  Direction", Int) = 0
+            [ToggleUILeft]_ShaderLight0AngleAnimated("  Angle", Int) = 0
+            [ToggleUILeft]_ShaderLight0RangeAnimated("  Range", Int) = 0
+            [ToggleUILeft]_ShaderLight0ColorAnimated("  Color", Int) = 0
+            [ToggleUILeft]_ShaderLight0IntensityAnimated("  Intensity", Int) = 0
+        [UnIndent]
+        [ToggleUILeft]group_toggle_ShaderLight1Animated("  _ShaderLight1", Int) = 0
+        [Indent]
+            [ToggleUILeft]_ShaderLight1ModeAnimated("  Mode", Int) = 0
+            [ToggleUILeft]_ShaderLight1SpecularAnimated("  Specular Highlights", Int) = 0
+            [ToggleUILeft]_ShaderLight1PositionAnimated("  Position", Int) = 0
+            [ToggleUILeft]_ShaderLight1DirectionAnimated("  Direction", Int) = 0
+            [ToggleUILeft]_ShaderLight1AngleAnimated("  Angle", Int) = 0
+            [ToggleUILeft]_ShaderLight1RangeAnimated("  Range", Int) = 0
+            [ToggleUILeft]_ShaderLight1ColorAnimated("  Color", Int) = 0
+            [ToggleUILeft]_ShaderLight1IntensityAnimated("  Intensity", Int) = 0
+        [UnIndent]
+        [ToggleUILeft]group_toggle_ShaderLight2Animated("  _ShaderLight2", Int) = 0
+        [Indent]
+            [ToggleUILeft]_ShaderLight2ModeAnimated("  Mode", Int) = 0
+            [ToggleUILeft]_ShaderLight2SpecularAnimated("  Specular Highlights", Int) = 0
+            [ToggleUILeft]_ShaderLight2PositionAnimated("  Position", Int) = 0
+            [ToggleUILeft]_ShaderLight2DirectionAnimated("  Direction", Int) = 0
+            [ToggleUILeft]_ShaderLight2AngleAnimated("  Angle", Int) = 0
+            [ToggleUILeft]_ShaderLight2RangeAnimated("  Range", Int) = 0
+            [ToggleUILeft]_ShaderLight2ColorAnimated("  Color", Int) = 0
+            [ToggleUILeft]_ShaderLight2IntensityAnimated("  Intensity", Int) = 0
+        [UnIndent]
+        [ToggleUILeft]group_toggle_ShaderLight3Animated("  _ShaderLight3", Int) = 0
+        [Indent]
+            [ToggleUILeft]_ShaderLight3ModeAnimated("  Mode", Int) = 0
+            [ToggleUILeft]_ShaderLight3SpecularAnimated("  Specular Highlights", Int) = 0
+            [ToggleUILeft]_ShaderLight3PositionAnimated("  Position", Int) = 0
+            [ToggleUILeft]_ShaderLight3DirectionAnimated("  Direction", Int) = 0
+            [ToggleUILeft]_ShaderLight3AngleAnimated("  Angle", Int) = 0
+            [ToggleUILeft]_ShaderLight3RangeAnimated("  Range", Int) = 0
+            [ToggleUILeft]_ShaderLight3ColorAnimated("  Color", Int) = 0
+            [ToggleUILeft]_ShaderLight3IntensityAnimated("  Intensity", Int) = 0
+        [UnIndent]
+        [ToggleUILeft]group_toggle_ShaderLight4Animated("  _ShaderLight4", Int) = 0
+        [Indent]
+            [ToggleUILeft]_ShaderLight4ModeAnimated("  Mode", Int) = 0
+            [ToggleUILeft]_ShaderLight4SpecularAnimated("  Specular Highlights", Int) = 0
+            [ToggleUILeft]_ShaderLight4PositionAnimated("  Position", Int) = 0
+            [ToggleUILeft]_ShaderLight4DirectionAnimated("  Direction", Int) = 0
+            [ToggleUILeft]_ShaderLight4AngleAnimated("  Angle", Int) = 0
+            [ToggleUILeft]_ShaderLight4RangeAnimated("  Range", Int) = 0
+            [ToggleUILeft]_ShaderLight4ColorAnimated("  Color", Int) = 0
+            [ToggleUILeft]_ShaderLight4IntensityAnimated("  Intensity", Int) = 0
+        [UnIndent]
+        [HideInInspector]end_OptimizerSettings("", Int) = 0
+        [HideInInspector]end_ShaderLights("", Int) = 0
+
         [HideInInspector][Toggle(_COLORADDSUBDIFF_ON)]group_toggle_Diffuse(";;_COLORADDSUBDIFF_ON;Diffuse Shading", Int) = 1
         [WideEnum(Lambert,0, PBR,1, Skin,2, Flat Lit,3,Oren Nayer,4)]_DiffuseMode("Mode", Int) = 1
         [HideInInspector]group_Lambert("Lambert", Int) = 0
         _DiffuseWrap("Wrap Factor", Range(0,1)) = 0
         [ToggleUI]_DiffuseWrapConserveEnergy("Wrap Conserves Energy", Int) = 0
         [HideInInspector]end_Lambert("", Int) = 0
+        
         [HideInInspector]group_SkinDiffuse("Skin", Int) = 0
         [NoScaleOffset]_PreIntSkinTex("Scattering Lookup Texture", 2D) = "white" {} // hard lniked to BRDF lookup tex
         _BumpBlurBias("Normals Blur Bias", Float) = 3.0
@@ -663,7 +780,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 42", Int) = 42
+        [KajLabel]_Version("Shader Version: 43", Int) = 43
     }
 
     CustomEditor "Kaj.ShaderEditor"

@@ -922,6 +922,79 @@ namespace Kaj
         }
     }
 
+    // Drag and drop unity light slot specifically for Shader Lights
+    // Technically the heirarchy path to the light could be saved in override tags so the light stays linked,
+    // but there's no efficient way to have the material update in realtime when the light changes, so that
+    // isn't implemented right now.
+    public class ShaderLightDecorator : MaterialPropertyDrawer
+    {
+        readonly string propertyPrefix;
+        Light light;
+
+        public ShaderLightDecorator(string propertyPrefix)
+        {
+            this.propertyPrefix = propertyPrefix;
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            EditorGUIUtility.labelWidth = 0f;
+            EditorGUI.BeginChangeCheck();
+            light = (Light)EditorGUILayout.ObjectField("Copy a Light", light, typeof(Light), true);
+            if (EditorGUI.EndChangeCheck())
+            {
+                if (light == null) return;
+                // Assign values to concention properties with the given property prefix
+                // Loop through matierlproperties manually because GetMaterialProperty is broken
+                MaterialProperty[] props = MaterialEditor.GetMaterialProperties(materialEditor.targets);
+                foreach (MaterialProperty p in props)
+                {
+                    if (p.name == propertyPrefix + "Color")
+                        p.colorValue = light.color;
+                    else if (p.name == propertyPrefix + "Mode")
+                        switch (light.type)
+                        {
+                            case LightType.Point:
+                                p.floatValue = 0;
+                                break;
+                            case LightType.Spot:
+                                p.floatValue = 1;
+                                break;
+                            case LightType.Directional:
+                                p.floatValue = 2;
+                                break;
+                        }
+                    else if (p.name == propertyPrefix + "Specular")
+                        switch (light.renderMode)
+                        {
+                            case LightRenderMode.Auto:
+                            case LightRenderMode.ForcePixel:
+                                p.floatValue = 1;
+                                break;
+                            case LightRenderMode.ForceVertex:
+                                p.floatValue = 0;
+                                break;
+                        }
+                    else if (p.name == propertyPrefix + "Position")
+                        p.vectorValue = light.transform.position;
+                    else if (p.name == propertyPrefix + "Direction")
+                        p.vectorValue = light.transform.forward;
+                    else if (p.name == propertyPrefix + "Angle")
+                        p.floatValue = light.spotAngle;
+                    else if (p.name == propertyPrefix + "Range")
+                        p.floatValue = light.range;
+                    else if (p.name == propertyPrefix + "Intensity")
+                        p.floatValue = light.intensity;
+                }
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
     // Minimalistic shader editor aimed at extending the base inspector with grouped foldouts, toggle foldouts,
     // and shader optimizer button+property disabling.  Also contains support for the above drawers if necessary.
     public class ShaderEditor : ShaderGUI
