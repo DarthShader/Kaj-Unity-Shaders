@@ -402,7 +402,6 @@ uniform float _BentNormalMapSpace;
 uniform float _AlternateBumpMapEncoding;
 uniform float _AlternateBumpMapSpace;
 uniform float _AlternateBumpScale;
-
 uniform float group_toggle_ShaderLight0;
 uniform float _ShaderLight0Mode;
 uniform float _ShaderLight0Specular;
@@ -448,6 +447,33 @@ uniform float _ShaderLight4Angle;
 uniform float _ShaderLight4Range;
 uniform float4 _ShaderLight4Color;
 uniform float _ShaderLight4Intensity;
+uniform float group_toggle_ShaderLight5;
+uniform float _ShaderLight5Mode;
+uniform float _ShaderLight5Specular;
+uniform float4 _ShaderLight5Position;
+uniform float4 _ShaderLight5Direction;
+uniform float _ShaderLight5Angle;
+uniform float _ShaderLight5Range;
+uniform float4 _ShaderLight5Color;
+uniform float _ShaderLight5Intensity;
+uniform float group_toggle_ShaderLight6;
+uniform float _ShaderLight6Mode;
+uniform float _ShaderLight6Specular;
+uniform float4 _ShaderLight6Position;
+uniform float4 _ShaderLight6Direction;
+uniform float _ShaderLight6Angle;
+uniform float _ShaderLight6Range;
+uniform float4 _ShaderLight6Color;
+uniform float _ShaderLight6Intensity;
+uniform float group_toggle_ShaderLight7;
+uniform float _ShaderLight7Mode;
+uniform float _ShaderLight7Specular;
+uniform float4 _ShaderLight7Position;
+uniform float4 _ShaderLight7Direction;
+uniform float _ShaderLight7Angle;
+uniform float _ShaderLight7Range;
+uniform float4 _ShaderLight7Color;
+uniform float _ShaderLight7Intensity;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -1224,6 +1250,44 @@ half3 ShadeSHPerPixelModular(half3 normal, float3 worldPos)
     ambient_contrib += SHEvalLinearL2(half4(normal, 1.0));
     return max(half3(0, 0, 0), ambient_contrib);;
 }
+
+half3 ShaderLightDiffuse(float enabled, float mode, float3 lightPos, float3 direction, 
+float angle, float range, half3 color, float intensity, float3 posWorld, float3 normalDir)
+{
+    half3 diffuse = 0;
+    UNITY_BRANCH
+    if (enabled)
+    {
+        [forcecase]
+        switch (mode)
+        {
+            case 0: // Point
+                    float3 toLight = lightPos - posWorld;
+                    float lengthSq = dot(toLight, toLight);
+                    UNITY_BRANCH
+                    if (lengthSq < range*range)
+                    {
+                        lengthSq = max(lengthSq, 0.000001);
+                        float dist = sqrt(lengthSq);
+                        toLight /= dist;
+                        float normalizedDist = dist / range;
+                        float atten = saturate(1.0 / (1.0 + 25.0*normalizedDist*normalizedDist) * saturate((1 - normalizedDist) * 5.0));
+                        float ndotl = max (0, dot (normalDir, toLight));
+                        diffuse = color * intensity * (ndotl * atten);
+                    }
+                    break;
+                case 1: // Spot
+                    break;
+                case 2: // Directional
+                    break;
+        }
+    }
+    return diffuse;
+}
+////KSOEvaluateMacro
+#define OMEGA_SHADERLIGHT_DIFFUSE(x, posWorld, normalDir) ShaderLightDiffuse(group_toggle_ShaderLight##x, _ShaderLight##x##Mode, \
+_ShaderLight##x##Position, _ShaderLight##x##Direction, _ShaderLight##x##Angle, _ShaderLight##x##Range, _ShaderLight##x##Color, \
+_ShaderLight##x##Intensity, posWorld, normalDir)
 
 // Old static shader
 float static_effect( float2 screenPos )
@@ -3811,111 +3875,14 @@ half4 frag_omega (
     indirect_diffuse *= lerp(1, occlusion, _OcclusionStrength);
     // Temporary shader lights tests
     #ifdef UNITY_PASS_FORWARDBASE
-        UNITY_BRANCH
-        if (group_toggle_ShaderLight0)
-        {
-            [forcecase]
-            switch (_ShaderLight0Mode)
-            {
-                case 0: // Point
-                    float3 _ShaderLight0toLight = _ShaderLight0Position.xyz - i.posWorld.xyz;
-                    float _ShaderLight0lengthSq = max(dot(_ShaderLight0toLight, _ShaderLight0toLight), 0.000001);
-                    _ShaderLight0toLight *= rsqrt(_ShaderLight0lengthSq);
-                    float _ShaderLight0InvRange = 1 / _ShaderLight0Range; // Should probably be precomputed
-                    float _ShaderLight0atten = 1.0 / (1.0 + _ShaderLight0lengthSq * _ShaderLight0InvRange);
-                    float _ShaderLight0diff = max (0, dot (normalDir, _ShaderLight0toLight));
-                    indirect_diffuse += _ShaderLight0Color.rgb * _ShaderLight0Intensity * (_ShaderLight0diff * _ShaderLight0atten);
-                    break;
-                case 1: // Spot
-                    break;
-                case 2: // Directional
-                    break;
-            }
-        }
-        UNITY_BRANCH
-        if (group_toggle_ShaderLight1)
-        {
-            [forcecase]
-            switch (_ShaderLight1Mode)
-            {
-                case 0: // Point
-                    float3 _ShaderLight1toLight = _ShaderLight1Position.xyz - i.posWorld.xyz;
-                    float _ShaderLight1lengthSq = max(dot(_ShaderLight1toLight, _ShaderLight1toLight), 0.000001);
-                    _ShaderLight1toLight *= rsqrt(_ShaderLight1lengthSq);
-                    float _ShaderLight1InvRange = 1 / _ShaderLight1Range; // Should probably be precomputed
-                    float _ShaderLight1atten = 1.0 / (1.0 + _ShaderLight1lengthSq * _ShaderLight1InvRange);
-                    float _ShaderLight1diff = max (0, dot (normalDir, _ShaderLight1toLight));
-                    indirect_diffuse += _ShaderLight1Color.rgb * _ShaderLight1Intensity * (_ShaderLight1diff * _ShaderLight1atten);
-                    break;
-                case 1: // Spot
-                    break;
-                case 2: // Directional
-                    break;
-            }
-        }
-        UNITY_BRANCH
-        if (group_toggle_ShaderLight2)
-        {
-            [forcecase]
-            switch (_ShaderLight2Mode)
-            {
-                case 0: // Point
-                    float3 _ShaderLight2toLight = _ShaderLight2Position.xyz - i.posWorld.xyz;
-                    float _ShaderLight2lengthSq = max(dot(_ShaderLight2toLight, _ShaderLight2toLight), 0.000001);
-                    _ShaderLight2toLight *= rsqrt(_ShaderLight2lengthSq);
-                    float _ShaderLight2InvRange = 1 / _ShaderLight2Range; // Should probably be precomputed
-                    float _ShaderLight2atten = 1.0 / (1.0 + _ShaderLight2lengthSq * _ShaderLight2InvRange);
-                    float _ShaderLight2diff = max (0, dot (normalDir, _ShaderLight2toLight));
-                    indirect_diffuse += _ShaderLight2Color.rgb * _ShaderLight2Intensity * (_ShaderLight2diff * _ShaderLight2atten);
-                    break;
-                case 1: // Spot
-                    break;
-                case 2: // Directional
-                    break;
-            }
-        }
-        UNITY_BRANCH
-        if (group_toggle_ShaderLight3)
-        {
-            [forcecase]
-            switch (_ShaderLight3Mode)
-            {
-                case 0: // Point
-                    float3 _ShaderLight3toLight = _ShaderLight3Position.xyz - i.posWorld.xyz;
-                    float _ShaderLight3lengthSq = max(dot(_ShaderLight3toLight, _ShaderLight3toLight), 0.000001);
-                    _ShaderLight3toLight *= rsqrt(_ShaderLight3lengthSq);
-                    float _ShaderLight3InvRange = 1 / _ShaderLight3Range; // Should probably be precomputed
-                    float _ShaderLight3atten = 1.0 / (1.0 + _ShaderLight3lengthSq * _ShaderLight3InvRange);
-                    float _ShaderLight3diff = max (0, dot (normalDir, _ShaderLight3toLight));
-                    indirect_diffuse += _ShaderLight3Color.rgb * _ShaderLight3Intensity * (_ShaderLight3diff * _ShaderLight3atten);
-                    break;
-                case 1: // Spot
-                    break;
-                case 2: // Directional
-                    break;
-            }
-        }
-        UNITY_BRANCH
-        if (group_toggle_ShaderLight4)
-        {
-            [forcecase]
-            switch (_ShaderLight4Mode)
-            {
-                case 0: // Point
-                    float3 _ShaderLight4toLight = _ShaderLight4Position.xyz - i.posWorld.xyz;
-                    float _ShaderLight4lengthSq = max(dot(_ShaderLight4toLight, _ShaderLight4toLight), 0.000001);
-                    _ShaderLight4toLight *= rsqrt(_ShaderLight4lengthSq);
-                    float _ShaderLight4InvRange = 1 / _ShaderLight4Range; // Should probably be precomputed
-                    float _ShaderLight4atten = 1.0 / (1.0 + _ShaderLight4lengthSq * _ShaderLight4InvRange);
-                    float _ShaderLight4diff = max (0, dot (normalDir, _ShaderLight4toLight));
-                    indirect_diffuse += _ShaderLight4Color.rgb * _ShaderLight4Intensity * (_ShaderLight4diff * _ShaderLight4atten);
-                    break;
-                case 1: // Spot
-                    break;
-                case 2: // Directional
-                    break;
-            }
-        }
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(0, i.posWorld.xyz, normalDir);
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(1, i.posWorld.xyz, normalDir);
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(2, i.posWorld.xyz, normalDir);
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(3, i.posWorld.xyz, normalDir);
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(4, i.posWorld.xyz, normalDir);
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(5, i.posWorld.xyz, normalDir);
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(6, i.posWorld.xyz, normalDir);
+        indirect_diffuse += OMEGA_SHADERLIGHT_DIFFUSE(7, i.posWorld.xyz, normalDir);
     #endif
 
     // Fake directional light
