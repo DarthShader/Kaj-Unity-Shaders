@@ -35,6 +35,9 @@ Shader "Kaj/Omega"
         [Indent]
             [ToggleUI]_AlphaToMask ("Alpha To Coverage", Int) = 0
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
+        [UnIndent]
+        _ShadowcasterCutoff("Shadowcaster Cutoff", Range(0,1)) = 0.5
+        [Indent]
             [ToggleUI]_DitheredShadows("Dithered Transparent Shadows", Int) = 1
         [UnIndent]
         [Normal][KeywordTex(_NORMALMAP)]_BumpMap(";;_NORMALMAP;Normal Map", 2D) = "bump" {}
@@ -147,168 +150,168 @@ Shader "Kaj/Omega"
         [HideInInspector]group_ShaderLights("Shader Lights", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight0("Shader Light 0", Int) = 0
             [ShaderLight(_ShaderLight0)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight0Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight0Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight0Mode("Mode", Int) = 0
+            //[ToggleUI]_ShaderLight0Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight0Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight0Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight0Angle("Angle", Float) = 30
+            //[KajVector3]_ShaderLight0Direction("Direction", Vector) = (1,0,0,0)
+            //[MinimumFloat(0)]_ShaderLight0Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight0Range("Range", Float) = 10
             _ShaderLight0Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight0Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight0Animated("  Shader Light 0", Int) = 0
-            [ToggleUILeft]_ShaderLight0ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight0SpecularAnimated("  Specular Highlights", Int) = 0
+            //[ToggleUILeft]_ShaderLight0ModeAnimated("  Mode", Int) = 0
+            //[ToggleUILeft]_ShaderLight0SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight0PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight0DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight0AngleAnimated("  Angle", Int) = 0
+            //[ToggleUILeft]_ShaderLight0DirectionAnimated("  Direction", Int) = 0
+            //[ToggleUILeft]_ShaderLight0AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight0RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight0ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight0IntensityAnimated("  Intensity", Int) = 0
         [HideInInspector]end_ShaderLight0("", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight1("Shader Light 1", Int) = 0
             [ShaderLight(_ShaderLight1)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight1Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight1Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight1Mode("Mode", Int) = 0
+           // [ToggleUI]_ShaderLight1Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight1Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight1Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight1Angle("Angle", Float) = 30
+            //[KajVector3]_ShaderLight1Direction("Direction", Vector) = (1,0,0,0)
+            //[MinimumFloat(0)]_ShaderLight1Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight1Range("Range", Float) = 10
             _ShaderLight1Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight1Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight1Animated("  Shader Light 1", Int) = 0
-            [ToggleUILeft]_ShaderLight1ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight1SpecularAnimated("  Specular Highlights", Int) = 0
+           // [ToggleUILeft]_ShaderLight1ModeAnimated("  Mode", Int) = 0
+           // [ToggleUILeft]_ShaderLight1SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight1PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight1DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight1AngleAnimated("  Angle", Int) = 0
+           // [ToggleUILeft]_ShaderLight1DirectionAnimated("  Direction", Int) = 0
+           // [ToggleUILeft]_ShaderLight1AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight1RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight1ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight1IntensityAnimated("  Intensity", Int) = 0
         [HideInInspector]end_ShaderLight1("", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight2("Shader Light 2", Int) = 0
             [ShaderLight(_ShaderLight2)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight2Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight2Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight2Mode("Mode", Int) = 0
+            //[ToggleUI]_ShaderLight2Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight2Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight2Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight2Angle("Angle", Float) = 30
+            //[KajVector3]_ShaderLight2Direction("Direction", Vector) = (1,0,0,0)
+           // [MinimumFloat(0)]_ShaderLight2Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight2Range("Range", Float) = 10
             _ShaderLight2Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight2Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight2Animated("  Shader Light 2", Int) = 0
-            [ToggleUILeft]_ShaderLight2ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight2SpecularAnimated("  Specular Highlights", Int) = 0
+            //[ToggleUILeft]_ShaderLight2ModeAnimated("  Mode", Int) = 0
+            //[ToggleUILeft]_ShaderLight2SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight2PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight2DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight2AngleAnimated("  Angle", Int) = 0
+            //[ToggleUILeft]_ShaderLight2DirectionAnimated("  Direction", Int) = 0
+            //[ToggleUILeft]_ShaderLight2AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight2RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight2ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight2IntensityAnimated("  Intensity", Int) = 0
         [HideInInspector]end_ShaderLight2("", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight3("Shader Light 3", Int) = 0
             [ShaderLight(_ShaderLight3)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight3Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
+            //[ToggleUI]_ShaderLight3Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight3Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight3Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight3Angle("Angle", Float) = 30
+            //[KajVector3]_ShaderLight3Direction("Direction", Vector) = (1,0,0,0)
+            //[MinimumFloat(0)]_ShaderLight3Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight3Range("Range", Float) = 10
             _ShaderLight3Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight3Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight3Animated("  Shader Light 3", Int) = 0
-            [ToggleUILeft]_ShaderLight3ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight3SpecularAnimated("  Specular Highlights", Int) = 0
+            //[ToggleUILeft]_ShaderLight3ModeAnimated("  Mode", Int) = 0
+            //[ToggleUILeft]_ShaderLight3SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight3PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight3DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight3AngleAnimated("  Angle", Int) = 0
+            //[ToggleUILeft]_ShaderLight3DirectionAnimated("  Direction", Int) = 0
+            //[ToggleUILeft]_ShaderLight3AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight3RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight3ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight3IntensityAnimated("  Intensity", Int) = 0
         [HideInInspector]end_ShaderLight3("", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight4("Shader Light 4", Int) = 0
             [ShaderLight(_ShaderLight4)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight4Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
+            //[ToggleUI]_ShaderLight4Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight4Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight4Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight4Angle("Angle", Float) = 30
+            //[KajVector3]_ShaderLight4Direction("Direction", Vector) = (1,0,0,0)
+            //[MinimumFloat(0)]_ShaderLight4Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight4Range("Range", Float) = 10
             _ShaderLight4Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight4Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight4Animated("  Shader Light 4", Int) = 0
-            [ToggleUILeft]_ShaderLight4ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight4SpecularAnimated("  Specular Highlights", Int) = 0
+            //[ToggleUILeft]_ShaderLight4ModeAnimated("  Mode", Int) = 0
+            //[ToggleUILeft]_ShaderLight4SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight4PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight4DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight4AngleAnimated("  Angle", Int) = 0
+            //[ToggleUILeft]_ShaderLight4DirectionAnimated("  Direction", Int) = 0
+            //[ToggleUILeft]_ShaderLight4AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight4RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight4ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight4IntensityAnimated("  Intensity", Int) = 0
         [HideInInspector]end_ShaderLight4("", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight5("Shader Light 5", Int) = 0
             [ShaderLight(_ShaderLight5)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight5Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
+            //[ToggleUI]_ShaderLight5Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight5Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight5Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight5Angle("Angle", Float) = 30
+           // [KajVector3]_ShaderLight5Direction("Direction", Vector) = (1,0,0,0)
+           // [MinimumFloat(0)]_ShaderLight5Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight5Range("Range", Float) = 10
             _ShaderLight5Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight5Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight5Animated("  Shader Light 5", Int) = 0
-            [ToggleUILeft]_ShaderLight5ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight5SpecularAnimated("  Specular Highlights", Int) = 0
+            //[ToggleUILeft]_ShaderLight5ModeAnimated("  Mode", Int) = 0
+            //[ToggleUILeft]_ShaderLight5SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight5PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight5DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight5AngleAnimated("  Angle", Int) = 0
+           // [ToggleUILeft]_ShaderLight5DirectionAnimated("  Direction", Int) = 0
+           // [ToggleUILeft]_ShaderLight5AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight5RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight5ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight5IntensityAnimated("  Intensity", Int) = 0
         [HideInInspector]end_ShaderLight5("", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight6("Shader Light 6", Int) = 0
             [ShaderLight(_ShaderLight6)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight6Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
+            //[ToggleUI]_ShaderLight6Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight6Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight6Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight6Angle("Angle", Float) = 30
+           // [KajVector3]_ShaderLight6Direction("Direction", Vector) = (1,0,0,0)
+           // [MinimumFloat(0)]_ShaderLight6Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight6Range("Range", Float) = 10
             _ShaderLight6Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight6Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight6Animated("  Shader Light 6", Int) = 0
-            [ToggleUILeft]_ShaderLight6ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight6SpecularAnimated("  Specular Highlights", Int) = 0
+            //[ToggleUILeft]_ShaderLight6ModeAnimated("  Mode", Int) = 0
+            //[ToggleUILeft]_ShaderLight6SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight6PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight6DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight6AngleAnimated("  Angle", Int) = 0
+            //[ToggleUILeft]_ShaderLight6DirectionAnimated("  Direction", Int) = 0
+            //[ToggleUILeft]_ShaderLight6AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight6RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight6ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight6IntensityAnimated("  Intensity", Int) = 0
         [HideInInspector]end_ShaderLight6("", Int) = 0
         [HideInInspector][ToggleUI]group_toggle_ShaderLight7("Shader Light 7", Int) = 0
             [ShaderLight(_ShaderLight7)]
-            [WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
-            [ToggleUI]_ShaderLight7Specular("Specular Highlights", Int) = 1
+            //[WideEnum(Point,0, Spot,1, Directional,2)]_ShaderLight3Mode("Mode", Int) = 0
+            //[ToggleUI]_ShaderLight7Specular("Specular Highlights", Int) = 1
             [KajVector3]_ShaderLight7Position("Position", Vector) = (0,0,0,0)
-            [KajVector3]_ShaderLight7Direction("Direction", Vector) = (1,0,0,0)
-            [MinimumFloat(0)]_ShaderLight7Angle("Angle", Float) = 30
+           // [KajVector3]_ShaderLight7Direction("Direction", Vector) = (1,0,0,0)
+           // [MinimumFloat(0)]_ShaderLight7Angle("Angle", Float) = 30
             [MinimumFloat(0)]_ShaderLight7Range("Range", Float) = 10
             _ShaderLight7Color("Color", Color) = (1,1,1,1)
             [MinimumFloat(0)]_ShaderLight7Intensity("Intensity", Float) = 1
             [Header(Animated Properties)]
             [ToggleUILeft]group_toggle_ShaderLight7Animated("  Shader Light 7", Int) = 0
-            [ToggleUILeft]_ShaderLight7ModeAnimated("  Mode", Int) = 0
-            [ToggleUILeft]_ShaderLight7SpecularAnimated("  Specular Highlights", Int) = 0
+           // [ToggleUILeft]_ShaderLight7ModeAnimated("  Mode", Int) = 0
+            //[ToggleUILeft]_ShaderLight7SpecularAnimated("  Specular Highlights", Int) = 0
             [ToggleUILeft]_ShaderLight7PositionAnimated("  Position", Int) = 0
-            [ToggleUILeft]_ShaderLight7DirectionAnimated("  Direction", Int) = 0
-            [ToggleUILeft]_ShaderLight7AngleAnimated("  Angle", Int) = 0
+           // [ToggleUILeft]_ShaderLight7DirectionAnimated("  Direction", Int) = 0
+            //[ToggleUILeft]_ShaderLight7AngleAnimated("  Angle", Int) = 0
             [ToggleUILeft]_ShaderLight7RangeAnimated("  Range", Int) = 0
             [ToggleUILeft]_ShaderLight7ColorAnimated("  Color", Int) = 0
             [ToggleUILeft]_ShaderLight7IntensityAnimated("  Intensity", Int) = 0
@@ -573,6 +576,7 @@ Shader "Kaj/Omega"
         [HelpBox]_InlineSamplerStatesTooltip("Inline sampler states make all textures' unique filter/wrap settings work at the cost of only 1x anisotropic filtering on all textures.  Albedo wrap/filter/aniso is used on all textures if this is off.", Int) = 0
         [ToggleUI]_InlineSamplerStates("Use Inline Sampler States", Int) = 1
         [HelpBox]_AnimatedPropsTooltip("Any material properties that need to be changed at runtime should be selected here so the Optimizer does not bake them into the optimized shader.", Int) = 0
+        [ToggleUI]_ReplaceAnimatedParameters("Make Unique Animated Property Names", Int) = 0
         [Header(Animated Properties)]
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
         [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
@@ -833,9 +837,13 @@ Shader "Kaj/Omega"
         [Header(Debug)]
         [ToggleUI]_DebugWorldNormals("Visualize World Normal", Int) = 0
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
+        //_Debug1("Debug 1", Float) = 0.5
+        //_Debug2("Debug 2", Float) = 0.3
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 44", Int) = 44
+        [KajLabel]_Version("Shader Version: 45", Int) = 45
+        [URLButton]_GithubLink("Github Link;_________;https://github.com/DarthShader/Kaj-Unity-Shaders", Int) = 0
+        [GithubUpdater]_AutoUpdater("Auto-Update;__________;https://api.github.com/repos/DarthShader/Kaj-Unity-Shaders/releases/latest;45", Int) = 0
     }
 
     CustomEditor "Kaj.ShaderEditor"
@@ -880,6 +888,7 @@ Shader "Kaj/Omega"
 			#pragma multi_compile_fog
             #pragma multi_compile_instancing
             //#pragma instancing_options
+            //#pragma enable_d3d11_debug_symbols
 			#pragma multi_compile _ LIGHTMAP_ON VERTEXLIGHT_ON
             //#pragma multi_compile _ LOD_FADE_CROSSFADE // Uncommented dynamically by the optimizer
 
@@ -950,6 +959,7 @@ Shader "Kaj/Omega"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             //#pragma instancing_options
+            //#pragma enable_d3d11_debug_symbols
             //#pragma multi_compile _ LOD_FADE_CROSSFADE
 
             #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -1009,6 +1019,7 @@ Shader "Kaj/Omega"
             #pragma multi_compile_shadowcaster
             #pragma multi_compile_instancing
             //#pragma instancing_options
+            //#pragma enable_d3d11_debug_symbols
             //#pragma multi_compile _ LOD_FADE_CROSSFADE
 
             #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -1041,6 +1052,7 @@ Shader "Kaj/Omega"
 
             CGPROGRAM
             #pragma target 5.0
+            //#pragma enable_d3d11_debug_symbols
             #pragma shader_feature EDITOR_VISUALIZATION
 
             #pragma shader_feature _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A

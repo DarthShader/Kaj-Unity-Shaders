@@ -474,6 +474,9 @@ uniform float _ShaderLight7Angle;
 uniform float _ShaderLight7Range;
 uniform float4 _ShaderLight7Color;
 uniform float _ShaderLight7Intensity;
+uniform float _ShadowcasterCutoff;
+uniform float _Debug1;
+uniform float _Debug2;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -1235,6 +1238,38 @@ half3 VertexLightsDiffuse(half3 normalDir, float3 posWorld)
     return vertexDiffuse;
 }
 
+// Vertex lights diffuse-only helper using attenuation only
+// This is used to match the style of Flat-Lit diffuse point lights
+// contains a modified implementation of Shade4PointLights from UnityCG.cginc
+half3 VertexLightsDiffuseAttenuationOnly(float3 posWorld)
+{
+    half3 vertexDiffuse = 0;
+    #ifdef UNITY_PASS_FORWARDBASE
+        #ifdef VERTEXLIGHT_ON
+            // to light vectors
+            float4 toLightX = unity_4LightPosX0 - posWorld.x;
+            float4 toLightY = unity_4LightPosY0 - posWorld.y;
+            float4 toLightZ = unity_4LightPosZ0 - posWorld.z;
+            // squared lengths
+            float4 lengthSq = 0;
+            lengthSq += toLightX * toLightX;
+            lengthSq += toLightY * toLightY;
+            lengthSq += toLightZ * toLightZ;
+            // don't produce NaNs if some vertex position overlaps with the light
+            lengthSq = max(lengthSq, 0.000001);
+
+            // attenuation
+            float4 diff = 1.0 / (1.0 + lengthSq * unity_4LightAtten0);
+            // final color
+            vertexDiffuse += unity_LightColor[0] * diff.x;
+            vertexDiffuse += unity_LightColor[1] * diff.y;
+            vertexDiffuse += unity_LightColor[2] * diff.z;
+            vertexDiffuse += unity_LightColor[3] * diff.w;
+        #endif
+    #endif
+    return vertexDiffuse;
+}
+
 // Light probes sampler helper function
 half3 ShadeSHPerPixelModular(half3 normal, float3 worldPos)
 {
@@ -1284,10 +1319,9 @@ float angle, float range, half3 color, float intensity, float3 posWorld, float3 
     }
     return diffuse;
 }
-////KSOEvaluateMacro
-#define OMEGA_SHADERLIGHT_DIFFUSE(x, posWorld, normalDir) ShaderLightDiffuse(group_toggle_ShaderLight##x, _ShaderLight##x##Mode, \
-_ShaderLight##x##Position, _ShaderLight##x##Direction, _ShaderLight##x##Angle, _ShaderLight##x##Range, _ShaderLight##x##Color, \
-_ShaderLight##x##Intensity, posWorld, normalDir)
+// Currently, KSOEvaluateMacro requires the macro to be one one line
+//KSOEvaluateMacro
+#define OMEGA_SHADERLIGHT_DIFFUSE(lightnum, pWorld, nDir) ShaderLightDiffuse(group_toggle_ShaderLight##lightnum, _ShaderLight##lightnum##Mode, _ShaderLight##lightnum##Position, _ShaderLight##lightnum##Direction, _ShaderLight##lightnum##Angle, _ShaderLight##lightnum##Range, _ShaderLight##lightnum##Color, _ShaderLight##lightnum##Intensity, pWorld, nDir)
 
 // Old static shader
 float static_effect( float2 screenPos )
@@ -1408,7 +1442,9 @@ half2 stereoCorrectScreenUV01(half4 screenPos)
 {
     half2 uv = screenPos / (screenPos.w + 0.0000000001); //0.0x1 Stops division by 0 warning in console.
     #if UNITY_SINGLE_PASS_STEREO
-        uv.x += 0.6 * unity_StereoEyeIndex; // Works on oculus lol
+         // This is only a quick hack; there is no true solution to "stereo correct UV" in VR.
+         // Screenspace will really only work in VR when geometry is transformed directly to clip space
+        uv.x += 0.6 * unity_StereoEyeIndex;
     #endif
     return uv;
 }
@@ -3018,7 +3054,7 @@ half4 frag_omega (
     #elif !defined(UNITY_PASS_META)
         UNITY_SETUP_INSTANCE_ID(i);
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-        UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy);
+        UNITY_APPLY_DITHER_CROSSFADE(i.pos.xy); // Could add option for A2C crossfade or traditional transparency fade
     #endif
     
     // Geometric specular antialiasing
@@ -3255,7 +3291,7 @@ half4 frag_omega (
         UNITY_BRANCH
         if (_DitheredShadows && _Mode >= 1 && _Mode <= 3)
             clip(tex3D(_DitherMaskLOD, float3(i.vpos.xy * 0.25, opacity * 0.9375)).a - 0.01);
-        clip(opacity - _Cutoff);
+        clip(opacity - _ShadowcasterCutoff);
         SHADOW_CASTER_FRAGMENT(i)
     // Meta clip and return
     #elif defined(UNITY_PASS_META)
@@ -3817,7 +3853,11 @@ half4 frag_omega (
             #endif
             if (_DiffuseMode == 3) // Flat lit diffuse
                 indirect_diffuse_normal = 0;
-            indirect_diffuse = VertexLightsDiffuse(indirect_diffuse_normal, i.posWorld.xyz) * _VertexLightIntensity;
+                
+            if (_DiffuseMode == 3) // Flat lit diffuse
+                indirect_diffuse = VertexLightsDiffuseAttenuationOnly(i.posWorld.xyz) * _VertexLightIntensity;
+            else
+                indirect_diffuse = VertexLightsDiffuse(indirect_diffuse_normal, i.posWorld.xyz) * _VertexLightIntensity;
             indirect_diffuse += ShadeSHPerPixelModular(indirect_diffuse_normal, i.posWorld.xyz) * _LightProbeIntensity;
             // Stylized indirect diffuse transmission
             #ifndef EXCLUDE_POSOBJECT

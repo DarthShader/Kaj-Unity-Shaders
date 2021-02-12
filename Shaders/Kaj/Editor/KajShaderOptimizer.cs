@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System.Globalization;
 
-// v9
+// v11
 
 namespace Kaj
 {
@@ -52,7 +52,7 @@ namespace Kaj
 
         // Currently, Material.SetShaderPassEnabled doesn't work on "ShadowCaster" lightmodes,
         // and doesn't let "ForwardAdd" lights get turned into vertex lights if "ForwardAdd" is simply disabled
-        // vs. if the pases didn't exist at all in the shader.
+        // vs. if the pass didn't exist at all in the shader.
         // The Optimizer will take a mask property by this name and attempt to correct these issues
         // by hard-removing the shadowcaster and fwdadd passes from the shader being optimized.
         public static readonly string DisabledLightModesPropertyName = "_LightModes";
@@ -93,6 +93,14 @@ namespace Kaj
         // on the hull shader.  A non-animated property by this name will replace the argument of said
         // attribute if it exists.
         public static readonly string TessellationMaxFactorPropertyName = "_TessellationFactorMax";
+
+        // Material property animations in Unity (using the Animator component) affect the properties
+        // of all materials on the attatched mesh, rather than on individual mesh material slots.  The
+        // optimizer provides an option to replace animated material properties (ones marked with the
+        // animated property suffix) with a random unique name to avoid this problem entirely.
+        // A parameter of this name will determine whether or not this is done when the optimizer is run.
+        public static readonly string ReplaceAnimatedParametersPropertyName = "_ReplaceAnimatedParameters";
+        private static bool ReplaceAnimatedParameters = false;
 
         private static string CurrentLightmode = "";
 
@@ -161,7 +169,7 @@ namespace Kaj
             "UnityStandardUtils.cginc"
         };
 
-        public static readonly char[] ValidSeparators = new char[] {' ','\t','\r','\n',';',',','.','(',')','[',']','{','}','>','<','=','!','&','|','^','+','-','*','/','#' };
+        public static readonly char[] ValidSeparators = new char[] {' ','\t','\r','\n',';',',','.','(',')','[',']','{','}','>','<','=','!','&','|','^','+','-','*','/','#','?' };
 
         public static readonly string[] ValidPropertyDataTypes = new string[]
         {
@@ -176,7 +184,10 @@ namespace Kaj
             "fixed",
             "fixed2",
             "fixed3",
-            "fixed4"
+            "fixed4",
+            "int",
+            "uint",
+            "double"
         };
 
         public enum PropertyType
@@ -307,6 +318,7 @@ namespace Kaj
             }
 
             List<PropertyData> constantProps = new List<PropertyData>();
+            List<string> animatedProps = new List<string>();
             foreach (MaterialProperty prop in props)
             {
                 if (prop == null) continue;
@@ -332,7 +344,8 @@ namespace Kaj
                         break;
                 }
 
-                if (prop.name.EndsWith(AnimatedPropertySuffix)) continue;
+                if (prop.name.EndsWith(AnimatedPropertySuffix))
+                    continue;
                 else if (prop.name == UseInlineSamplerStatesPropertyName)
                 {
                     UseInlineSamplerStates = (prop.floatValue == 1);
@@ -364,14 +377,28 @@ namespace Kaj
                     else if (prop.name == TessellationEnabledPropertyName + "Meta")
                         UseTessellationMeta = (prop.floatValue == 1);
                 }
-
+                else if (prop.name == ReplaceAnimatedParametersPropertyName)
+                {
+                    ReplaceAnimatedParameters = (prop.floatValue == 1);
+                    if (ReplaceAnimatedParameters)
+                    {
+                        // Add a tag to the material so animation clip referenced parameters 
+                        // will stay consistent across material locking/unlocking
+                        string animatedParameterSuffix = material.GetTag("AnimatedParametersSuffix", false, "");
+                        if (animatedParameterSuffix == "")
+                            material.SetOverrideTag("AnimatedParametersSuffix", Guid.NewGuid().ToString().Split('-')[0]);
+                    }
+                }
 
 
                 // Check for the convention 'Animated' Property to be true otherwise assume all properties are constant
                 // nlogn trash
                 MaterialProperty animatedProp = Array.Find(props, x => x.name == prop.name + AnimatedPropertySuffix);
                 if (animatedProp != null && animatedProp.floatValue == 1)
+                {
+                    animatedProps.Add(prop.name);
                     continue;
+                }
 
                 PropertyData propData;
                 switch(prop.type)
@@ -470,7 +497,7 @@ namespace Kaj
                             string originalSgaderName = psf.lines[i].Split('\"')[1];
                             psf.lines[i] = psf.lines[i].Replace(originalSgaderName, newShaderName);
                         }
-                        else if (trimmedLine.StartsWith("//#pragmamulti_compile_LOD_FADE_CROSSFADE"))
+                        else if (trimmedLine.StartsWith("//#pragma multi_compile _ LOD_FADE_CROSSFADE"))
                         {
                             MaterialProperty crossfadeProp = Array.Find(props, x => x.name == LODCrossFadePropertyName);
                             if (crossfadeProp != null && crossfadeProp.floatValue == 1)
@@ -505,7 +532,7 @@ namespace Kaj
                             for (int j=i+1; j<psf.lines.Length;j++)
                                 if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
                                 {
-                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros, grabPassVariables);
+                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, animatedProps, macros, grabPassVariables);
                                     break;
                                 }
                         }
@@ -515,7 +542,7 @@ namespace Kaj
                             for (int j=i+1; j<psf.lines.Length;j++)
                                 if (psf.lines[j].TrimStart().StartsWith("ENDCG"))
                                 {
-                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, macros, grabPassVariables);
+                                    ReplaceShaderValues(material, psf.lines, i+1, j, props, constantProps, animatedProps, macros, grabPassVariables);
                                     break;
                                 }
                         }
@@ -554,10 +581,24 @@ namespace Kaj
                                 }
                             }
                         }
+                        else if (ReplaceAnimatedParameters)
+                        {
+                            // Check to see if line contains an animated property name with valid left/right characters
+                            // then replace the parameter name with prefixtag + parameter name
+                            string animatedPropName = animatedProps.Find(x => trimmedLine.Contains(x));
+                            if (animatedPropName != null)
+                            {
+                                int parameterIndex = trimmedLine.IndexOf(animatedPropName);
+                                char charLeft = trimmedLine[parameterIndex-1];
+                                char charRight = trimmedLine[parameterIndex + animatedPropName.Length];
+                                if (Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight))
+                                    psf.lines[i] = psf.lines[i].Replace(animatedPropName, animatedPropName + material.GetTag("AnimatedParametersSuffix", false, ""));
+                            }
+                        }
                     }
                 }
                 else // CGINC file
-                    ReplaceShaderValues(material, psf.lines, 0, psf.lines.Length, props, constantProps, macros, grabPassVariables);
+                    ReplaceShaderValues(material, psf.lines, 0, psf.lines.Length, props, constantProps, animatedProps, macros, grabPassVariables);
 
                 // Recombine file lines into a single string
                 int totalLen = psf.lines.Length*2; // extra space for newline chars
@@ -609,6 +650,30 @@ namespace Kaj
             material.shader = newShader;
             material.SetOverrideTag("RenderType", renderType);
             material.renderQueue = renderQueue;
+
+            // Loop through animated properties and set new properties to current property values
+            if (ReplaceAnimatedParameters)
+                foreach (string animatedPropName in animatedProps)
+                {
+                    MaterialProperty mpa = MaterialEditor.GetMaterialProperty(new UnityEngine.Object[] { material }, animatedPropName + material.GetTag("AnimatedParametersSuffix", false, ""));
+                    MaterialProperty propOriginal = Array.Find(props, x => x.name == animatedPropName);
+                    switch (mpa.type)
+                    {
+                        case MaterialProperty.PropType.Color:
+                            mpa.colorValue = propOriginal.colorValue;
+                            break;
+                        case MaterialProperty.PropType.Vector:
+                            mpa.vectorValue = propOriginal.vectorValue;
+                            break;
+                        case MaterialProperty.PropType.Float:
+                        case MaterialProperty.PropType.Range:
+                            mpa.floatValue = propOriginal.floatValue;
+                            break;
+                        case MaterialProperty.PropType.Texture:
+                            mpa.textureValue = propOriginal.textureValue;
+                            break;
+                    }
+                }
 
             return true;
         }
@@ -731,7 +796,7 @@ namespace Kaj
                 relativePath = relativePath.Remove(0, "./".Length);
             while (relativePath.StartsWith("../"))
             {
-                basePath = basePath.Remove(basePath.LastIndexOf("/"), basePath.Length - basePath.LastIndexOf("/"));
+                basePath = basePath.Remove(basePath.LastIndexOf(Path.DirectorySeparatorChar), basePath.Length - basePath.LastIndexOf(Path.DirectorySeparatorChar));
                 relativePath = relativePath.Remove(0, "../".Length);
             }
             return basePath + '/' + relativePath;
@@ -741,11 +806,10 @@ namespace Kaj
         // For each constantProp, pattern match and find each instance of the property that isn't a declaration
         // most of these args could be private static members of the class
         private static void ReplaceShaderValues(Material material, string[] lines, int startLine, int endLine, 
-        MaterialProperty[] props, List<PropertyData> constants, List<Macro> macros, List<GrabPassReplacement> grabPassVariables)
+        MaterialProperty[] props, List<PropertyData> constants, List<string> animProps, List<Macro> macros, List<GrabPassReplacement> grabPassVariables)
         {
             List <TextureProperty> uniqueSampledTextures = new List<TextureProperty>();
 
-            // Outside loop is each line
             for (int i=startLine;i<endLine;i++)
             {
                 string lineTrimmed = lines[i].TrimStart();
@@ -809,7 +873,8 @@ namespace Kaj
                 // Replace inline smapler states
                 else if (UseInlineSamplerStates && lineTrimmed.StartsWith("//KSOInlineSamplerState"))
                 {
-                    string lineParsed = lineTrimmed.Replace(" ", "").Replace("\t", "");
+                    //string lineParsed = lineTrimmed.Replace(" ", "").Replace("\t", "");
+                    string lineParsed = Regex.Replace(lineTrimmed, "[ \t]", "");
                     // Remove all whitespace
                     int firstParenthesis = lineParsed.IndexOf('(');
                     int lastParenthesis = lineParsed.IndexOf(')');
@@ -944,7 +1009,7 @@ namespace Kaj
                         int lastParenthesis = lines[i].IndexOf(')', macroIndex + macro.name.Length+1);
                         string allArgs = lines[i].Substring(firstParenthesis+1, lastParenthesis-firstParenthesis-1);
                         string[] args = allArgs.Split(',');
-                        
+
                         // Replace macro parts
                         string newContents = macro.contents;
                         for (int j=0; j<args.Length;j++)
@@ -952,6 +1017,9 @@ namespace Kaj
                             args[j] = args[j].Trim();
                             int argIndex;
                             int lastIndex = 0;
+                            // ERROR: This method of one-by-one argument replacement will infinitely loop
+                            // if one of the arguments to paste into the macro definition has the same name
+                            // as one of the macro arguments!
                             while ((argIndex = newContents.IndexOf(macro.args[j], lastIndex)) != -1)
                             {
                                 lastIndex = argIndex+1;
@@ -972,15 +1040,17 @@ namespace Kaj
                                 }
                             }
                         }
+
                         newContents = newContents.Replace("##", ""); // Remove token pasting separators
                         // Replace the line with the evaluated macro
                         StringBuilder sb = new StringBuilder(lines[i].Length + newContents.Length);
                         sb.Append(lines[i], 0, macroIndex);
                         sb.Append(newContents);
                         sb.Append(lines[i], lastParenthesis+1, lines[i].Length - lastParenthesis-1);
-                        lines[i] = sb.ToString();
+                        //lines[i] = sb.ToString();
                     }
                 }
+                
                 // then replace properties
                 foreach (PropertyData constant in constants)
                 {
@@ -1014,6 +1084,8 @@ namespace Kaj
 
                         // Replace with constant!
                         // This could technically be more efficient by being outside the IndexOf loop
+                        // int parameters could be pasted here properly, but Unity's scripting API doesn't carry 
+                        // over that information from shader parameters
                         StringBuilder sb = new StringBuilder(lines[i].Length * 2);
                         sb.Append(lines[i], 0, constantIndex);
                         switch (constant.type)
@@ -1067,11 +1139,51 @@ namespace Kaj
                 // Then remove Unity branches
                 if (RemoveUnityBranches)
                     lines[i] = lines[i].Replace("UNITY_BRANCH", "").Replace("[branch]", "");
+
+                // Replace animated properties with their generated unique names
+                if (ReplaceAnimatedParameters)
+                    foreach (string animPropName in animProps)
+                    {
+                        int nameIndex;
+                        int lastIndex = 0;
+                        while ((nameIndex = lines[i].IndexOf(animPropName, lastIndex)) != -1)
+                        {
+                            lastIndex = nameIndex+1;
+                            char charLeft = ' ';
+                            if (nameIndex-1 >= 0)
+                                charLeft = lines[i][nameIndex-1];
+                            char charRight = ' ';
+                            if (nameIndex + animPropName.Length < lines[i].Length)
+                                charRight = lines[i][nameIndex + animPropName.Length];
+                            // Skip invalid matches (probably a subname of another symbol)
+                            if (!(Array.Exists(ValidSeparators, x => x == charLeft) && Array.Exists(ValidSeparators, x => x == charRight)))
+                                continue;
+                            
+                            StringBuilder sb = new StringBuilder(lines[i].Length * 2);
+                            sb.Append(lines[i], 0, nameIndex);
+                            sb.Append(animPropName + material.GetTag("AnimatedParametersSuffix", false, ""));
+                            sb.Append(lines[i], nameIndex+animPropName.Length, lines[i].Length-nameIndex-animPropName.Length);
+                            lines[i] = sb.ToString();
+                        }
+                    }
             }
         }
 
         public static bool Unlock (Material material)
         {
+            // If the material has the unique properties feature enabled, get a list of names of all animated properties
+            // using that suffix.  Once switched to the original shader, get the original material properties and carry over values.
+            MaterialProperty[] propsLocked = MaterialEditor.GetMaterialProperties(new UnityEngine.Object[] { material });
+            MaterialProperty useUniquePropertyNames = Array.Find(propsLocked, x => x.name == ReplaceAnimatedParametersPropertyName);
+            List<MaterialProperty> animProps = new List<MaterialProperty>();
+            string animatedParameterSuffix = "";
+            if (useUniquePropertyNames != null && useUniquePropertyNames.floatValue == 1)
+            {
+                animatedParameterSuffix = material.GetTag("AnimatedParametersSuffix", false, "");
+                foreach (MaterialProperty mp in propsLocked)
+                    if (mp.name.EndsWith(animatedParameterSuffix)) animProps.Add(mp);
+            }
+
             // Revert to original shader
             string originalShaderName = material.GetTag("OriginalShader", false, "");
             if (originalShaderName == "")
@@ -1094,22 +1206,45 @@ namespace Kaj
             material.SetOverrideTag("RenderType", renderType);
             material.renderQueue = renderQueue;
 
+            // Carry over unique generated aniamted prop values from locked-in material to original names
+            MaterialProperty[] propsUnlocked = MaterialEditor.GetMaterialProperties(new UnityEngine.Object[] { material });
+            foreach (MaterialProperty animProp in animProps)
+            {
+                MaterialProperty originalProp = Array.Find(propsUnlocked, x => x.name == animProp.name.Substring(0, animProp.name.Length-animatedParameterSuffix.Length));
+                switch (animProp.type)
+                {
+                    case MaterialProperty.PropType.Color:
+                        originalProp.colorValue = animProp.colorValue;
+                        break;
+                    case MaterialProperty.PropType.Vector:
+                        originalProp.vectorValue = animProp.vectorValue;
+                        break;
+                    case MaterialProperty.PropType.Float:
+                    case MaterialProperty.PropType.Range:
+                        originalProp.floatValue = animProp.floatValue;
+                        break;
+                    case MaterialProperty.PropType.Texture:
+                        originalProp.textureValue = animProp.textureValue;
+                        break;
+                }
+            }
+
             // Delete the variants folder and all files in it, as to not orhpan files and inflate Unity project
             string shaderDirectory = material.GetTag("OptimizedShaderFolder", false, "");
             if (shaderDirectory == "")
+                Debug.LogWarning("[Kaj Shader Optimizer] Optimized shader folder could not be found, not deleting anything");
+            else
             {
-                Debug.LogError("[Kaj Shader Optimizer] Optimized shader folder could not be found, not deleting anything");
-                return false;
+                string materialFilePath = AssetDatabase.GetAssetPath(material);
+                string materialFolder = Path.GetDirectoryName(materialFilePath);
+                string newShaderDirectory = materialFolder + "/OptimizedShaders/" + shaderDirectory;
+                // Both safe ways of removing the shader make the editor GUI throw an error, so just don't refresh the
+                // asset database immediately
+                //AssetDatabase.DeleteAsset(shaderFilePath);
+                FileUtil.DeleteFileOrDirectory(newShaderDirectory + "/");
+                FileUtil.DeleteFileOrDirectory(newShaderDirectory + ".meta");
+                //AssetDatabase.Refresh();
             }
-            string materialFilePath = AssetDatabase.GetAssetPath(material);
-            string materialFolder = Path.GetDirectoryName(materialFilePath);
-            string newShaderDirectory = materialFolder + "/OptimizedShaders/" + shaderDirectory;
-            // Both safe ways of removing the shader make the editor GUI throw an error, so just don't refresh the
-            // asset database immediately
-            //AssetDatabase.DeleteAsset(shaderFilePath);
-            FileUtil.DeleteFileOrDirectory(newShaderDirectory + "/");
-            FileUtil.DeleteFileOrDirectory(newShaderDirectory + ".meta");
-            //AssetDatabase.Refresh();
 
             return true;
         }

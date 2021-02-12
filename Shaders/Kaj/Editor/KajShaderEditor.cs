@@ -7,6 +7,7 @@ using UnityEditor;
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
+using UnityEngine.Networking;
 
 // Material property drawers and a shader GUI because the base material inspector only needs slight improvement
 // Meant to serve as a functionally-complete foundation for the base shader GUI with no shader-specific logic
@@ -161,13 +162,16 @@ namespace Kaj
     {
         public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor editor)
         {
-            position.y += 8; // This spacing could be an argument
-            position = EditorGUI.IndentedRect(position);
-            GUI.Label(position, label, EditorStyles.label);
+            //position.y += 8; // This spacing could be an argument
+            //position = EditorGUI.IndentedRect(position);
+            //GUI.Label(position, label, EditorStyles.label);
+            EditorGUILayout.LabelField(prop.displayName);
         }
         public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
         {
-            return EditorGUIUtility.singleLineHeight * 2f;
+            //return EditorGUIUtility.singleLineHeight * 2f;
+            //return EditorGUIUtility.singleLineHeight;
+            return 0;
         }
     }
 
@@ -995,6 +999,108 @@ namespace Kaj
         }
     }
 
+    // Reusable clickable label that appears in typical hyperlink style, display name + underscores + actual link
+    // are stored in material property display name.
+    public class URLButtonDrawer : MaterialPropertyDrawer
+    {
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            string[] split = prop.displayName.Split(';');
+            GUIStyle s = new GUIStyle();
+            var b = s.border;
+            b.left = b.top = b.right = b.bottom = 0;
+            s.richText = true;
+            if (GUILayout.Button(split[0], s))
+                Application.OpenURL(split[2]);
+            if (EditorGUIUtility.isProSkin)
+            {
+                EditorGUI.LabelField(position, "<color=cyan>" + split[0] + "</color>", s);
+                EditorGUI.LabelField(position, "<color=cyan>" + split[1] + "</color>", s);
+            }
+            else
+            {
+                EditorGUI.LabelField(position, "<color=#0645AD>" + split[0] + "</color>", s);
+                EditorGUI.LabelField(position, "<color=#0645AD>" + split[1] + "</color>", s);
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
+    // Github specific unitypackage downloader and installer - requires a specific versioning scheme 
+    // in the github api (i.e. "v45").  Blocks the editor on asynchronous web requests
+    public class GithubUpdaterDrawer : MaterialPropertyDrawer
+    {
+        [System.Serializable]
+        class GithubAssetInfo
+        {
+            public string browser_download_url = null;
+            public string name = null;
+        }
+
+        [System.Serializable]
+        class GithubAPIInfo
+        {
+            public string name = null;
+            public GithubAssetInfo[] assets = null;
+        }
+
+        public override void OnGUI(Rect position, MaterialProperty prop, string label, MaterialEditor materialEditor)
+        {
+            string[] split = prop.displayName.Split(';');
+            GUIStyle s = new GUIStyle();
+            var b = s.border;
+            b.left = b.top = b.right = b.bottom = 0;
+            s.richText = true;
+            if (GUILayout.Button(split[0], s))
+            {
+                UnityWebRequest webRequest = UnityWebRequest.Get(split[2]);
+                UnityWebRequestAsyncOperation uwrao = webRequest.SendWebRequest();
+                while (!uwrao.isDone) {}
+                if (webRequest.isNetworkError) Debug.LogError("[Kaj Shader Editor] Network error - could not check for updates");
+                else
+                {
+                    GithubAPIInfo info = JsonUtility.FromJson<GithubAPIInfo>(webRequest.downloadHandler.text);
+                    int installedVersion = Int32.Parse(split[3]);
+                    int githubVersion = Int32.Parse(info.name.Replace("v", ""));
+                    if (installedVersion >= githubVersion)
+                        EditorUtility.DisplayDialog("Auto-Update", "Current installed version: " + installedVersion + "\nLatest version: " + githubVersion + "\nShader is currently up to date.", "Ok");
+                    else if (EditorUtility.DisplayDialog("Auto-Update", "Current installed version: " + installedVersion + "\nLatest version: " + githubVersion + "\nDownload and install latest version?", "Yes", "No"))
+                    {
+                        UnityWebRequest unitypackageReq = UnityWebRequest.Get(info.assets[0].browser_download_url);
+                        uwrao = unitypackageReq.SendWebRequest();
+                        while (!uwrao.isDone) {}
+                        if (unitypackageReq.isNetworkError) Debug.LogError("[Kaj Shader Editor] Network error - could not download latest unitypackage");
+                        else
+                        {
+                            File.WriteAllBytes(Application.dataPath + "/" + info.assets[0].name, unitypackageReq.downloadHandler.data);
+                            AssetDatabase.ImportPackage(Application.dataPath + "/" + info.assets[0].name, true);
+                            FileUtil.DeleteFileOrDirectory(Application.dataPath + "/" + info.assets[0].name);
+                        }
+                    }
+                }
+            }
+            if (EditorGUIUtility.isProSkin)
+            {
+                EditorGUI.LabelField(position, "<color=cyan>" + split[0] + "</color>", s);
+                EditorGUI.LabelField(position, "<color=cyan>" + split[1] + "</color>", s);
+            }
+            else
+            {
+                EditorGUI.LabelField(position, "<color=#0645AD>" + split[0] + "</color>", s);
+                EditorGUI.LabelField(position, "<color=#0645AD>" + split[1] + "</color>", s);
+            }
+        }
+
+        public override float GetPropertyHeight(MaterialProperty prop, string label, MaterialEditor editor)
+        {
+            return -2;
+        }
+    }
+
     // Minimalistic shader editor aimed at extending the base inspector with grouped foldouts, toggle foldouts,
     // and shader optimizer button+property disabling.  Also contains support for the above drawers if necessary.
     public class ShaderEditor : ShaderGUI
@@ -1061,11 +1167,14 @@ namespace Kaj
                 // Cache the animated state of each property to exclude them from being disabled when the material is locked
                 if (propertyAnimated == null)
                     propertyAnimated = new bool[props.Length];
+                string uniquePropertyNamesSuffix = ((Material)materialEditor.target).GetTag("AnimatedParametersSuffix", false, "");
                 for (int i=0;i<props.Length;i++)
                 {
                     propertyAnimated[i] = false;
                     string animatedPropertyName = props[i].name + AnimatedPropertySuffix;
                     MaterialProperty animProp = FindProperty(animatedPropertyName, props, false);
+                    if (animProp == null && uniquePropertyNamesSuffix != "")
+                        animProp = FindProperty(animatedPropertyName.Replace(uniquePropertyNamesSuffix, ""), props, false);
                     if (animProp != null)
                         propertyAnimated[i] = (animProp.floatValue == 1);
                 }
@@ -1157,7 +1266,7 @@ namespace Kaj
                             EditorGUI.BeginDisabledGroup(true);
                         if (props[i].displayName.StartsWith(keywordSeparatorChar)) // skip keywords embedded into displaynames
                         {
-                            string[] split = props[i].displayName.Split(keywordSeparatorChar[0]);
+                            string[] split = props[i].displayName.Split(keywordSeparatorChar[0]); // TODO: don't split
                             materialEditor.ShaderProperty(togglePropertyRect, props[i], split[split.Length-1]);
                         }
                         else materialEditor.ShaderProperty(togglePropertyRect, props[i], props[i].displayName);
@@ -1210,7 +1319,7 @@ namespace Kaj
                     EditorGUI.BeginDisabledGroup(true);
                 if (props[i].displayName.StartsWith(keywordSeparatorChar)) // skip keywords embedded into displaynames
                 {
-                    string[] split = props[i].displayName.Split(keywordSeparatorChar[0]);
+                    string[] split = props[i].displayName.Split(keywordSeparatorChar[0]);  // TODO: don't split
                     materialEditor.ShaderProperty(r, props[i], split[split.Length-1]);
                 }
                 else materialEditor.ShaderProperty(r, props[i], props[i].displayName); // something throwing a warning here
