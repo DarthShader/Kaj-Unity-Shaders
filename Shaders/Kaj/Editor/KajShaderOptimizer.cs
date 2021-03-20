@@ -1161,7 +1161,7 @@ namespace Kaj
                             
                             StringBuilder sb = new StringBuilder(lines[i].Length * 2);
                             sb.Append(lines[i], 0, nameIndex);
-                            sb.Append(animPropName + material.GetTag("AnimatedParametersSuffix", false, ""));
+                            sb.Append(animPropName + "_" + material.GetTag("AnimatedParametersSuffix", false, ""));
                             sb.Append(lines[i], nameIndex+animPropName.Length, lines[i].Length-nameIndex-animPropName.Length);
                             lines[i] = sb.ToString();
                         }

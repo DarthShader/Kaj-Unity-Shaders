@@ -15,7 +15,7 @@ Shader "Kaj/Omega"
         [ShaderOptimizerLockButton] _ShaderOptimizerEnabled ("", Int) = 0
         [HelpBox(3)] _LockTooltip("ALWAYS LOCK YOUR MATERIALS BEFORE BUILDING VRCHAT AVATARS AND WORLDS", Int) = 0
 
-        [PresetsEnum] _Mode ("Rendering Mode;Opaque,RenderQueue=-1,RenderType=,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=0,_SrcBlendAlpha=1,_DstBlendAlpha=0,_AlphaToMask=0,_ZWrite=1,_ZTest=4;Cutout,RenderQueue=2450,RenderType=TransparentCutout,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=0,_SrcBlendAlpha=1,_DstBlendAlpha=0,_AlphaToMask=1,_ZWrite=1,_ZTest=4;Fade,RenderQueue=3000,RenderType=Transparent,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=5,_DstBlend=10,_SrcBlendAlpha=5,_DstBlendAlpha=10,_AlphaToMask=0,_ZWrite=0,_ZTest=4;Transparent,RenderQueue=3000,RenderType=Transparent,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=10,_SrcBlendAlpha=1,_DstBlendAlpha=10,_AlphaToMask=0,_ZWrite=0,_ZTest=4", Int) = 0
+        [PresetsEnum] _Mode ("Rendering Mode;Opaque,RenderQueue=-1,RenderType=,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=0,_SrcBlendAlpha=1,_DstBlendAlpha=0,_AlphaToMask=0,_ZWrite=1,_ZTest=4;Cutout,RenderQueue=2450,RenderType=TransparentCutout,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=0,_SrcBlendAlpha=1,_DstBlendAlpha=0,_AlphaToMask=1,_AlphaToCoverageSharpening=1,_ZWrite=1,_ZTest=4;Fade,RenderQueue=3000,RenderType=Transparent,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=5,_DstBlend=10,_SrcBlendAlpha=5,_DstBlendAlpha=10,_AlphaToMask=0,_ZWrite=0,_ZTest=4;Transparent,RenderQueue=3000,RenderType=Transparent,_BlendOp=0,_BlendOpAlpha=0,_SrcBlend=1,_DstBlend=10,_SrcBlendAlpha=1,_DstBlendAlpha=10,_AlphaToMask=0,_ZWrite=0,_ZTest=4", Int) = 0
 
         [HideInInspector]group_Main("Main Settings", Int) = 0
         [MainColor]_Color("Color", Color) = (1,1,1,1)
@@ -34,6 +34,7 @@ Shader "Kaj/Omega"
         _Cutoff("Cutoff", Range(0,1)) = 0.5
         [Indent]
             [ToggleUI]_AlphaToMask ("Alpha To Coverage", Int) = 0
+            [ToggleUI]_AlphaToCoverageSharpening("A2C Sharpening", Int) = 0
             [ToggleUI]_DitheringEnabled("Dithered Transparency", Int) = 0
         [UnIndent]
         _ShadowcasterCutoff("Shadowcaster Cutoff", Range(0,1)) = 0.5
@@ -105,8 +106,8 @@ Shader "Kaj/Omega"
             [Enum(Tangent Space,0, Object Space,1, World Space,2)]_AlternateBumpMapSpace("Normals Space", Int) = 0
             _AlternateBumpScale("Normals Scale", Float) = 1.0
         [UnIndent]
-        [HelpBox]_NormalMapSettingsTooltip("Special normals & tangents must be created for skinned meshes with object space normal maps.  This will break tangent space normals and many effects that rely on mesh normals.", Int) = 0
-        [ToggleUI]_IdentityNormalsAndTangents("Custom Normals & Tangets for Skinned Meshes", Int) = 0
+        //[HelpBox]_NormalMapSettingsTooltip("Special normals & tangents must be created for skinned meshes with object space normal maps.  This will break tangent space normals and many effects that rely on mesh normals.", Int) = 0
+        //[ToggleUI]_IdentityNormalsAndTangents("Custom Normals & Tangets for Skinned Meshes", Int) = 0
         [HideInInspector]end_advanced_normals("", Int) = 0
 
         [HideInInspector]group_Lighting("Lighting Settings", Int) = 0
@@ -430,7 +431,7 @@ Shader "Kaj/Omega"
             [ToggleUI]_SSSStylizedIndrectScaleByTranslucency("Scale by Translucency", Int) = 0
         [HideInInspector]end_SSSTransmission("", Int) = 0
 
-        [HideInInspector]group_Details("Detail Settings", Int) = 0
+        [HideInInspector]group_Details("Detail Textures", Int) = 0
         [KeywordTex(GEOM_TYPE_BRANCH_DETAIL)]_DetailMask(";;GEOM_TYPE_BRANCH_DETAIL;Detail Mask (RGBA)", 2D) = "white" {}
         [Indent]
             [Enum(Kaj.UVMapping)]_DetailMaskUV("UV Set", Int) = 0
@@ -579,7 +580,7 @@ Shader "Kaj/Omega"
         [ToggleUI]_ReplaceAnimatedParameters("Make Unique Animated Property Names", Int) = 0
         [Header(Animated Properties)]
         [ToggleUILeft]_AlbedoTransparencyEnabledAnimated("  _AlbedoTransparencyEnabled", Int) = 0
-        [ToggleUILeft]_AlphaToCoverageAnimated("  _AlphaToCoverage", Int) = 0
+        [ToggleUILeft]_AlphaToCoverageSharpening("  _AlphaToCoverageSharpening", Int) = 0
         [ToggleUILeft]_AlternateBentNormalMap_STAnimated("  _AlternateBentNormalMap_ST", Int) = 0
         [ToggleUILeft]_AlternateBentNormalMap_TexelSizeAnimated("  _AlternateBentNormalMap_TexelSize", Int) = 0
         [ToggleUILeft]_AlternateBentNormalMapUVAnimated("  _AlternateBentNormalMapUV", Int) = 0
@@ -837,13 +838,11 @@ Shader "Kaj/Omega"
         [Header(Debug)]
         [ToggleUI]_DebugWorldNormals("Visualize World Normal", Int) = 0
         [ToggleUI]_DebugOcclusion("Visualize Occlusion", Int) = 0
-        //_Debug1("Debug 1", Float) = 0.5
-        //_Debug2("Debug 2", Float) = 0.3
         [HideInInspector]end_Debug("", Int) = 0
 
-        [KajLabel]_Version("Shader Version: 45", Int) = 45
+        [KajLabel]_Version("Shader Version: 46", Int) = 46
         [URLButton]_GithubLink("Github Link;_________;https://github.com/DarthShader/Kaj-Unity-Shaders", Int) = 0
-        [GithubUpdater]_AutoUpdater("Auto-Update;__________;https://api.github.com/repos/DarthShader/Kaj-Unity-Shaders/releases/latest;45", Int) = 0
+        [GithubUpdater]_AutoUpdater("Auto-Update;__________;https://api.github.com/repos/DarthShader/Kaj-Unity-Shaders/releases/latest;46", Int) = 0
     }
 
     CustomEditor "Kaj.ShaderEditor"

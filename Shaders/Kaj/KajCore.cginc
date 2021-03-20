@@ -475,8 +475,7 @@ uniform float _ShaderLight7Range;
 uniform float4 _ShaderLight7Color;
 uniform float _ShaderLight7Intensity;
 uniform float _ShadowcasterCutoff;
-uniform float _Debug1;
-uniform float _Debug2;
+uniform float _AlphaToCoverageSharpening;
 
 // Easier to read preprocessor variables corresponding to the safe-to-use shader_feature keywords
 #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
@@ -3315,13 +3314,13 @@ half4 frag_omega (
 
     // Alpha to Coverage sharpening
     UNITY_BRANCH
-    if (_Mode == 1 && _AlphaToMask) // _ALPHATEST_ON
+    if (_Mode == 1 && _AlphaToMask && _AlphaToCoverageSharpening) // _ALPHATEST_ON
     {
         // Cutout mode with A2C is always sharpened
         // SM 4.1+ specific mip calculation to preserve mip coverage
         // Not necessary if 'Mips preserve coverage' is enabled on transparency texture, this could be a separate option tbh
         #ifdef PROP_COVERAGEMAP
-            //KSOInlineSamplerState(sampler_MainTex, _CoverageMap)
+            ////KSOInlineSamplerState(sampler_MainTex, _CoverageMap)
             float miplevel = _CoverageMap.CalculateLevelOfDetail(sampler_MainTex, (float2)0);
         #else
             float miplevel = _MainTex.CalculateLevelOfDetail(sampler_MainTex, (float2)0);
@@ -4216,7 +4215,9 @@ half4 frag_omega (
         specular_total *= _SpotLightSpecularIntensity;
     #endif
     color.rgb += diffuse_term + specular_total + max(reflections_term, clearcoat_reflections_term) + transmission_term + emission_term;
-    if (!_HDREnabled) // Incorrect HDR limit - needs to affect indirect+direct light intensity
+    // Incorrect HDR limit - needs to affect indirect+direct light intensity first
+    // No good way to clamp to to base albedo with a multi-pass lighting system unless an additional pass with min blend is used
+    if (!_HDREnabled)
         color.rgb = saturate(color.rgb);
 
     // Fog
